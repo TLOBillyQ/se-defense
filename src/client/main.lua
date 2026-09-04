@@ -323,6 +323,7 @@ end
 -- ── 主循环 ──────────────────────────────────────────────────────────
 local ready_retry_acc = 0
 local calib_pending = 0 -- 相机写入后延 N 帧标定
+local cam_settle = 0 -- 首写后再连写 N 帧（见下）
 
 RunService.Heartbeat:Connect(function(deltaTime)
   elapsed = elapsed + deltaTime
@@ -341,12 +342,18 @@ RunService.Heartbeat:Connect(function(deltaTime)
     end
   end
 
-  -- 相机：1s 后写入，此后每 5s 重申（防宿主覆写；#10 探针显示无覆写，保底）
+  -- 相机：1s 后写入，此后每 5s 重申（防宿主覆写；#10 探针显示无覆写，保底）。
+  -- 真机事实：与 Mode 切换同帧写入的 Yaw/Pitch 不生效，宿主用旧朝向充数（回读 yaw=180 /
+  -- 0.0085 等残值，画面南北颠倒或歪 20°，直到 5s 重申才归正）。故首写后连写 2 帧。
   if not cam_applied and elapsed >= 1 then
     cam_applied = true
     apply_camera()
-    calib_pending = 2
+    cam_settle = 2
+    calib_pending = 3
     log("相机已固定：pos=(0,%d,0) pitch=%d fov=%d", CAM_HEIGHT, CAM_PITCH, CAM_FOV)
+  elseif cam_settle > 0 then
+    cam_settle = cam_settle - 1
+    apply_camera()
   elseif cam_applied and elapsed % 5 < deltaTime then
     apply_camera()
     calib_pending = 2
