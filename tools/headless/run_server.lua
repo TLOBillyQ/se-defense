@@ -369,5 +369,69 @@ check(bi.placing:now() ~= nil or gs.money:now() < 75, "GM place 走同一入口"
 _G.bd.cancel(); stub.steps(4)
 _G.bd.placing(); _G.bd.status(); _G.bd.dump_nodes()
 
+
+-- ── 切片 5：胜负与重开（#28）────────────────────────────────────────────
+local function count_keys(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
+local function last_sent() return stub.sent[#stub.sent] end
+local initial_node_count = count_keys(full.nodes)
+
+real_print("== 切片 5：Playing 中 restart 被拒 + panel/restart 隐藏")
+check(gs.mode:now() == "Playing", "前置：仍在 Playing")
+check(last_state("panel/restart").visible == false, "panel/restart 初始隐藏")
+local root_before = _G.bd.root
+stub.client_send({ kind = "input", itype = "restart" }); stub.steps(2)
+check(_G.bd.root == root_before, "Playing 中客户端 restart 意图被拒（root 未变）")
+
+real_print("== 切片 5：矿点采空 → Victory")
+_G.bd.mine_out(); stub.steps(3)
+check(gs.mode:now() == "Victory", "mode=Victory")
+check(gs.resources_remaining:now() == 0, "resources_remaining=0")
+check(last_state("sidebar/victory").visible == true, "sidebar/victory 可见")
+check(last_state("panel/restart").visible == true, "panel/restart 终局可见")
+check(last_state("hud/mode").text == "Mode: Victory", "hud/mode 文本 Mode: Victory")
+
+real_print("== 切片 5：Restart → 树重建 + reset 全量 + gen 后缀")
+local old_units = stub.units_of(function(u) return u.Name == "1" end)
+check(#old_units == 1, "重开前 Core 单位名 '1'")
+local sent_before = #stub.sent
+stub.client_send({ kind = "input", itype = "restart" }); stub.steps(1)
+local root2 = _G.bd.root
+check(root2 ~= root_before, "Restart 后 root 为新对象")
+gs = root2.game_state; bi = root2.board_interactions; wd = root2.wave_director
+check(gs.mode:now() == "Pregame", "重开后回 Pregame")
+check(#host.entity.all() == 7, "实体重建 = 7（Core + 6 矿点，实际 " .. #host.entity.all() .. "）")
+check(count_keys(host.eui.nodes) == initial_node_count, "节点数与首局一致（" .. count_keys(host.eui.nodes) .. " vs " .. initial_node_count .. "）")
+local reset_msg = stub.sent[sent_before + 1]
+check(reset_msg and reset_msg.kind == "reset" and reset_msg.gen == 1, "重开后首条消息 kind=reset gen=1")
+check(reset_msg and count_keys(reset_msg.nodes) == initial_node_count, "reset 全量节点数等于当前树")
+check(host.eui.generation == 1 and host.entity.generation == 1, "eui/entity generation 同步 = 1")
+check(#stub.units_of(function(u) return u.Name == "1" end) == 0 and old_units[1]._destroyed, "旧单位已 Destroy（名 '1' 不复存在）")
+check(gs.core.entity._unit.Name == "1g1", "新 Core 单位名 '1g1'")
+check(host.entity.unit_name(1, 0) == "1" and host.entity.unit_name(5, 2) == "5g2", "unit_name 约定：首局裸 id，重开后 <id>g<gen>")
+check(last_state("panel/restart").visible == false and last_state("sidebar/pregame").visible == true, "重开后 panel/restart 隐藏、sidebar/pregame 可见")
+check(_G.bd.root == root2, "GM root 已指向新树")
+
+real_print("== 切片 5：重开后 3s 自动 Playing + 放置可用")
+stub.steps(3 * 30 + 2)
+check(gs.mode:now() == "Playing", "重开后自动 Playing")
+check(gs.money:now() == 100, "金钱回到 start_money 100（start_game 时重置）")
+_G.bd.place("turret"); stub.steps(1)
+check(bi.placing:now() ~= nil, "重开后 GM place 置位")
+stub.client_send({ kind = "input", itype = "tap", x = 3, z = 0 }); stub.steps(4)
+check(entities_of("turret") == 1, "重开后放下 turret（新树的 board_interactions）")
+check(host.entity.by_id[8] and host.entity.by_id[8]._unit.Name == "8g1", "新建筑单位名带 g1 后缀")
+
+real_print("== 切片 5：Core 被毁 → GameOver → 再重开 gen=2")
+_G.bd.kill_core(); stub.steps(3)
+check(gs.mode:now() == "GameOver", "mode=GameOver")
+check(last_state("sidebar/gameover").visible == true and last_state("panel/restart").visible == true, "sidebar/gameover + panel/restart 可见")
+check(last_state("hud/mode").text == "Mode: GameOver", "hud/mode 文本 Mode: GameOver")
+stub.client_send({ kind = "input", itype = "restart" }); stub.steps(1)
+check(_G.bd.root ~= root2 and last_sent().kind == "reset" and last_sent().gen == 2, "第二次重开：新 root + reset gen=2")
+check(#host.entity.all() == 7 and _G.bd.root.game_state.core.entity._unit.Name == "1g2", "第二次重开 7 实体、Core 名 '1g2'")
+check(#stub.units_of(function(u) return u.Name:match("g1$") end) == 0, "g1 代单位全部销毁")
+check(_G.bd.root.game_state.mode:now() == "Pregame", "第二次重开回 Pregame")
+_G.bd.status()
+
 real_print(string.format("\n%d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

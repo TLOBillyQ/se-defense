@@ -22,7 +22,8 @@ local M = {}
 --   banner    居中大字（静态标题在 recipe；visible 由快照驱动）
 --   healthbar 世界锚定血条（path 解析实体 id）
 --   button    EUIButton（#21 放置面板 panel/*）：text→ButtonText、color→文字色、
---             visible；点击经 deps.on_click(path) 回流（渲染器不知意图语义）
+--             visible；点击经 deps.on_click(path) 回流（渲染器不知意图语义）；
+--             panel/restart（#28）居中放在终局 banner 下方
 --   none      只跟踪状态（容器/双路由形状节点，无屏幕表现）
 
 local WARNING_TEXT = {
@@ -38,6 +39,9 @@ local function recipe_for(path)
   end
   if path == "panel/cancel" then
     return { kind = "button", slot = 5, font = 30, color = { 255, 120, 120 } }
+  end
+  if path == "panel/restart" then
+    return { kind = "button", center_y = 0.58, font = 40, size = { 460, 96 }, color = { 255, 255, 255 } }
   end
   if path:match("_hp$") then
     return { kind = "healthbar" }
@@ -83,6 +87,7 @@ function M.new(deps)
     on_click = deps.on_click or function() end,
     live = {},     -- path → { recipe=, label=/scene_node=/bar=, slot= }
     state = {},    -- path → 最新快照状态（祖先可见性合成用）
+    generation = 0, -- 快照 gen（服务端 reset_scene 代数）；血条寻单位名用（#28）
     pending_hp = {}, -- path → true（单位未复制到，逐帧重试）
     column_slots = {}, -- column → 已分配槽位数
   }, R)
@@ -199,15 +204,23 @@ end
 
 -- 放置面板按钮：右侧竖排，围绕屏幕垂直中线布置（与 EUI 画布 y 轴朝向无关），
 -- slot 0..3 四建筑、slot 5 取消（隔一格）。SwallowTouch + 高 ZOrder，不漏给捕获层。
-function R:_button_layout(slot)
+-- recipe.center_y：横向居中、纵向按比例（终局 Restart）；否则右侧竖排槽位。
+function R:_button_layout(recipe)
   local res = self.get_res and self.get_res() or { X = 1920, Y = 1080 }
-  local x, y = res.X - 300, res.Y / 2 + (slot - 2.5) * 90
-  return Vector2.New(x, y), Vector2.New(380, 72), x, y
+  local x, y, w, h
+  if recipe.center_y then
+    x, y = res.X / 2, res.Y * recipe.center_y
+    w, h = (recipe.size or {})[1] or 460, (recipe.size or {})[2] or 96
+  else
+    x, y = res.X - 300, res.Y / 2 + ((recipe.slot or 0) - 2.5) * 90
+    w, h = 380, 72
+  end
+  return Vector2.New(x, y), Vector2.New(w, h), x, y
 end
 
 function R:_create_button(path, recipe)
   if not self.root then return nil end
-  local pos, size, px, py = self:_button_layout(recipe.slot or 0)
+  local pos, size, px, py = self:_button_layout(recipe)
   local color = recipe.color or { 255, 255, 255 }
   local ok, btn = pcall(function()
     local b = World:CreateUnit("EUIButton", {
@@ -243,10 +256,16 @@ local function parse_entity_id(path)
   return id
 end
 
+-- 单位名约定与服务端 entity.unit_name 一致：首局裸 id，重开后 "<id>g<gen>"（#28）。
+function R:_unit_name(id)
+  if (self.generation or 0) == 0 then return id end
+  return id .. "g" .. tostring(self.generation)
+end
+
 function R:_try_create_healthbar(path)
   local id = parse_entity_id(path)
   if not id then return "none" end
-  local unit = World:FindFirstChild(id, true)
+  local unit = World:FindFirstChild(self:_unit_name(id), true)
   if not unit then return nil end -- 单位未复制到，进 pending
   local ok, controls = pcall(function()
     local node = SceneGui:CreateSceneNodeAttachUnit(unit, "", Vector3.New(0, 2.5, 0), true)
@@ -451,6 +470,11 @@ end
 -- 由 client/main.lua 在 PlayerGui 就绪后注入根节点。
 function R:set_root(root)
   self.root = root
+end
+
+-- 每条快照消息携带 gen；变化即说明服务端已 reset_scene（随后必有 reset 全量）。
+function R:set_generation(gen)
+  if type(gen) == "number" then self.generation = gen end
 end
 
 -- GM/验证用统计。
