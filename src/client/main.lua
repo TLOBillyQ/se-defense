@@ -1,4 +1,4 @@
--- #19 垂直切片（客户端）：哑镜像渲染 + 固定俯视相机 + 棋盘输入捕获。
+-- #19 垂直切片 + #21 建筑与放置（客户端）：哑镜像渲染 + 固定俯视相机 + 棋盘输入捕获 + 放置面板。
 --
 -- 架构（#7/#8/#18 决议）：
 --   - 客户端零 spoke 树（#7-A6）：RemoteEvent 快照 → eui_render 差分应用；
@@ -21,8 +21,13 @@
 --   - ViewportPointToRay 无视入参（三种入参返回同一射线），不可用。
 --   - UserInputService:GetMouseLocation 在编辑器试玩里返回 (0,0)，视为无鼠标。
 --
--- 切片边界：不建放置按钮/取消按钮（「建筑与放置」下一片）；PC 右键/Escape
--- 取消意图已接通（业务侧无 placing 时无害）。
+-- #21 放置交互（本文件决定的输入语义）：
+--   - 放置/取消按钮 = 快照节点 panel/*，渲染器渲成 EUIButton，点击回流 place/cancel 意图；
+--   - 捕获层触摸：按下/移动 → hover 意图（预览圈随手指走、有效绿/无效红），
+--     松手 → tap 意图（放置）。**不设位移阈值**：本图无相机平移手势（Out of scope），
+--     长拖 = 拖着预览再松手放置，正是触摸放置的自然语义；位移只记日志供标定。
+--   - PC 右键 = 取消；右键抬起也会触发捕获层 OnTouchEnded，按时间窗压掉那一次 tap，
+--     否则「右键取消」会被随后的 tap 当成放置。Escape 同样取消。
 --
 -- 日志前缀 [bd][client]。
 
@@ -64,6 +69,15 @@ local resync_cooldown = 0
 local renderer = Renderer.new({
   log = log,
   get_res = function() return screen_res end,
+  -- 按钮点击回流（#21）：panel/build/<key> → place 意图，panel/cancel → cancel
+  on_click = function(path)
+    local key = path:match("^panel/build/(%a+)$")
+    if key then
+      re:FireServer({ kind = "input", itype = "place", key = key })
+    elseif path == "panel/cancel" then
+      re:FireServer({ kind = "input", itype = "cancel" })
+    end
+  end,
 })
 
 re.OnClientEvent:Connect(function(msg)
@@ -115,6 +129,30 @@ local function screen_to_board(eui_x, eui_y)
   return hit
 end
 
+local suppress_tap_until = -1 -- 右键窗口：其间捕获层 ended 不当 tap
+local last_tap_at = -1
+local hover_acc_touch = 0
+local last_touch_hover = nil
+
+-- 触摸悬停 → hover 意图（预览圈随手指走）；force=按下时立即发，移动时节流
+local function send_hover(sx, sy, force)
+  if not force then
+    if elapsed - hover_acc_touch < 0.08 then return end
+  end
+  hover_acc_touch = elapsed
+  local p = screen_to_board(sx, sy)
+  if p then
+    if force or not last_touch_hover
+      or math.abs(p.x - last_touch_hover.x) > 0.2 or math.abs(p.z - last_touch_hover.z) > 0.2 then
+      last_touch_hover = p
+      re:FireServer({ kind = "input", itype = "hover", x = p.x, z = p.z })
+    end
+  elseif last_touch_hover then
+    last_touch_hover = nil
+    re:FireServer({ kind = "input", itype = "hover" })
+  end
+end
+
 local function send_tap(sx, sy)
   local p = screen_to_board(sx, sy)
   if p then
@@ -149,24 +187,35 @@ local function setup_eui()
       SwallowTouchEnabled = true,
       LocalZOrder = -100,
     })
-    local touch = nil -- { id=, x=, y= } 第一指
+    local touch = nil -- { id=, x=, y=, t= } 第一指
     capture.OnTouchBegan:Connect(function(info)
       if touch then return end
-      touch = { id = info.TouchID, x = info.BeganPosition.X, y = info.BeganPosition.Y }
+      touch = { id = info.TouchID, x = info.BeganPosition.X, y = info.BeganPosition.Y, t = elapsed }
       log("touch began id=%s (%.0f,%.0f)", tostring(info.TouchID), touch.x, touch.y)
+      send_hover(touch.x, touch.y, true)
+    end)
+    capture.OnTouchMoved:Connect(function(info)
+      if not touch or info.TouchID ~= touch.id then return end
+      send_hover(info.MovedPosition.X, info.MovedPosition.Y, false)
     end)
     capture.OnTouchEnded:Connect(function(info)
       if not touch or info.TouchID ~= touch.id then return end
       local ex, ey = info.EndedPosition.X, info.EndedPosition.Y
       local dx, dy = ex - touch.x, ey - touch.y
-      local touch_x, touch_y = touch.x, touch.y
+      local held = elapsed - touch.t
       touch = nil
-      if dx * dx + dy * dy <= 20 * 20 then
-        send_tap(ex, ey)
-      else
-        log("touch 位移过大，非 tap：began=(%.0f,%.0f) ended=(%.0f,%.0f) d=%.0f",
-          touch_x, touch_y, ex, ey, math.sqrt(dx * dx + dy * dy))
+      local d = math.sqrt(dx * dx + dy * dy)
+      if elapsed < suppress_tap_until then
+        log("touch ended (%.0f,%.0f) d=%.0f held=%.2fs：右键窗口内，忽略", ex, ey, d, held)
+        return
       end
+      log("touch ended (%.0f,%.0f) d=%.0f held=%.2fs → tap", ex, ey, d, held)
+      last_tap_at = elapsed
+      send_tap(ex, ey)
+    end)
+    -- 诊断：宿主自己的「点击」判定与我们的 ended→tap 是否一致（标定用，不驱动逻辑）
+    capture.OnClicked:Connect(function()
+      log("capture OnClicked（距上次 tap %.2fs）", elapsed - last_tap_at)
     end)
     log("透明捕获层已创建 res=%s,%s", tostring(res.X), tostring(res.Y))
   end)
@@ -178,6 +227,8 @@ try("挂 InputBegan", function()
   UIS.InputBegan:Connect(function(input, _processed)
     local t = input.UserInputType
     if t == Enums.UserInputType.MouseButton2 then
+      suppress_tap_until = elapsed + 0.5
+      log("右键 → cancel（0.5s 内忽略捕获层 tap）")
       re:FireServer({ kind = "input", itype = "cancel" })
     elseif t == Enums.UserInputType.Keyboard
       and input.KeyCode == Enums.KeyCode.Escape then
@@ -319,9 +370,18 @@ _G.bd_client = {
   end,
   stats = function()
     local s = renderer:stats()
-    log("CSTATS live_state=%d labels=%d hp_bars=%d none=%d pending_hp=%d seq=%d got_first=%s",
-      s.state, s.labels, s.bars, s.none, s.pending, last_seq, tostring(got_first))
+    log("CSTATS live_state=%d labels=%d buttons=%d hp_bars=%d none=%d pending_hp=%d seq=%d got_first=%s",
+      s.state, s.labels, s.buttons, s.bars, s.none, s.pending, last_seq, tostring(got_first))
+  end,
+  -- 用 SimulateTap 打按钮中心（走真实 EUIButton OnClicked → 意图链路；集成测试用）
+  tap_button = function(path)
+    local x, y = renderer:node_position(path)
+    if not x then log("tap_button(%s)：无此按钮", tostring(path)) return end
+    local sg = Players.LocalPlayer and Players.LocalPlayer.PlayerGui.ScreenGui
+    if not sg then log("tap_button：ScreenGui 不可用") return end
+    sg:SimulateTap(Vector2.New(x, y))
+    log("tap_button(%s) → SimulateTap(%.0f,%.0f)", path, x, y)
   end,
 }
 
-log("垂直切片客户端挂载完成：快照渲染 + 固定俯视相机 + 棋盘捕获层")
+log("客户端挂载完成：快照渲染 + 放置面板按钮 + 固定俯视相机 + 棋盘捕获层")
