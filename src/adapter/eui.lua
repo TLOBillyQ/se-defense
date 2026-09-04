@@ -61,11 +61,20 @@ local RING_NATIVE_RADIUS = 2                   -- 假设：Scale=1 时特效半�
 
 local shape_warned = {}
 
+-- 覆盖圈上色（#21 放置预览：有效绿 / 无效红 / 电网橙）不在服务端做：
+-- 真机探针证实服务端写 EffectUnit 的 DiffuseColor/ColorStrength/BlendFactor/
+-- EnableColor（以及 SetColor()）每次都让客户端报 "Internal Error"，颜色属性只能
+-- 在客户端设。故环节点例外地进快照，只带 fx（单位名）+ color 两个字段，客户端
+-- 按名找到复制过来的 EffectUnit 再上色（eui_render fxcolor）。
+local function fx_name(path)
+  return "fx_" .. path:gsub("[^%w]", "_")
+end
+
 local function spawn_ring(node, center, radius)
   local s = radius / RING_NATIVE_RADIUS
   local ok, unit = pcall(function()
     return World:CreateUnit("EffectUnit", {
-      Name = "fx_" .. node.path:gsub("[^%w]", "_"),
+      Name = fx_name(node.path),
       EffectId = RING_EFFECT,
       Duration = -1,
       Scale = Vector3.New(s, s, s),
@@ -194,6 +203,7 @@ function eui.node(path)
     end
     destroy_shape(self)
     self._shape = { kind = "ring", center = c, radius = radius, unit = spawn_ring(self, c, radius) }
+    mark_dirty(self, "color") -- 新单位需客户端重新上色
   end
 
   -- 连线：电力线 / 炮塔光束 / 维修光束。同形状重复写入只挪锚点。
@@ -252,14 +262,32 @@ local function snapshot_state(n, fields)
   return out
 end
 
--- 取走本帧增量；无脏返回 nil。形状节点（ring/line）双路由不跨网络，跳过。
+-- 环节点的快照例外：只带 fx + color（见 fx_name 注释）；无环单位时不发。
+local function ring_state(n)
+  local sh = n._shape
+  if sh and sh.kind == "ring" and sh.unit then
+    return { fx = fx_name(n.path), color = copy_color(n.color) }
+  end
+  return nil
+end
+
+-- 取走本帧增量；无脏返回 nil。形状节点（ring/line）双路由不跨网络，
+-- 只有环的颜色例外进快照。
 function eui.drain()
   local nodes
   for path, fields in pairs(dirty) do
     local n = eui.nodes[path]
-    if n and not removed_set[path] and not n._shape_only then
-      nodes = nodes or {}
-      nodes[path] = snapshot_state(n, fields)
+    if n and not removed_set[path] then
+      if not n._shape_only then
+        nodes = nodes or {}
+        nodes[path] = snapshot_state(n, fields)
+      elseif fields.color then
+        local rs = ring_state(n)
+        if rs then
+          nodes = nodes or {}
+          nodes[path] = rs
+        end
+      end
     end
   end
   local rem
@@ -281,6 +309,8 @@ function eui.full()
     local n = eui.nodes[path]
     if n and not n._shape_only then
       nodes[path] = snapshot_state(n, { text = true, visible = true, color = true, fill = true })
+    elseif n then
+      nodes[path] = ring_state(n)
     end
   end
   return nodes

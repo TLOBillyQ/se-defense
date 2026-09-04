@@ -21,13 +21,24 @@ local M = {}
 --   label     屏幕文本（column 分组内按到达序排槽位）
 --   banner    居中大字（静态标题在 recipe；visible 由快照驱动）
 --   healthbar 世界锚定血条（path 解析实体 id）
+--   button    EUIButton（#21 放置面板 panel/*）：text→ButtonText、color→文字色、
+--             visible；点击经 deps.on_click(path) 回流（渲染器不知意图语义）
 --   none      只跟踪状态（容器/双路由形状节点，无屏幕表现）
 
 local WARNING_TEXT = {
   north = "! NORTH !", east = "! EAST !", south = "! SOUTH !", west = "! WEST !",
 }
 
+local BUILD_SLOT = { relay = 0, radar = 1, turret = 2, repair = 3 }
+
 local function recipe_for(path)
+  local build_key = path:match("^panel/build/(%a+)$")
+  if build_key then
+    return { kind = "button", slot = BUILD_SLOT[build_key] or 4, font = 30 }
+  end
+  if path == "panel/cancel" then
+    return { kind = "button", slot = 5, font = 30, color = { 255, 120, 120 } }
+  end
   if path:match("_hp$") then
     return { kind = "healthbar" }
   end
@@ -63,14 +74,17 @@ end
 local R = {}
 R.__index = R
 
--- log: function(fmt, ...)；get_res: function() → {X=, Y=} 设备分辨率。
+-- log: function(fmt, ...)；get_res: function() → {X=, Y=} 设备分辨率；
+-- on_click: function(path) 按钮点击回流。
 function M.new(deps)
   return setmetatable({
     log = deps.log or function() end,
     get_res = deps.get_res,
+    on_click = deps.on_click or function() end,
     live = {},     -- path → { recipe=, label=/scene_node=/bar=, slot= }
     state = {},    -- path → 最新快照状态（祖先可见性合成用）
     pending_hp = {}, -- path → true（单位未复制到，逐帧重试）
+    pending_fx = {}, -- path → 截止时刻（环 EffectUnit 未复制到，逐帧重试上色）
     column_slots = {}, -- column → 已分配槽位数
   }, R)
 end
@@ -184,6 +198,44 @@ function R:_create_banner(path, recipe)
   return { label = label }
 end
 
+-- 放置面板按钮：右侧竖排，围绕屏幕垂直中线布置（与 EUI 画布 y 轴朝向无关），
+-- slot 0..3 四建筑、slot 5 取消（隔一格）。SwallowTouch + 高 ZOrder，不漏给捕获层。
+function R:_button_layout(slot)
+  local res = self.get_res and self.get_res() or { X = 1920, Y = 1080 }
+  local x, y = res.X - 300, res.Y / 2 + (slot - 2.5) * 90
+  return Vector2.New(x, y), Vector2.New(380, 72), x, y
+end
+
+function R:_create_button(path, recipe)
+  if not self.root then return nil end
+  local pos, size, px, py = self:_button_layout(recipe.slot or 0)
+  local color = recipe.color or { 255, 255, 255 }
+  local ok, btn = pcall(function()
+    local b = World:CreateUnit("EUIButton", {
+      Parent = self.root,
+      Name = "r_" .. path:gsub("[^%w]", "_"),
+      Position = pos,
+      Size = size,
+      ButtonText = "",
+      ButtonTextFontSize = recipe.font or 30,
+      ButtonTextColor = Color.New(color[1], color[2], color[3], 255),
+      TouchEnabled = true,
+      SwallowTouchEnabled = true,
+      LocalZOrder = 50,
+    })
+    b.OnClicked:Connect(function()
+      self.log("按钮点击 %s", path)
+      self.on_click(path)
+    end)
+    return b
+  end)
+  if not ok then
+    self.log("创建 button 失败 %s: %s", path, tostring(btn))
+    return nil
+  end
+  return { button = btn, pos = { x = px, y = py } }
+end
+
 -- 血条：path 形如 enemy_3_hp / building_1_hp / resource_2_hp（#18 决策 4）。
 local function parse_entity_id(path)
   local id = path:match("^enemy_(%d+)_hp$")
@@ -224,10 +276,38 @@ function R:_try_create_healthbar(path)
   return controls
 end
 
+-- 环上色（#21）：服务端不能写 EffectUnit 颜色属性（客户端会报 Internal Error），
+-- 快照里带 fx 单位名，客户端按名找到复制单位后本地 SetColor。
+local FX_RETRY_SECONDS = 5
+
+function R:_apply_fx_color(path)
+  local live = self.live[path]
+  local st = self.state[path]
+  if not live or not live.fx or not st or not st.color then return true end
+  local unit = World:FindFirstChild(live.fx, true)
+  if not unit then return false end
+  local c = to_color(st.color, { 255, 255, 255 })
+  -- 真机探针（#21）：DiffuseColor/ColorStrength/BlendFactor 每写一次引擎都记一条
+  -- "Lua VM 0 warning: Internal Error"（两端、任何特效 id、任何取值都一样，值却能回读；
+  -- SetColor() 报 3 条），EnableColor 干净。只写 DiffuseColor 把噪音压到每次变色 1 条；
+  -- ColorStrength/BlendFactor 默认即 100/1.0，不写。着色效果是否肉眼可见待 HITL。
+  local ok, err = pcall(function()
+    unit.EnableColor = true
+    unit.DiffuseColor = c
+  end)
+  if not ok and not self.fx_warned then
+    self.fx_warned = true
+    self.log("环上色失败 %s: %s", path, tostring(err))
+  end
+  return true
+end
+
 function R:_create(path, st)
-  local recipe = recipe_for(path)
+  local recipe = st.fx and { kind = "fxcolor" } or recipe_for(path)
   local live = { recipe = recipe }
-  if recipe.kind == "label" then
+  if recipe.kind == "fxcolor" then
+    live.fx = st.fx
+  elseif recipe.kind == "label" then
     local c = self:_create_label(path, recipe)
     if not c then return nil end
     live.label = c.label
@@ -237,6 +317,11 @@ function R:_create(path, st)
     local c = self:_create_banner(path, recipe)
     if not c then return nil end
     live.label = c.label
+  elseif recipe.kind == "button" then
+    local c = self:_create_button(path, recipe)
+    if not c then return nil end
+    live.button = c.button
+    live.pos = c.pos
   elseif recipe.kind == "healthbar" then
     local controls = self:_try_create_healthbar(path)
     if controls == nil then
@@ -268,6 +353,22 @@ function R:_apply_state(path, st)
       live.label.Visible = visible
     end)
   end
+  if live.button then
+    pcall(function()
+      if st.text ~= nil then live.button.ButtonText = st.text end
+      if st.color ~= nil and live.recipe.color == nil then
+        live.button.ButtonTextColor = to_color(st.color, { 255, 255, 255 })
+      end
+      live.button.Visible = visible
+    end)
+  end
+  if live.fx and st.color ~= nil then
+    if self:_apply_fx_color(path) then
+      self.pending_fx[path] = nil
+    else
+      self.pending_fx[path] = os.clock() + FX_RETRY_SECONDS
+    end
+  end
   if live.scene_node then
     pcall(function()
       live.scene_node.Visible = visible
@@ -286,9 +387,11 @@ function R:_destroy(path)
   if not live then return end
   self.live[path] = nil
   self.pending_hp[path] = nil
+  self.pending_fx[path] = nil
   self.state[path] = nil
   if live.slot and live.column then self:_free_slot(live.column) end
   pcall(function() if live.label then live.label:Destroy() end end)
+  pcall(function() if live.button then live.button:Destroy() end end)
   pcall(function() if live.scene_node then live.scene_node:Destroy() end end)
 end
 
@@ -339,6 +442,7 @@ function R:_apply_visible(path)
   local visible = self:_effective_visible(path)
   pcall(function()
     if live.label then live.label.Visible = visible end
+    if live.button then live.button.Visible = visible end
     if live.scene_node then live.scene_node.Visible = visible end
   end)
 end
@@ -367,11 +471,26 @@ function R:tick(_dt)
       self.pending_hp[path] = nil
     end
   end
+  for path, deadline in pairs(self.pending_fx) do
+    if self:_apply_fx_color(path) then
+      self.pending_fx[path] = nil
+    elseif os.clock() > deadline then
+      self.pending_fx[path] = nil
+      self.log("环单位 %s 超时未复制到，放弃上色", tostring(self.live[path] and self.live[path].fx))
+    end
+  end
   for path, live in pairs(self.live) do
-    if live.label or live.scene_node then
+    if live.label or live.button or live.scene_node then
       self:_apply_visible(path)
     end
   end
+end
+
+-- 按钮在 EUI 画布上的中心坐标（集成测试用 SimulateTap 打真触摸链路）。
+function R:node_position(path)
+  local live = self.live[path]
+  if live and live.pos then return live.pos.x, live.pos.y end
+  return nil
 end
 
 -- 由 client/main.lua 在 PlayerGui 就绪后注入根节点。
@@ -381,9 +500,11 @@ end
 
 -- GM/验证用统计。
 function R:stats()
-  local labels, bars, none = 0, 0, 0
+  local labels, bars, none, buttons, fx = 0, 0, 0, 0, 0
   for _, l in pairs(self.live) do
     if l.label then labels = labels + 1 end
+    if l.button then buttons = buttons + 1 end
+    if l.fx then fx = fx + 1 end
     if l.scene_node then bars = bars + 1 end
     if l.recipe and l.recipe.kind == "none" then none = none + 1 end
   end
@@ -391,7 +512,7 @@ function R:stats()
   for _ in pairs(self.pending_hp) do pend = pend + 1 end
   local state_n = 0
   for _ in pairs(self.state) do state_n = state_n + 1 end
-  return { state = state_n, labels = labels, bars = bars, none = none, pending = pend }
+  return { state = state_n, labels = labels, bars = bars, none = none, pending = pend, buttons = buttons, fx = fx }
 end
 
 return M

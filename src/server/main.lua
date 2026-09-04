@@ -1,4 +1,4 @@
--- #19 垂直切片（服务端）：GameRootFull + Core + 单波敌人 + 最简 HUD。
+-- #19 垂直切片 + #21 建筑与放置（服务端）：GameRootFull + Core + 单波敌人 + HUD + 放置面板。
 --
 -- 架构（#7 决议）：
 --   - 服务端一棵 Auto 树（GameRootFull 全业务组合根，业务零改动经 swap 接入适配层）；
@@ -8,9 +8,11 @@
 --     seq 缺口 resync 走全量（#18 决策 1）；
 --   - 输入反向通道：客户端捕获层 → FireServer 意图 → host.input 队列（#7 决策 2、#8 D5）。
 --
--- 切片边界（票面 + #9 D4 垂直切片基线）：
---   单波次配置（waves 不升级）、不挂放置 UI/取消按钮（「建筑与放置」是下一片）、
---   不挂 Restart（「胜负与重开」后续片，reset_scene 适配器已备好）。
+-- #21 建筑与放置：放置/取消按钮归适配层（src/adapter/build_panel.lua 投影为
+--   快照节点 panel/*，客户端渲成 EUIButton），点击回流 place/cancel 意图；
+--   放置预览由业务 board_display 的 ring 双路由承担（eui.lua 给 EffectUnit 上色）。
+--
+-- 切片边界：单波次配置（waves 不升级）、不挂 Restart（「胜负与重开」后续片）。
 --
 -- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。GM 面见文件底部 _G.bd。
 
@@ -39,6 +41,7 @@ local spoke = require("src.spoke")
 local SpokeRuntime = require("src.spoke.runtime.spoke_runtime")
 local GameTick = require("examples.base_defence.game_tick")
 local GameRootFull = require("examples.base_defence.game_root_full")
+local BuildPanel = require("src.adapter.build_panel")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
 -- 棋盘 40×40、Core 置世界原点、单位 1:1（#8 D2 假设）。
@@ -59,7 +62,7 @@ local root = GameRootFull.new({
     core_max_hp = 50,
   },
   wave_director = {
-    lull_duration = 8,
+    lull_duration = 30,  -- #21：首波前留 30s 放置窗口（原 8）
     front_reveal_time = 3,
     spawn_interval = 1,
     enemy_count = 5,
@@ -82,6 +85,10 @@ log("Auto 树 spawn 完成 fault=%s detached=%s", tostring(tree.fault), tostring
 
 -- 棋盘边界注入输入适配层（#8 D2：界外点 → nil）
 host.input.set_bounds(root.game_state:level_bounds())
+
+-- 放置面板快照节点（#21）：四建筑按钮 + 取消
+local panel = BuildPanel.create(host, root)
+BuildPanel.update(panel)
 
 -- ── RemoteEvent 通道（bd_game）：快照下行 + 输入/握手上行 ─────────────
 local re = RemoteEvent.New("bd_game")
@@ -124,6 +131,12 @@ re.OnServerEvent:Connect(function(player, args)
     elseif itype == "cancel" then
       log("输入 cancel")
       host.input.intent_cancel()
+    elseif itype == "place" then
+      local key = args.key
+      if type(key) == "string" and #key <= 16 then
+        local ok, why = BuildPanel.place(panel, key)
+        log("输入 place(%s) → %s", key, ok and "placing 置位" or tostring(why))
+      end
     end
   end
 end)
@@ -159,6 +172,9 @@ RunService.Heartbeat:Connect(function(deltaTime)
     acc = 0 -- 丢弃多余时间，不做追赶（#7-A1）
   end
 
+  -- 放置面板投影（余额/选中/可见），再取快照增量
+  BuildPanel.update(panel)
+
   -- 快照：每帧派发结束 dirty 即发（#18 决策 2，无额外节流）
   local delta = host.eui.drain()
   if delta then
@@ -168,6 +184,7 @@ end)
 
 -- ── GM 面（$CLI exec --platform server 驱动；自动化验证优先 #1 偏好 2）──
 _G.bd = {
+  root = root, -- 无头 harness / 自动化直读（tools/headless/run_server.lua）
   status = function()
     local gs = root.game_state
     log("STATUS mode=%s ticks=%d uptime=%.1fs money=%s core_hp=%.2f entities=%d eui_nodes=%d seq=%d gen=%d",
@@ -192,15 +209,17 @@ _G.bd = {
     host.input.intent_cancel()
     log("GM cancel")
   end,
-  -- 进入放置模式（「建筑与放置」片的预验口；本切片不挂 UI 按钮）
+  -- 进入放置模式（与客户端按钮的 place 意图同一入口）
   place = function(key)
-    local spec = root.building_specs and root.building_specs[key]
-    if spec then
-      root.board_interactions.placing:set(spec)
-      log("GM place(%s)：placing 已置位", tostring(key))
-    else
-      log("GM place(%s)：未知 spec", tostring(key))
-    end
+    local ok, why = BuildPanel.place(panel, tostring(key))
+    log("GM place(%s)：%s", tostring(key), ok and "placing 已置位" or tostring(why))
+  end,
+  -- 放置流状态一览（集成测试读回）
+  placing = function()
+    local p = root.board_interactions.placing:now()
+    log("PLACING key=%s valid=%s mouse=%s",
+      p and p.key or "nil", tostring(root.board_interactions.placement_valid:now()),
+      (function() local m = host.input.get_mouse_world_point(); return m and string.format("(%.2f,%.2f)", m.x, m.z) or "nil" end)())
   end,
   dump_entities = function()
     for _, e in ipairs(host.entity.all()) do
@@ -219,4 +238,4 @@ _G.bd = {
   end,
 }
 
-log("垂直切片服务端挂载完成：GameRootFull + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game)")
+log("服务端挂载完成：GameRootFull + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game) + 放置面板")
