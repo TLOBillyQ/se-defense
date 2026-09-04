@@ -14,8 +14,12 @@
 -- #23 电网与辅助建筑：业务零改动；覆盖圈 6044 / 连线与光束 4506 的分派、
 --   雷达横杆天线、断电 tint 透传都在适配层（eui.lua / entity.lua）。
 --   GM 新增 money/damage/dump_shapes/buildings 供集成测试编排。
+-- #26 波次与经济：递增波次阶梯（WAVE_LADDER，按波号生成、任意波号有定义）+
+--   三档敌人 prefab 键（enemy / enemy_heavy / enemy_boss → entity.lua 视觉表）+
+--   矿点 4 内 2 外（外圈超出 Core 供电范围，需 relay 外扩才能采）。
+--   GM 新增 wave/enemies/kill_enemies/resources/lull。
 --
--- 切片边界：单波次配置（waves 不升级）、不挂 Restart（「胜负与重开」后续片）。
+-- 切片边界：不挂 Restart、不做胜负 banner（「胜负与重开」后续片）。
 --
 -- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。GM 面见文件底部 _G.bd。
 
@@ -48,10 +52,51 @@ local BuildPanel = require("src.adapter.build_panel")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
 -- 棋盘 40×40、Core 置世界原点、单位 1:1（#8 D2 假设）。
--- 单波：waves 只定义第 1 波，后续波沿用全局同配置（不升级 = 「单波敌人」）。
 local STEP = 1 / 30        -- 对齐宿主 30fps 逻辑帧（#7-A2，#10 实测通过）
 local MAX_CATCHUP = 4      -- 积累上限 4 步/帧，超限丢弃（#7-A1，#10 实测通过）
 local AUTO_START_AT = 3    -- 试玩开局 3s 后自动进入 Playing（Pregame 可观察 HUD）
+
+-- 波次阶梯（#26）：业务 WaveDirector 按 `waves[number]` 取每波配置、缺项回退
+-- 全局；这里不写死有限几波，而是按波号生成，任意波号都有定义（无限递增）。
+-- 三档敌人：1-2 波 enemy（小快）、3-5 波 enemy_heavy（中厚）、6+ 波 enemy_boss
+-- （大慢重击）；同档内数量递增、间隔递减。数值只求「肉眼可见的递增」，
+-- 不做平衡（打磨阶段）。
+local ENEMY_TIERS = {
+  { prefab = "enemy",       max_hp = 10, move_speed = 3,   stop_distance = 1.5, fire_rate = 1, damage = 5,  radius = 0.5 },
+  { prefab = "enemy_heavy", max_hp = 30, move_speed = 2,   stop_distance = 1.8, fire_rate = 1, damage = 12, radius = 0.7 },
+  { prefab = "enemy_boss",  max_hp = 80, move_speed = 1.5, stop_distance = 2.2, fire_rate = 1, damage = 25, radius = 1.0 },
+}
+local function wave_config(n)
+  local tier, count
+  if n <= 2 then
+    tier, count = 1, 4 + n            -- 5, 6
+  elseif n <= 5 then
+    tier, count = 2, 1 + n            -- 4, 5, 6
+  else
+    tier, count = 3, math.min(2 + (n - 5), 8) -- 3, 4, … 封顶 8
+  end
+  return {
+    enemy_count = count,
+    spawn_interval = math.max(0.5, 1.1 - 0.1 * n), -- 1.0, 0.9, … 下限 0.5
+    enemy = ENEMY_TIERS[tier],
+  }
+end
+-- 惰性表：业务读 waves[n] 时经 __index 生成（表本身空，业务零改动）。
+local WAVE_LADDER = setmetatable({}, { __index = function(_, n)
+  if type(n) == "number" then return wave_config(n) end
+end })
+
+-- 矿点布局（#26）：4 个内圈矿点在 Core 供电范围内（默认位置，开局即采）；
+-- 2 个外圈矿点距 Core 7（> provide_range 4），必须放 relay 外扩才通电，
+-- 让「电网扩张 → 经济增长」在真机可见。全采空 = Victory（后续片挂 banner）。
+local RESOURCES = {
+  { position = { x = -2.5, y = 0, z = 2.5 },  start_resources = 20 },
+  { position = { x = 2.5,  y = 0, z = 2.5 },  start_resources = 20 },
+  { position = { x = -2.5, y = 0, z = -2.5 }, start_resources = 20 },
+  { position = { x = 2.5,  y = 0, z = -2.5 }, start_resources = 20 },
+  { position = { x = 7,    y = 0, z = 0 },    start_resources = 30 },
+  { position = { x = -7,   y = 0, z = 0 },    start_resources = 30 },
+}
 
 local tick = GameTick.new(STEP)
 
@@ -65,22 +110,14 @@ local root = GameRootFull.new({
     core_max_hp = 50,
   },
   wave_director = {
-    lull_duration = 30,  -- #21：首波前留 30s 放置窗口（原 8）
+    lull_duration = 30,  -- #21：每波前 30s 放置/采集窗口（原 8）
     front_reveal_time = 3,
     spawn_interval = 1,
     enemy_count = 5,
-    waves = {
-      [1] = { enemy_count = 5, spawn_interval = 1, enemy = { prefab = "enemy" } },
-    },
+    waves = WAVE_LADDER,
   },
-  enemy = {
-    prefab = "enemy",
-    max_hp = 10,
-    move_speed = 3,
-    stop_distance = 1.5,
-    fire_rate = 1,
-    damage = 5,
-  },
+  enemy = ENEMY_TIERS[1], -- 全局兜底（阶梯每波都给全量 enemy 表，实际不会回退到这里）
+  resources = RESOURCES,
 })
 
 local tree = spoke.SpokeTree.spawn(root)
@@ -257,6 +294,56 @@ _G.bd = {
         tostring(sh.visible), sh.radius and string.format(" r=%.2f", sh.radius) or "")
     end
   end,
+  -- 当前波次一览 + 任意波号的阶梯配置（集成测试对照）
+  wave = function(n)
+    local w = root.wave_director.wave:now()
+    local cfg = root.wave_director:wave_enemy_config()
+    log("WAVE number=%d front=%s starts_in=%d cfg: count=%d interval=%.2f prefab=%s hp=%s",
+      w.number, tostring(w.front), w.starts_in, cfg.enemy_count, cfg.spawn_interval,
+      tostring(cfg.prefab), tostring(cfg.max_hp))
+    if n then
+      local c = wave_config(tonumber(n))
+      log("LADDER[%d] count=%d interval=%.2f prefab=%s hp=%d", tonumber(n), c.enemy_count, c.spawn_interval, c.enemy.prefab, c.enemy.max_hp)
+    end
+  end,
+  -- 存活敌人一览
+  enemies = function()
+    local n = 0
+    for _, en in ipairs(root.enemies) do
+      if en.health and en.health.is_alive:now() then
+        n = n + 1
+        local p = en.entity.position
+        log("enemy #%d %s @(%.1f,%.1f) hp=%.2f", en.entity.id, en.prefab, p.x, p.z, en.health.hp_fraction:now())
+      end
+    end
+    log("ENEMIES alive=%d", n)
+  end,
+  -- 清场：击杀全部存活敌人（触发 wave_defeated → 下一波倒计时）
+  kill_enemies = function()
+    local n = 0
+    for _, en in ipairs(root.enemies) do
+      if en.health and en.health.is_alive:now() then
+        en.health:damage(99999)
+        n = n + 1
+      end
+    end
+    log("GM kill_enemies → %d", n)
+  end,
+  -- 矿点一览：id / 位置 / 剩余 / 供电
+  resources = function()
+    for _, r in ipairs(root.resources) do
+      local p = r.entity.position
+      log("resource #%d @(%.1f,%.1f) remaining=%d powered=%s", r.entity.id, p.x, p.z,
+        r.remaining:now(), r.power and tostring(r.power.has_power:now()) or "n/a")
+    end
+    log("RESOURCES remaining_sites=%d money=%s rate=%.2f", root.game_state.resources_remaining:now(),
+      tostring(root.game_state.money:now()), root.game_state.collect_rate:now())
+  end,
+  -- 改「下一次」平静期时长（当前倒计时不受影响；集成测试缩短等待用）
+  lull = function(sec)
+    root.wave_director._config.lull_duration = tonumber(sec) or 30
+    log("GM lull_duration=%s（下一波起生效）", tostring(root.wave_director._config.lull_duration))
+  end,
   dump_entities = function()
     for _, e in ipairs(host.entity.all()) do
       local p = e.position
@@ -274,4 +361,4 @@ _G.bd = {
   end,
 }
 
-log("服务端挂载完成：GameRootFull + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game) + 放置面板")
+log("服务端挂载完成：GameRootFull + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game) + 放置面板 + 波次阶梯/6 矿点")
