@@ -379,4 +379,19 @@ function R:set_root(root)
   self.root = root
 end
 
+-- GM/验证用统计。
+function R:stats()
+  local labels, bars, none = 0, 0, 0
+  for _, l in pairs(self.live) do
+    if l.label then labels = labels + 1 end
+    if l.scene_node then bars = bars + 1 end
+    if l.recipe and l.recipe.kind == "none" then none = none + 1 end
+  end
+  local pend = 0
+  for _ in pairs(self.pending_hp) do pend = pend + 1 end
+  local state_n = 0
+  for _ in pairs(self.state) do state_n = state_n + 1 end
+  return { state = state_n, labels = labels, bars = bars, none = none, pending = pend }
+end
+
 return M

@@ -94,7 +94,10 @@ end
 local function send_tap(sx, sy)
   local p = screen_to_board(sx, sy)
   if p then
+    log("tap (%.0f,%.0f) → 棋盘 (%.2f, %.2f)，发送意图", sx, sy, p.x, p.z)
     re:FireServer({ kind = "input", itype = "tap", x = p.x, z = p.z })
+  else
+    log("tap (%.0f,%.0f) → 射线无交点（相机未就绪?）", sx, sy)
   end
 end
 
@@ -126,6 +129,7 @@ local function setup_eui()
     capture.OnTouchBegan:Connect(function(info)
       if touch then return end
       touch = { id = info.TouchID, x = info.BeganPosition.X, y = info.BeganPosition.Y }
+      log("touch began id=%s (%.0f,%.0f)", tostring(info.TouchID), touch.x, touch.y)
     end)
     capture.OnTouchEnded:Connect(function(info)
       if not touch or info.TouchID ~= touch.id then return end
@@ -134,6 +138,8 @@ local function setup_eui()
       touch = nil
       if dx * dx + dy * dy <= 20 * 20 then
         send_tap(ex, ey)
+      else
+        log("touch 位移过大，非 tap")
       end
     end)
     log("透明捕获层已创建 res=%s,%s", tostring(res.X), tostring(res.Y))
@@ -162,7 +168,9 @@ local function apply_camera()
     local cam = World.CurrentCamera
     if not cam then return end
     cam.Mode = Enums.CameraMode.NONE
-    cam.Priority = 100
+    -- 不写 Priority：真机实测写入触发宿主 VM 警告
+    -- 「set_priority() takes exactly 2 arguments (3 given)」（每 5s 噪音），
+    -- 且 #10 探针证明 Mode=NONE 定点无需 Priority 也稳定。
     cam.Position = Vector3.New(0, 60, 0)
     cam.Pitch = -90
     cam.Yaw = 0
@@ -235,5 +243,14 @@ RunService.Heartbeat:Connect(function(deltaTime)
   poll_hover(deltaTime)
   renderer:tick(deltaTime)
 end)
+
+-- ── GM 面（$CLI exec --platform client 驱动）────────────────────────
+_G.bd_client = {
+  stats = function()
+    local s = renderer:stats()
+    log("CSTATS live_state=%d labels=%d hp_bars=%d none=%d pending_hp=%d seq=%d got_first=%s",
+      s.state, s.labels, s.bars, s.none, s.pending, last_seq, tostring(got_first))
+  end,
+}
 
 log("垂直切片客户端挂载完成：快照渲染 + 固定俯视相机 + 棋盘捕获层")

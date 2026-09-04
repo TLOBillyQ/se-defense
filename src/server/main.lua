@@ -113,6 +113,7 @@ re.OnServerEvent:Connect(function(player, args)
       local x, z = tonumber(args.x), tonumber(args.z)
       if x and z and math.abs(x) <= 100 and math.abs(z) <= 100 then
         if itype == "tap" then
+          log("输入 tap → (%.2f, %.2f)", x, z)
           host.input.intent_tap(x, z)
         else
           host.input.intent_hover(x, z)
@@ -121,6 +122,7 @@ re.OnServerEvent:Connect(function(player, args)
         host.input.intent_hover(nil, nil) -- 抬指/出界
       end
     elseif itype == "cancel" then
+      log("输入 cancel")
       host.input.intent_cancel()
     end
   end
