@@ -55,9 +55,36 @@ end
 -- 垂直切片内放置/雷达/炮塔不激活，本路径是合约完整性的保底实现；
 -- 特效原生半径未经探针，RING_NATIVE_RADIUS 为可调常量。
 
-local RING_EFFECT = "official://effect/6079"   -- 地面圆形充能环（#4 事实 §3.2）
-local LINE_EFFECT = "official://effect/4506"   -- 连线-激光射线
+-- 特效不吃颜色（#21 实测），所以「颜色语义」只能靠选不同特效表达（#23）：
+--   覆盖圈（电网/雷达/炮塔/维修，业务四色同为橙）→ 6044 圆形电击范围（金黄）
+--   电力连线 / 炮塔光束 / 维修光束 → 4506 连线-激光射线（黄色光束）
+-- 表按 path 前缀匹配，首个命中生效；无命中走 *_DEFAULT。
+local RING_EFFECTS = {
+  { prefix = "board/", id = "official://effect/6044" },
+}
+local RING_DEFAULT = "official://effect/6044"
+local LINE_EFFECTS = {
+  { prefix = "board/power_links", id = "official://effect/4506", y = 0.3 },
+  { prefix = "board/hover_link",  id = "official://effect/4506", y = 0.3 },
+  { prefix = "turret_",           id = "official://effect/4506", y = 0.8 },
+  { prefix = "repair_",           id = "official://effect/4506", y = 0.8 },
+}
+local LINE_DEFAULT = { id = "official://effect/4506", y = 0.3 }
 local RING_NATIVE_RADIUS = 2                   -- 假设：Scale=1 时特效半径≈2（探针待定）
+
+local function ring_effect_for(path)
+  for _, e in ipairs(RING_EFFECTS) do
+    if path:sub(1, #e.prefix) == e.prefix then return e.id end
+  end
+  return RING_DEFAULT
+end
+
+local function line_style_for(path)
+  for _, e in ipairs(LINE_EFFECTS) do
+    if path:sub(1, #e.prefix) == e.prefix then return e end
+  end
+  return LINE_DEFAULT
+end
 
 local shape_warned = {}
 
@@ -99,6 +126,7 @@ local function spawn_disc(node, center, radius)
       Position = Vector3.New(center.x, 0.03 + center.y, center.z),
     })
     u.ModelColor1 = to_color(node.color)
+    if not node.visible then u.ModelVisible = false end
     return u
   end)
   if not ok then
@@ -115,13 +143,15 @@ local function spawn_ring(node, center, radius)
   if DISC_PATHS[node.path] then return spawn_disc(node, center, radius), true end
   local s = radius / RING_NATIVE_RADIUS
   local ok, unit = pcall(function()
-    return World:CreateUnit("EffectUnit", {
+    local u = World:CreateUnit("EffectUnit", {
       Name = fx_name(node.path),
-      EffectId = RING_EFFECT,
+      EffectId = ring_effect_for(node.path),
       Duration = -1,
       Scale = Vector3.New(s, s, s),
       Position = Vector3.New(center.x, 0.05 + center.y, center.z),
     })
+    if not node.visible then u.Visible = false end
+    return u
   end)
   if not ok then
     if not shape_warned.ring then
@@ -134,7 +164,11 @@ local function spawn_ring(node, center, radius)
 end
 
 -- 连线：两端隐形锚点 WorldUnit + 连线特效 Attach（#10 探针 P4 已验证 Attach）。
+-- 光束/连线离地高度按种类（电力线贴地 0.3、建筑间光束 0.8 = 建筑半高）。
+-- 业务在 set_line 之前可能已 set_visible(false)（repair/turret 光束节点建后即隐），
+-- 生成时必须继承节点显隐，否则光束会在首帧闪现。
 local function spawn_line(node, from, to)
+  local style = line_style_for(node.path)
   local ok, err = pcall(function()
     local function anchor(p, tag)
       return World:CreateUnit("WorldUnit", {
@@ -143,7 +177,7 @@ local function spawn_line(node, from, to)
         BodyType = Enums.BodyType.Static,
         CanCollide = false,
         Scale = Vector3.New(0.05, 0.05, 0.05),
-        Position = Vector3.New(p.x, 0.1 + p.y, p.z),
+        Position = Vector3.New(p.x, style.y + p.y, p.z),
       })
     end
     local a = anchor(from, "a")
@@ -152,13 +186,18 @@ local function spawn_line(node, from, to)
     pcall(function() b.ModelAlpha = 0 end)
     local fx = World:CreateUnit("EffectUnit", {
       Name = "fx_" .. node.path:gsub("[^%w]", "_"),
-      EffectId = LINE_EFFECT,
+      EffectId = style.id,
       Duration = -1,
-      Position = Vector3.New(from.x, 0.1 + from.y, from.z),
+      Position = Vector3.New(from.x, style.y + from.y, from.z),
     })
     fx:StartposAttach(a, "", Vector3.New(0, 0, 0))
     fx:EndposAttach(b, "", Vector3.New(0, 0, 0))
-    return { a = a, b = b, fx = fx }
+    if not node.visible then
+      fx.Visible = false
+      a.ModelVisible = false
+      b.ModelVisible = false
+    end
+    return { a = a, b = b, fx = fx, y = style.y }
   end)
   if not ok then
     if not shape_warned.line then
@@ -267,9 +306,10 @@ function eui.node(path)
     local f, t = copy_vec3(from), copy_vec3(to)
     local sh = self._shape
     if sh and sh.kind == "line" and sh.line then
+      local y = sh.line.y or 0.3
       pcall(function()
-        sh.line.a.Position = Vector3.New(f.x, 0.1 + f.y, f.z)
-        sh.line.b.Position = Vector3.New(t.x, 0.1 + t.y, t.z)
+        sh.line.a.Position = Vector3.New(f.x, y + f.y, f.z)
+        sh.line.b.Position = Vector3.New(t.x, y + t.y, t.z)
       end)
       return
     end
@@ -349,6 +389,24 @@ function eui.full()
     end
   end
   return nodes
+end
+
+-- 形状清单（GM dump_shapes / 集成测试）：path → { kind, effect, visible }。
+function eui.shapes()
+  local out = {}
+  for _, path in ipairs(eui.order) do
+    local n = eui.nodes[path]
+    local sh = n and n._shape
+    if sh then
+      local u = sh.unit or (sh.line and sh.line.fx)
+      out[#out + 1] = {
+        path = path, kind = sh.kind, disc = sh.disc or false,
+        effect = u and (u.EffectId or u.RenderMeshId) or "nil",
+        visible = n.visible, radius = sh.radius,
+      }
+    end
+  end
+  return out
 end
 
 -- reset_scene 用：清空注册表 + 形状单位 + 脏集，代数 +1。
