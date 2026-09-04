@@ -76,10 +76,13 @@ stub.client_send({ kind = "input", itype = "hover", x = 8, z = 0 })
 stub.steps(3)
 check(bi.placement_valid:now() == false, "hover (8,0) 电网外 → 无效")
 local fp = ring_unit("board/placement_footprint")
-check(fp ~= nil, "放置 footprint 圈已就地渲为 EffectUnit")
+check(fp ~= nil, "放置 footprint 圈已就地渲为单位")
+check(fp and fp.RenderMeshId == "official://mesh/59273", "footprint 渲为圆盘 WorldUnit（可变色）")
+check(fp and fp.ModelColor1 and fp.ModelColor1.r == 255 and fp.ModelColor1.g == 0, "无效 → 圆盘红（ModelColor1）")
+-- 注：节点注册在 set_ring 之前时首帧会带 text/visible 进快照（客户端 recipe=none，无害），
+-- 此处只断言颜色不再经快照下发。
 local fpc = last_state("board/placement_footprint")
-check(fpc and fpc.fx == "fx_board_placement_footprint" and fpc.color.r == 1 and fpc.color.g == 0, "无效 → 快照带 fx 名 + 红色")
-check(fp.EnableColor == nil and fp.DiffuseColor == nil, "服务端不再写 EffectUnit 颜色属性")
+check(fpc == nil or fpc.fx == nil, "环颜色不再经快照下发")
 local power_rings = {}
 for path in pairs(host.eui.nodes) do
   if path:match("^board/placement_power") and ring_unit(path) then power_rings[#power_rings + 1] = path end
@@ -88,8 +91,7 @@ check(#power_rings >= 1, "电网覆盖圈已渲（" .. table.concat(power_rings,
 stub.client_send({ kind = "input", itype = "hover", x = 3, z = 0 })
 stub.steps(3)
 check(bi.placement_valid:now() == true, "hover (3,0) 电网内 → 有效")
-fpc = last_state("board/placement_footprint")
-check(fpc and fpc.color.g == 1 and fpc.color.r == 0, "有效 → 快照绿色")
+check(fp and fp.ModelColor1.g == 255 and fp.ModelColor1.r == 0, "有效 → 圆盘绿")
 check(fp and fp.Position.x == 3, "圈随触点移动 (x=3)")
 
 real_print("== tap 放置")
