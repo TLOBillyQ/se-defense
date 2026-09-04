@@ -6,6 +6,9 @@
 --   - Scale 变形定尺寸；ModelColor1 染色（#10 探针：写 Color 对象）；
 --   - 显隐 = ModelVisible；销毁 = unit:Destroy()。
 -- 依据 #18 决策 4：WorldUnit.Name = 业务实体 id（tostring），客户端血条按名寻单位。
+--   #28 补充：Restart 后 id 从 1 重分配，而旧单位的 Destroy 与新单位的创建经复制到达
+--   客户端的先后无文档承诺；为免血条锚到将死的旧单位，重开后的单位名带代数后缀
+--   "<id>g<gen>"（首局仍是裸 id）。客户端从快照 gen 复刻同一约定（eui_render.lua）。
 --
 -- 业务合约（与 e1dadeee host_mock 对齐，grep 自 38 个业务文件）：
 --   spawn(prefab, pos) → entity 对象（id/prefab + set_position/get_position/
@@ -41,7 +44,15 @@ local FALLBACK = { mesh = "official://mesh/59268", scale = { 1, 1, 1 }, half = 1
 local entity = {
   next_id = 1,
   by_id = {},
+  generation = 0, -- reset 次数；与 eui.generation 同步递增（reset_scene 同时调两者）
 }
+
+-- 单位名约定（#18 决策 4 + #28 代数后缀）
+function entity.unit_name(id, gen)
+  gen = gen or entity.generation
+  if gen == 0 then return tostring(id) end
+  return tostring(id) .. "g" .. tostring(gen)
+end
 
 local function copy_vec3(v)
   if type(v) == "table" then
@@ -69,7 +80,7 @@ function entity.spawn(prefab, pos)
   local ground_y = vis.lift or (vis.half * vis.scale[2])
 
   local unit = World:CreateUnit("WorldUnit", {
-    Name = tostring(entity.next_id), -- #18 决策 4：Name = 业务实体 id
+    Name = entity.unit_name(entity.next_id), -- #18 决策 4：Name = 业务实体 id（重开后带代数后缀）
     RenderMeshId = vis.mesh,
     BodyType = vis.kinematic and Enums.BodyType.Kinematic or Enums.BodyType.Static,
     CanCollide = false, -- 碰撞在业务 collision.lua（Lua 圆碰撞）
@@ -223,7 +234,7 @@ function entity.find_in_circle(center, radius)
   return result
 end
 
--- reset_scene 用：销毁全部已 spawn 单位并清零注册表。
+-- reset_scene 用：销毁全部已 spawn 单位并清零注册表，代数 +1（新局单位名换后缀）。
 function entity.reset()
   for _, e in pairs(entity.by_id) do
     if e._unit then
@@ -233,6 +244,7 @@ function entity.reset()
   end
   entity.by_id = {}
   entity.next_id = 1
+  entity.generation = entity.generation + 1
 end
 
 return entity

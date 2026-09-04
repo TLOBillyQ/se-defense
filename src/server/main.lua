@@ -19,7 +19,11 @@
 --   矿点 4 内 2 外（外圈超出 Core 供电范围，需 relay 外扩才能采）。
 --   GM 新增 wave/enemies/kill_enemies/resources/lull。
 --
--- 切片边界：不挂 Restart、不做胜负 banner（「胜负与重开」后续片）。
+-- #28 胜负与重开：Victory/GameOver 由业务 game_state 判定、SideBar banner 经快照
+--   可见；Restart 走业务 session.lua（dispose → host:reset_scene() → 同 config 重建
+--   GameRootFull），适配层随后重建放置面板、重注入棋盘边界、丢弃重建期间增量并
+--   广播 "reset" 全量快照（gen+1，客户端整树替换）；Restart 按钮归适配层
+--   （panel/restart，终局可见）。GM 新增 restart/mine_out/kill_core。
 --
 -- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。GM 面见文件底部 _G.bd。
 
@@ -48,6 +52,7 @@ local spoke = require("src.spoke")
 local SpokeRuntime = require("src.spoke.runtime.spoke_runtime")
 local GameTick = require("examples.base_defence.game_tick")
 local GameRootFull = require("examples.base_defence.game_root_full")
+local Session = require("examples.base_defence.session")
 local BuildPanel = require("src.adapter.build_panel")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
@@ -100,7 +105,8 @@ local RESOURCES = {
 
 local tick = GameTick.new(STEP)
 
-local root = GameRootFull.new({
+-- 同一份 config 贯穿整局与每次重开（session.lua 语义：restart 用同一 config 重建）。
+local GAME_CONFIG = {
   host = host,
   game_tick = tick,
   game_state = {
@@ -118,17 +124,22 @@ local root = GameRootFull.new({
   },
   enemy = ENEMY_TIERS[1], -- 全局兜底（阶梯每波都给全量 enemy 表，实际不会回退到这里）
   resources = RESOURCES,
-})
+}
 
-local tree = spoke.SpokeTree.spawn(root)
+-- 会话壳（#28）：Auto 树 + GameRootFull 组合根；restart() 拆树 → 清场 → 重建。
+local session = Session.spawn(GAME_CONFIG, "Auto", GameRootFull)
+local root = session.root
+local tree = session.tree
 log("Auto 树 spawn 完成 fault=%s detached=%s", tostring(tree.fault), tostring(tree.is_detached))
 
--- 棋盘边界注入输入适配层（#8 D2：界外点 → nil）
-host.input.set_bounds(root.game_state:level_bounds())
-
--- 放置面板快照节点（#21）：四建筑按钮 + 取消
-local panel = BuildPanel.create(host, root)
-BuildPanel.update(panel)
+-- 树之外、每局都要随 root 重建的适配层挂件：棋盘边界（#8 D2）+ 放置面板（#21）。
+local panel
+local function mount_adapter(r)
+  host.input.set_bounds(r.game_state:level_bounds())
+  panel = BuildPanel.create(host, r)
+  BuildPanel.update(panel)
+end
+mount_adapter(root)
 
 -- ── RemoteEvent 通道（bd_game）：快照下行 + 输入/握手上行 ─────────────
 local re = RemoteEvent.New("bd_game")
@@ -145,6 +156,28 @@ end
 
 local function send_full()
   send("full", { nodes = host.eui.full() })
+end
+
+-- 开局计时：uptime 到点自动 start_game；nil = 已开局。重开后重新计时（回 Pregame 可观察 banner）。
+local uptime = 0
+local start_at = AUTO_START_AT
+
+-- Restart（#28）：业务 session.lua 三步（dispose → host:reset_scene() → 重建），
+-- 随后适配层重挂、丢弃重建期间攒下的增量、广播 reset 全量（gen 已 +1）。
+-- 不在 tick 派发中途调用（RemoteEvent / GM 都在帧间到达）。
+local function restart_game(why)
+  local old_gen = host.eui.generation
+  session:restart()
+  root = session.root
+  tree = session.tree
+  mount_adapter(root)
+  start_at = uptime + AUTO_START_AT
+  if _G.bd then _G.bd.root = root end
+  host.eui.drain()
+  send("reset", { nodes = host.eui.full() })
+  log("RESTART(%s) gen %d → %d：树重建 fault=%s，entities=%d nodes=%d，%ds 后自动开局",
+    tostring(why), old_gen, host.eui.generation, tostring(tree.fault),
+    #host.entity.all(), #host.eui.order, AUTO_START_AT)
 end
 
 re.OnServerEvent:Connect(function(player, args)
@@ -177,21 +210,26 @@ re.OnServerEvent:Connect(function(player, args)
         local ok, why = BuildPanel.place(panel, key)
         log("输入 place(%s) → %s", key, ok and "placing 置位" or tostring(why))
       end
+    elseif itype == "restart" then
+      -- 只在终局受理（按钮也只在终局可见）；Playing 中的误发/重放一律忽略
+      if BuildPanel.restart_allowed(panel) then
+        restart_game("client")
+      else
+        log("输入 restart 被拒（mode=%s）", tostring(root.game_state.mode:now()))
+      end
     end
   end
 end)
 
 -- ── Heartbeat 固定步长驱动器（#7 决策 3 + #10 验证姿势）──────────────
 local acc = 0
-local uptime = 0
 local ticks_total = 0
-local started = false
 
 RunService.Heartbeat:Connect(function(deltaTime)
   uptime = uptime + deltaTime
 
-  if not started and uptime >= AUTO_START_AT then
-    started = true
+  if start_at and uptime >= start_at then
+    start_at = nil
     root.game_state:start_game()
     log("自动 start_game @%.1fs → Playing", uptime)
   end
@@ -234,11 +272,28 @@ _G.bd = {
       #host.entity.all(), #host.eui.order, seq, host.eui.generation)
   end,
   start = function()
-    if not started then
-      started = true
+    if start_at then
+      start_at = nil
       root.game_state:start_game()
       log("GM start_game")
     end
+  end,
+  -- 重开（#28）：与客户端 restart 意图同一路径，但不限终局（集成测试/救场用）
+  restart = function()
+    restart_game("gm")
+  end,
+  -- 全部矿点直接采空 → 业务判 Victory（不经供电/采集，秒到终局）
+  mine_out = function()
+    local n = 0
+    for _, r in ipairs(root.resources) do
+      if r.remaining:now() > 0 then r.remaining:set(0); n = n + 1 end
+    end
+    log("GM mine_out → %d 个矿点置空", n)
+  end,
+  -- 打死 Core → 业务判 GameOver
+  kill_core = function()
+    root.game_state.core.health:damage(99999)
+    log("GM kill_core → alive=%s", tostring(root.game_state.core.health.is_alive:now()))
   end,
   -- 注入一次棋盘点 tap（绕过网络的自动化输入；等价客户端 tap 意图）
   tap = function(x, z)
@@ -361,4 +416,4 @@ _G.bd = {
   end,
 }
 
-log("服务端挂载完成：GameRootFull + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game) + 放置面板 + 波次阶梯/6 矿点")
+log("服务端挂载完成：Session(GameRootFull) + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game) + 放置面板/Restart + 波次阶梯/6 矿点")

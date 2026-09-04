@@ -21,6 +21,10 @@
 --   - ViewportPointToRay 无视入参（三种入参返回同一射线），不可用。
 --   - UserInputService:GetMouseLocation 在编辑器试玩里返回 (0,0)，视为无鼠标。
 --
+-- #28 胜负与重开：终局 banner（sidebar/gameover|victory）与 Restart 按钮（panel/restart）
+--   都是快照节点；点击 Restart → restart 意图 → 服务端重建树后广播 reset 全量，
+--   渲染器整树替换（血条/按钮/文本全部重建）。
+--
 -- #21 放置交互（本文件决定的输入语义）：
 --   - 放置/取消按钮 = 快照节点 panel/*，渲染器渲成 EUIButton，点击回流 place/cancel 意图；
 --   - 捕获层触摸：按下/移动 → hover 意图（预览圈随手指走、有效绿/无效红），
@@ -69,13 +73,16 @@ local resync_cooldown = 0
 local renderer = Renderer.new({
   log = log,
   get_res = function() return screen_res end,
-  -- 按钮点击回流（#21）：panel/build/<key> → place 意图，panel/cancel → cancel
+  -- 按钮点击回流（#21/#28）：panel/build/<key> → place，panel/cancel → cancel，
+  -- panel/restart → restart（服务端只在终局受理）
   on_click = function(path)
     local key = path:match("^panel/build/(%a+)$")
     if key then
       re:FireServer({ kind = "input", itype = "place", key = key })
     elseif path == "panel/cancel" then
       re:FireServer({ kind = "input", itype = "cancel" })
+    elseif path == "panel/restart" then
+      re:FireServer({ kind = "input", itype = "restart" })
     end
   end,
 })
@@ -83,11 +90,12 @@ local renderer = Renderer.new({
 re.OnClientEvent:Connect(function(msg)
   if type(msg) ~= "table" then return end
   local kind = msg.kind
+  renderer:set_generation(msg.gen) -- #28：重开后血条按 "<id>g<gen>" 寻单位
   if kind == "full" or kind == "reset" then
     last_seq = msg.seq or last_seq
     got_first = true
     renderer:replace_all(msg.nodes)
-    log("全量快照应用 kind=%s seq=%s", kind, tostring(msg.seq))
+    log("全量快照应用 kind=%s seq=%s gen=%s", kind, tostring(msg.seq), tostring(msg.gen))
   elseif kind == "delta" then
     got_first = true
     if type(msg.seq) == "number" and last_seq > 0 and msg.seq ~= last_seq + 1 then
@@ -370,8 +378,8 @@ _G.bd_client = {
   end,
   stats = function()
     local s = renderer:stats()
-    log("CSTATS live_state=%d labels=%d buttons=%d hp_bars=%d none=%d pending_hp=%d seq=%d got_first=%s",
-      s.state, s.labels, s.buttons, s.bars, s.none, s.pending, last_seq, tostring(got_first))
+    log("CSTATS live_state=%d labels=%d buttons=%d hp_bars=%d none=%d pending_hp=%d seq=%d gen=%d got_first=%s",
+      s.state, s.labels, s.buttons, s.bars, s.none, s.pending, last_seq, renderer.generation or 0, tostring(got_first))
   end,
   -- 用 SimulateTap 打按钮中心（走真实 EUIButton OnClicked → 意图链路；集成测试用）
   tap_button = function(path)

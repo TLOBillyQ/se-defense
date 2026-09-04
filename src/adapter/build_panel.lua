@@ -9,6 +9,7 @@
 --   panel/build/<key>  text="Turret $100"  color: 选中=黄 / 可买=白 / 买不起=灰
 --                      visible: Playing 时可见
 --   panel/cancel       visible: placing ~= nil
+--   panel/restart      visible: 终局（GameOver / Victory）；点击回流 restart 意图（#28）
 --
 -- 每帧 update() 读 .now() 投影一次；set_* 自带去重，无脏不发。
 
@@ -37,7 +38,16 @@ function M.create(host, root)
   panel.cancel = host.eui.node("panel/cancel")
   panel.cancel:set_visible(false)
   panel.cancel:set_text("Cancel")
+  panel.restart = host.eui.node("panel/restart")
+  panel.restart:set_visible(false)
+  panel.restart:set_text("Restart")
   return panel
+end
+
+-- 终局判定：Restart 按钮只在 GameOver / Victory 可见、意图只在此时受理。
+function M.restart_allowed(panel)
+  local mode = panel.root.game_state.mode:now()
+  return mode == "GameOver" or mode == "Victory"
 end
 
 function M.update(panel)
@@ -63,6 +73,7 @@ function M.update(panel)
     end
   end
   panel.cancel:set_visible(playing and placing ~= nil)
+  panel.restart:set_visible(M.restart_allowed(panel))
 end
 
 -- 放置意图入口（RemoteEvent / GM 共用）：只在 Playing 且 key 合法时置位。
