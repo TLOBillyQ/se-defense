@@ -390,6 +390,20 @@ _G.bd_client = {
     sg:SimulateTap(Vector2.New(x, y))
     log("tap_button(%s) → SimulateTap(%.0f,%.0f)", path, x, y)
   end,
+  -- 棋盘坐标 → 画布坐标 → SimulateTap（走真实捕获层 → tap 意图；整局验收 #30 用）。
+  -- 反向换算：WorldToScreenPoint 给视口像素（左上原点），除以标定比例 k 回画布（左下原点）。
+  tap_board = function(bx, bz)
+    if not cam_scale or not screen_res then log("tap_board：相机未标定") return end
+    local s, on = CameraService:WorldToScreenPoint(Vector3.New(tonumber(bx), 0, tonumber(bz)))
+    if not on or not s then log("tap_board(%s,%s)：世界点不在视口内", tostring(bx), tostring(bz)) return end
+    local x, y = s.x / cam_scale.x, screen_res.Y - s.y / cam_scale.y
+    local sg = Players.LocalPlayer and Players.LocalPlayer.PlayerGui.ScreenGui
+    if not sg then log("tap_board：ScreenGui 不可用") return end
+    local back = screen_to_board(x, y)
+    sg:SimulateTap(Vector2.New(x, y))
+    log("tap_board(%s,%s) → SimulateTap(%.0f,%.0f) 回算 (%s)", tostring(bx), tostring(bz), x, y,
+      back and string.format("%.2f,%.2f", back.x, back.z) or "无交点")
+  end,
 }
 
 log("客户端挂载完成：快照渲染 + 放置面板按钮 + 固定俯视相机 + 棋盘捕获层")
