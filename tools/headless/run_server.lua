@@ -224,6 +224,145 @@ check(turret_b.health.hp_fraction:now() >= 1, "turret 修满")
 check(beam_node.visible == false and beam_node._shape.line.fx.Visible == false, "修满 → 光束隐藏")
 _G.bd.buildings(); _G.bd.dump_shapes()
 
+-- ═══ #26 切片 4：波次与经济 ═══
+local wd = root.wave_director
+local function resource_at(x, z)
+  for _, r in ipairs(root.resources) do
+    local p = r.entity.position
+    if p.x == x and p.z == z then return r end
+  end
+end
+local function alive_enemies()
+  local list = {}
+  for _, en in ipairs(root.enemies) do
+    if en.health and en.health.is_alive:now() then list[#list + 1] = en end
+  end
+  return list
+end
+-- 推进到条件成立（上限 max_ticks），返回用掉的 tick 数或 nil
+local function step_until(pred, max_ticks)
+  for i = 1, max_ticks do
+    stub.step()
+    if pred() then return i end
+  end
+  return nil
+end
+
+real_print("== 切片 4：矿点布局与供电")
+check(#root.resources == 6, "6 个矿点（4 内 + 2 外）")
+local inner = resource_at(2.5, 2.5)
+local outer = resource_at(-7, 0)
+check(inner and inner.power.has_power:now() == true, "内圈矿点 (2.5,2.5) 经 Core 有电")
+check(outer and outer.power.has_power:now() == false, "外圈矿点 (-7,0) 距 Core 7 > 4 → 无电")
+check(outer and outer.remaining:now() == 30, "外圈矿点未采：remaining=30")
+check(inner and inner.remaining:now() < 20, "内圈矿点已在采：remaining<20（实际 " .. tostring(inner and inner.remaining:now()) .. "）")
+local inner_bar = host.eui.nodes["resource_" .. inner.entity.id .. "_hp"]
+check(inner_bar and inner_bar.visible == true and inner_bar.fill < 1, "内圈矿点血条可见且 fill<1")
+check(gs.resources_remaining:now() == 6, "resources_remaining=6")
+
+real_print("== 切片 4：relay 外扩到外圈矿点 → 采集 → money 增长")
+_G.bd.money(1000)
+_G.bd.place("relay")
+stub.client_send({ kind = "input", itype = "hover", x = -3.5, z = 0 })
+stub.steps(3)
+check(bi.placement_valid:now() == true, "(-3.5,0) 电网内 → 有效")
+stub.client_send({ kind = "input", itype = "tap", x = -3.5, z = 0 })
+stub.steps(4)
+check(entities_of("relay") == 1, "relay 落位 (-3.5,0)")
+hover_clear(); stub.steps(10)
+check(outer.power.has_power:now() == true, "外圈矿点经 relay 通电")
+local money_before, outer_before = gs.money:now(), outer.remaining:now()
+stub.steps(62) -- collect_time 2s = 60 tick + 余量
+check(outer.remaining:now() == outer_before - 1, "外圈矿点 2s 后 remaining -1")
+check(gs.money:now() > money_before, "money 增长（" .. money_before .. " → " .. gs.money:now() .. "）")
+local outer_bar = host.eui.nodes["resource_" .. outer.entity.id .. "_hp"]
+check(outer_bar and outer_bar.visible == true, "外圈矿点血条随采集出现")
+check(gs.collect_rate:now() > 0, "collect_rate>0")
+
+real_print("== 切片 4：矿点采空消失")
+local victim = resource_at(-2.5, -2.5)
+local victim_id = victim.entity.id
+victim.remaining:set(1)
+stub.steps(62)
+check(victim.remaining:now() == 0, "remaining 归零")
+check(host.entity.by_id[victim_id] == nil, "采空 → 实体销毁")
+check(gs.resources_remaining:now() == 5, "resources_remaining=5")
+local vb = host.eui.nodes["resource_" .. victim_id .. "_hp"]
+check(vb == nil or vb.visible == false, "采空 → 血条隐藏/回收")
+
+real_print("== 切片 4：Core 受击闪红")
+local core_e = gs.core.entity
+gs.core.health:damage(1)
+stub.step()
+local c = core_e._unit.ModelColor1
+check(c.r == 255 and c.g == 0 and c.b == 0, "受击 → ModelColor1 (255,0,0)")
+stub.steps(5) -- 0.1s = 3 tick 后恢复
+c = core_e._unit.ModelColor1
+check(c.r == 255 and c.g == 214 and c.b == 0, "0.1s 后恢复底色 (255,214,0)（实际 " .. c.r .. "," .. c.g .. "," .. c.b .. "）")
+
+real_print("== 切片 4：第 1 波（阶梯 5 只 / 1s / enemy）")
+_G.bd.lull(5) -- 下一波起平静期 5s
+local w = wd.wave:now()
+check(w.number == 1 and w.starts_in > 0, "仍在第 1 波平静期 starts_in=" .. w.starts_in)
+local used = step_until(function() return wd.wave:now().starts_in == 0 end, 1000)
+check(used ~= nil, "第 1 波来袭（等了 " .. tostring(used) .. " tick）")
+stub.steps(2)
+check(gs.collect_rate:now() == 0, "来袭期间采集暂停 collect_rate=0")
+local cfg1 = wd:wave_enemy_config()
+check(cfg1.enemy_count == 5 and cfg1.spawn_interval == 1 and cfg1.prefab == "enemy", "第 1 波配置 5/1s/enemy")
+stub.steps(4 * 30 + 20)
+local e1 = alive_enemies()
+check(#e1 == 5, "第 1 波 5 只出齐（实际 " .. #e1 .. "）")
+check(e1[1] and e1[1].prefab == "enemy" and e1[1].entity._unit.Scale.x == 0.8, "enemy 视觉 scale 0.8")
+_G.bd.enemies()
+_G.bd.kill_enemies()
+-- 清场判定 = done_spawning ∧ remaining==0；最后一只出生后还要等一个 spawn_interval 才置 done
+used = step_until(function() return wd.wave:now().number == 2 end, 60)
+w = wd.wave:now()
+check(used and w.starts_in == 5, "清场 → 第 2 波倒计时 5s（number=" .. w.number .. " starts_in=" .. w.starts_in .. "，等 " .. tostring(used) .. " tick）")
+check(gs.collect_rate:now() > 0, "平静期采集恢复")
+
+real_print("== 切片 4：第 2 波（阶梯 6 只 / 0.9s）出怪间隔与配置一致")
+used = step_until(function() return wd.wave:now().starts_in == 0 end, 200)
+check(used ~= nil and used <= 5 * 30 + 3, "第 2 波 5s 后来袭（" .. tostring(used) .. " tick）")
+local cfg2 = wd:wave_enemy_config()
+check(cfg2.enemy_count == 6 and math.abs(cfg2.spawn_interval - 0.9) < 1e-9 and cfg2.prefab == "enemy", "第 2 波配置 6/0.9s/enemy")
+-- 记录每只出生的 tick，验证间隔
+local spawn_ticks, last_n = {}, 0
+for i = 1, 5 * 27 + 20 do
+  stub.step()
+  local n = #alive_enemies()
+  if n > last_n then spawn_ticks[#spawn_ticks + 1] = i; last_n = n end
+end
+check(#spawn_ticks == 6, "第 2 波 6 只出齐（实际 " .. #spawn_ticks .. "）")
+local gaps_ok = true
+for i = 2, #spawn_ticks do
+  local gap = spawn_ticks[i] - spawn_ticks[i - 1]
+  if gap < 26 or gap > 28 then gaps_ok = false end
+end
+check(gaps_ok, "出怪间隔 0.9s ≈27 tick（" .. table.concat(spawn_ticks, ",") .. "）")
+_G.bd.kill_enemies()
+check(step_until(function() return wd.wave:now().number == 3 end, 60) ~= nil, "→ 第 3 波")
+
+real_print("== 切片 4：第 3 波换档 enemy_heavy")
+used = step_until(function() return wd.wave:now().starts_in == 0 end, 200)
+local cfg3 = wd:wave_enemy_config()
+check(cfg3.enemy_count == 4 and cfg3.prefab == "enemy_heavy" and cfg3.max_hp == 30 and math.abs(cfg3.spawn_interval - 0.8) < 1e-9, "第 3 波配置 4/0.8s/enemy_heavy/hp30")
+stub.steps(3 * 24 + 20)
+local e3 = alive_enemies()
+check(#e3 == 4, "第 3 波 4 只出齐")
+check(e3[1] and e3[1].prefab == "enemy_heavy" and e3[1].max_hp == 30, "敌人实例 prefab=enemy_heavy max_hp=30")
+check(e3[1] and e3[1].entity._unit.Scale.x == 1.3 and e3[1].entity._unit.ModelColor1.b == 140, "enemy_heavy 视觉 scale 1.3 / 底色 b=140")
+_G.bd.kill_enemies()
+check(step_until(function() return wd.wave:now().number == 4 end, 60) ~= nil, "→ 第 4 波")
+
+real_print("== 切片 4：阶梯任意波号有定义")
+local L = wd._waves
+check(L[6].enemy.prefab == "enemy_boss" and L[6].enemy_count == 3, "第 6 波 enemy_boss ×3")
+check(L[12].enemy_count == 8 and L[12].spawn_interval == 0.5, "第 12 波数量封顶 8 / 间隔下限 0.5")
+check(L[99] ~= nil, "第 99 波仍有定义")
+_G.bd.wave(6); _G.bd.resources()
+
 real_print("== GM 面")
 _G.bd.place("radar")
 check(bi.placing:now() ~= nil or gs.money:now() < 75, "GM place 走同一入口")

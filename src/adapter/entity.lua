@@ -22,7 +22,10 @@ local World = game:GetService("World")
 -- color: {r,g,b} 0..1，spawn 时染底色（业务受击/断电再覆写）。
 local VISUALS = {
   Core =     { mesh = "official://mesh/59268", scale = { 2, 2, 2 },        half = 1, color = { 1, 0.84, 0 } },
-  enemy =    { mesh = "official://mesh/59268", scale = { 0.8, 0.8, 0.8 },  half = 1, color = { 0.9, 0.15, 0.15 }, kinematic = true },
+  -- 敌人三档（#26 波次阶梯的 prefab 变体键）：体积与色相都拉开，俯视一眼可辨。
+  enemy =       { mesh = "official://mesh/59268", scale = { 0.8, 0.8, 0.8 }, half = 1, color = { 0.9, 0.15, 0.15 }, kinematic = true },
+  enemy_heavy = { mesh = "official://mesh/59268", scale = { 1.3, 1.1, 1.3 }, half = 1, color = { 0.85, 0.1, 0.55 }, kinematic = true },
+  enemy_boss =  { mesh = "official://mesh/59268", scale = { 2, 1.8, 2 },     half = 1, color = { 0.45, 0.05, 0.75 }, kinematic = true },
   Resource = { mesh = "official://mesh/59273", scale = { 0.6, 0.8, 0.6 },  half = 3, color = { 0.2, 0.9, 0.4 } },
   relay =    { mesh = "official://mesh/59273", scale = { 0.5, 0.5, 0.5 },  half = 3, color = { 0.4, 0.7, 1 } },
   radar =    { mesh = "official://mesh/59268", scale = { 0.8, 0.6, 0.8 },  half = 1, color = { 0.6, 0.6, 0.9 } },
