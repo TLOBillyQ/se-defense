@@ -1,324 +1,220 @@
--- #10 真机烟测（服务端）：spoke 运行时在 SE 启动。
--- 票面：试玩中 tick 计数增长、受控 fault 被三层错误边界捕获、探针子集结论。
--- 日志前缀 [smoke][server]，供 `$CLI log grep smoke` 提取。
+-- #19 垂直切片（服务端）：GameRootFull + Core + 单波敌人 + 最简 HUD。
 --
--- 烟测点：
---   S1 require 根语义探针（#6 移交 / #7-A5）：工作区根直接 require src.* / examples.*
---   S2 Heartbeat 固定步长积累驱动 GameTick(1/30) + 最小 Auto 树 tick 计数 + SpokeRuntime.batch
---   S3 三层错误边界：tick 150 受控注入 fault（effect 内 error），观察 tree.fault 与日志
---   S4 RemoteEvent 快照通道 + client_ready 握手 + 突发窗口（送达率/乱序探针）
---   S5 Unit 复制探针（#7-P1 / realm F18）：Kinematic WorldUnit 每 tick 写 Position + Destroy；染色（#9-P1）
---   S6 服务端 EffectUnit 复制 + 特效半径缩放（#9-P3）+ Attach 跟随（#9-P4）
---   S7 Heartbeat 实测间隔统计（含负载脉冲下的抖动）
---   S8 dispose：_G.smoke_dispose 注入执行（试玩中验证拆树）
+-- 架构（#7 决议）：
+--   - 服务端一棵 Auto 树（GameRootFull 全业务组合根，业务零改动经 swap 接入适配层）；
+--   - RunService.Heartbeat 固定步长积累驱动 GameTick(1/30)，整帧派发由
+--     SpokeRuntime.batch 合并成一次 flush（#10 实测 30fps 稳定、jitter=0）；
+--   - host.eui 快照出口每帧 dirty 即发（#18 决策 2），client_ready 握手 /
+--     seq 缺口 resync 走全量（#18 决策 1）；
+--   - 输入反向通道：客户端捕获层 → FireServer 意图 → host.input 队列（#7 决策 2、#8 D5）。
+--
+-- 切片边界（票面 + #9 D4 垂直切片基线）：
+--   单波次配置（waves 不升级）、不挂放置 UI/取消按钮（「建筑与放置」是下一片）、
+--   不挂 Restart（「胜负与重开」后续片，reset_scene 适配器已备好）。
+--
+-- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。GM 面见文件底部 _G.bd。
 
--- 环境事实：SE 服务端 Lua 沙盒缺少标准库 `rawequal` 的问题已由 spoke-lua
--- upstream 在 epoch_cursor / introspect_labels 中兜底（spoke-lua #53 / #54）。
--- se-defense 不再注入全局 polyfill。
 local World = game:GetService("World")
 local RunService = game:GetService("RunService")
 
 local function log(fmt, ...)
-  print("[smoke][server] " .. string.format(fmt, ...))
+  print("[bd][server] " .. string.format(fmt, ...))
 end
 
-local function try(tag, fn)
-  local ok, err = pcall(fn)
-  if not ok then log("%s 失败: %s", tag, tostring(err)) end
-  return ok
+-- SE 服务端沙盒的 package 库不完整（接入指南：package/io/os/debug 被移除），
+-- 而业务 game_root_full.lua 在惰性加载 Enemy 时会写 package.loaded（清测试 stub
+-- 缓存）。真机部署不存在 stub 污染，注入最小 shim 使该写法无害化即可，
+-- 业务保持零改动。shim 语义：宿主 require 自管缓存时 shim 是死代码；
+-- 宿主 require 走 package.loaded 时 shim 从头缓存（无 stub 可清，等价）。
+if type(_G.package) ~= "table" then
+  _G.package = {}
+end
+if type(_G.package.loaded) ~= "table" then
+  _G.package.loaded = {}
+  log("package.loaded 不存在，已注入最小 shim（兼容 game_root_full 的缓存复位写法）")
 end
 
--- ── S1 require 根语义探针 ─────────────────────────────────────────────
-local probe_results = {}
-local function probe_require(path)
-  local ok, err = pcall(require, path)
-  probe_results[#probe_results + 1] =
-    string.format("%s = %s", path, ok and "OK" or ("FAIL " .. tostring(err)))
-  return ok
-end
-
-local ok_spoke = probe_require("src.spoke")
-local ok_runtime = probe_require("src.spoke.runtime.spoke_runtime")
-local ok_tickmod = probe_require("examples.base_defence.game_tick")
-probe_require("examples.base_defence.game_root") -- 组合根模块链（含 swap 后的 host_mock）
-for _, line in ipairs(probe_results) do log("require-probe %s", line) end
-
-if not (ok_spoke and ok_runtime and ok_tickmod) then
-  log("FATAL: spoke 运行时 require 失败，烟测无法继续")
-  return
-end
-
+local host = require("src.adapter.host")
 local spoke = require("src.spoke")
 local SpokeRuntime = require("src.spoke.runtime.spoke_runtime")
 local GameTick = require("examples.base_defence.game_tick")
+local GameRootFull = require("examples.base_defence.game_root_full")
 
--- ── S2/S3 最小 Auto 树（tick 计数 + 受控 fault 注入）────────────────
-local STEP = 1 / 30
-local MAX_CATCHUP = 4      -- #7 假设 A1：积累上限 4 步/帧，超限丢弃多余时间
-local FAULT_AT_TICK = 150  -- 5s 处注入受控 fault
+-- ── 切片配置 ────────────────────────────────────────────────────────
+-- 棋盘 40×40、Core 置世界原点、单位 1:1（#8 D2 假设）。
+-- 单波：waves 只定义第 1 波，后续波沿用全局同配置（不升级 = 「单波敌人」）。
+local STEP = 1 / 30        -- 对齐宿主 30fps 逻辑帧（#7-A2，#10 实测通过）
+local MAX_CATCHUP = 4      -- 积累上限 4 步/帧，超限丢弃（#7-A1，#10 实测通过）
+local AUTO_START_AT = 3    -- 试玩开局 3s 后自动进入 Playing（Pregame 可观察 HUD）
 
-local tick_count_state = spoke.State.new("smoke_tick_count", 0)
-local fault_armed_state = spoke.State.new("smoke_fault_armed", false)
-local last_rendered_tick = -1
-local render_count = 0
-local fault_seen = false
+local tick = GameTick.new(STEP)
 
-local smoke_root = spoke.Effect.new("SmokeRoot", function(s)
-  -- 渲染出口：真产品里这里写 EUI 快照登记表；烟测只记录渲染节奏。
-  s:effect(function(s)
-    last_rendered_tick = s:d(tick_count_state)
-    render_count = render_count + 1
-  end)
-  -- 受控 fault：fault_armed 置位后在 flush 内抛错，验证三层错误边界
-  -- （Epoch fault 包装 → 树 faulted 停 flush → SpokeRuntime xpcall 记日志不 rethrow）。
-  s:effect(function(s)
-    if s:d(fault_armed_state) and not fault_seen then
-      fault_seen = true
-      error("SMOKE_INJECTED_FAULT 受控故障：验证三层错误边界")
-    end
-  end)
-end)
+local root = GameRootFull.new({
+  host = host,
+  game_tick = tick,
+  game_state = {
+    core_position = { x = 0, y = 0, z = 0 },
+    dimensions = { x = 40, z = 40 },
+    start_money = 100,
+    core_max_hp = 50,
+  },
+  wave_director = {
+    lull_duration = 8,
+    front_reveal_time = 3,
+    spawn_interval = 1,
+    enemy_count = 5,
+    waves = {
+      [1] = { enemy_count = 5, spawn_interval = 1, enemy = { prefab = "enemy" } },
+    },
+  },
+  enemy = {
+    prefab = "enemy",
+    max_hp = 10,
+    move_speed = 3,
+    stop_distance = 1.5,
+    fire_rate = 1,
+    damage = 5,
+  },
+})
 
-local tree = spoke.SpokeTree.spawn("smoke-tree", smoke_root)
-log("Auto 树 spawn 完成 fault=%s detached=%s 初始渲染 render_count=%d",
-  tostring(tree.fault), tostring(tree.is_detached), render_count)
+local tree = spoke.SpokeTree.spawn(root)
+log("Auto 树 spawn 完成 fault=%s detached=%s", tostring(tree.fault), tostring(tree.is_detached))
 
--- ── S4 RemoteEvent 通道 ─────────────────────────────────────────────
-local re = RemoteEvent.New("bd_smoke")
-local snapshot_seq = 0
-local client_ready = false
-local client_stats_count = 0
+-- 棋盘边界注入输入适配层（#8 D2：界外点 → nil）
+host.input.set_bounds(root.game_state:level_bounds())
 
-local hb = {
-  frames = 0, uptime = 0,
-  dt_min = math.huge, dt_max = 0, dt_sum = 0, jitter_max = 0, slow_frames = 0,
-  multi_step_frames = 0, dropped_steps = 0,
-}
-local ticks_total = 0
+-- ── RemoteEvent 通道（bd_game）：快照下行 + 输入/握手上行 ─────────────
+local re = RemoteEvent.New("bd_game")
+local seq = 0
 
-local function send_snapshot(kind)
-  snapshot_seq = snapshot_seq + 1
-  re:FireAllClients({
-    kind = kind or "snapshot",
-    seq = snapshot_seq,
-    tick = ticks_total,
-    up = math.floor(hb.uptime),
-  })
+local function send(kind, payload)
+  seq = seq + 1
+  local msg = payload or {}
+  msg.kind = kind
+  msg.seq = seq
+  msg.gen = host.eui.generation
+  re:FireAllClients(msg)
+end
+
+local function send_full()
+  send("full", { nodes = host.eui.full() })
 end
 
 re.OnServerEvent:Connect(function(player, args)
-  -- F10：入参按不可信输入校验
-  if type(args) ~= "table" then
-    log("OnServerEvent 拒绝非 table 入参 type=%s", type(args))
-    return
-  end
+  -- F10：入参按不可信输入校验（类型白名单 + 数值范围）
+  if type(args) ~= "table" then return end
   local kind = args.kind
-  if kind == "client_ready" then
-    if not client_ready then
-      client_ready = true
-      log("client_ready 握手到达，立即补发最新快照")
-    else
-      log("client_ready 重发到达（客户端未收到首快照，重试中）")
+  if kind == "client_ready" or kind == "resync" then
+    log("%s 到达，发全量快照（nodes=%d）", kind, #host.eui.order)
+    send_full()
+  elseif kind == "input" then
+    local itype = args.itype
+    if itype == "tap" or itype == "hover" then
+      local x, z = tonumber(args.x), tonumber(args.z)
+      if x and z and math.abs(x) <= 100 and math.abs(z) <= 100 then
+        if itype == "tap" then
+          host.input.intent_tap(x, z)
+        else
+          host.input.intent_hover(x, z)
+        end
+      elseif itype == "hover" and args.x == nil then
+        host.input.intent_hover(nil, nil) -- 抬指/出界
+      end
+    elseif itype == "cancel" then
+      host.input.intent_cancel()
     end
-    send_snapshot("hello_after_ready")
-  elseif kind == "client_stats" then
-    client_stats_count = client_stats_count + 1
-    log("client-stats#%d: snapshots=%s gaps=%s burst=%s/%s mover_first=%ss mover_lost=%ss samples=%s retries=%s",
-      client_stats_count,
-      tostring(args.snapshots), tostring(args.gaps),
-      tostring(args.burst), tostring(args.burst_expected),
-      tostring(args.mover_first), tostring(args.mover_lost),
-      tostring(args.samples), tostring(args.retries))
-  else
-    log("OnServerEvent 未知 kind=%s", tostring(kind))
   end
 end)
 
--- ── S5/S6 单位与特效探针 ────────────────────────────────────────────
-local mover, ring_small, ring_big, line_a, line_b, line_fx
-local mover_destroyed = false
-local line_b_moved = false
-
-local function spawn_probe_units()
-  try("创建 mover", function()
-    mover = World:CreateUnit("WorldUnit", {
-      Name = "smoke_mover",
-      RenderMeshId = "official://mesh/59268",
-      BodyType = Enums.BodyType.Kinematic,
-      CanCollide = false,
-      Scale = Vector3.New(1, 1, 1),
-      Position = Vector3.New(-6, 0.5, 0),
-    })
-    log("PROBE mover 已创建（Kinematic 立方体 @(-6,0.5,0)）tick=%d", ticks_total)
-  end)
-  try("创建 ring_small", function()
-    ring_small = World:CreateUnit("EffectUnit", {
-      Name = "smoke_ring_small",
-      EffectId = "official://effect/6079",
-      Duration = -1,
-      Scale = Vector3.New(1, 1, 1),
-      Position = Vector3.New(-2, 0.05, -5),
-    })
-    log("PROBE ring_small 已创建 Scale=(1,1,1) @(-2,-5)")
-  end)
-  try("创建 ring_big", function()
-    ring_big = World:CreateUnit("EffectUnit", {
-      Name = "smoke_ring_big",
-      EffectId = "official://effect/6079",
-      Duration = -1,
-      Scale = Vector3.New(3, 3, 3),
-      Position = Vector3.New(3, 0.05, -5),
-    })
-    log("PROBE ring_big 已创建 Scale=(3,3,3) @(3,-5)")
-  end)
-  try("创建连线单位", function()
-    line_a = World:CreateUnit("WorldUnit", {
-      Name = "smoke_line_a",
-      RenderMeshId = "official://mesh/59268",
-      BodyType = Enums.BodyType.Kinematic,
-      CanCollide = false,
-      Scale = Vector3.New(0.5, 0.5, 0.5),
-      Position = Vector3.New(-4, 0.5, 5),
-    })
-    line_b = World:CreateUnit("WorldUnit", {
-      Name = "smoke_line_b",
-      RenderMeshId = "official://mesh/59268",
-      BodyType = Enums.BodyType.Kinematic,
-      CanCollide = false,
-      Scale = Vector3.New(0.5, 0.5, 0.5),
-      Position = Vector3.New(4, 0.5, 5),
-    })
-    line_fx = World:CreateUnit("EffectUnit", {
-      Name = "smoke_line",
-      EffectId = "official://effect/4506",
-      Duration = -1,
-      Position = Vector3.New(-4, 0.5, 5),
-    })
-    local ok1 = pcall(function() line_fx:StartposAttach(line_a, "", Vector3.New(0, 0, 0)) end)
-    local ok2 = pcall(function() line_fx:EndposAttach(line_b, "", Vector3.New(0, 0, 0)) end)
-    log("PROBE 连线 attach start=%s end=%s（socket=''）", tostring(ok1), tostring(ok2))
-  end)
-end
-
--- ── S2 每 tick 逻辑 ─────────────────────────────────────────────────
-local tick = GameTick.new(STEP)
-
-tick:listen(function(dt)
-  ticks_total = ticks_total + 1
-  local t = ticks_total
-
-  -- 计数写入 + 受控 fault 武装：整帧派发由外层 batch 合并成一次 flush
-  tick_count_state:set(t)
-  if t == FAULT_AT_TICK then
-    fault_armed_state:set(true)
-    log("FAULT 已武装 @tick=%d（下一次 flush 内 effect 将抛错）", t)
-  end
-
-  -- 快照：每 30 tick（1 逻辑秒）一次
-  if t % 30 == 0 then send_snapshot("snapshot") end
-
-  -- 突发窗口：tick 151..160 每 tick 10 条（共 100 条）测送达率
-  if t >= 151 and t <= 160 then
-    for i = 1, 10 do
-      re:FireAllClients({ kind = "burst", seq = (t - 151) * 10 + i })
-    end
-  end
-
-  -- mover：tick 60 创建，60..120 每 tick +0.1x，90 染色，180 Destroy
-  if t == 45 then spawn_probe_units() end
-  if mover and t >= 60 and t <= 120 then
-    local x = -6 + (t - 60) * 0.1
-    mover.Position = Vector3.New(x, 0.5, 0)
-    if t % 20 == 0 then log("PROBE mover Position 写入 x=%.1f @tick=%d", x, t) end
-  end
-  if mover and t == 90 then
-    try("mover 染色", function()
-      mover.ModelColor1 = Color.New(255, 0, 0, 255)
-      log("PROBE mover ModelColor1 写红 @tick=90")
-    end)
-  end
-  if mover and t == 180 and not mover_destroyed then
-    mover_destroyed = true
-    try("mover Destroy", function()
-      mover:Destroy()
-      log("PROBE mover Destroy @tick=180")
-    end)
-  end
-
-  -- 连线端点 b 移动（Attach 跟随探针）
-  if line_b and t == 240 and not line_b_moved then
-    line_b_moved = true
-    try("line_b 移动", function()
-      line_b.Position = Vector3.New(4, 0.5, 9)
-      log("PROBE line_b 移动到 z=9 @tick=240（观察连线是否跟随）")
-    end)
-  end
-
-  -- fault 后渲染冻结确认
-  if t == FAULT_AT_TICK + 30 then
-    log("FAULT 后 30tick：tree.fault=%s last_rendered=%d render_count=%d（应停增）",
-      tostring(tree.fault), last_rendered_tick, render_count)
-  end
-end)
-
--- ── S7/S2 Heartbeat 驱动器（固定步长积累）────────────────────────────
-local load_impulse_at = { [240] = true, [540] = true } -- 约 8s/18s 注入负载脉冲
+-- ── Heartbeat 固定步长驱动器（#7 决策 3 + #10 验证姿势）──────────────
 local acc = 0
+local uptime = 0
+local ticks_total = 0
+local started = false
 
 RunService.Heartbeat:Connect(function(deltaTime)
-  hb.frames = hb.frames + 1
-  hb.uptime = hb.uptime + deltaTime
-  hb.dt_sum = hb.dt_sum + deltaTime
-  if deltaTime < hb.dt_min then hb.dt_min = deltaTime end
-  if deltaTime > hb.dt_max then hb.dt_max = deltaTime end
-  local jitter = math.abs(deltaTime - STEP)
-  if jitter > hb.jitter_max then hb.jitter_max = jitter end
-  if deltaTime > STEP * 1.5 then hb.slow_frames = hb.slow_frames + 1 end
+  uptime = uptime + deltaTime
 
-  -- 负载脉冲：帧内忙等，观察下一帧 deltaTime 与积累追赶
-  if load_impulse_at[hb.frames] then
-    local n = 0
-    for i = 1, 300000 do n = n + math.sqrt(i) end
-    log("LOAD 脉冲帧 #%d 已执行（哨兵=%.0f），观察后续 dt", hb.frames, n % 7)
+  if not started and uptime >= AUTO_START_AT then
+    started = true
+    root.game_state:start_game()
+    log("自动 start_game @%.1fs → Playing", uptime)
   end
 
   acc = acc + deltaTime
-  local steps = 0
   SpokeRuntime.batch(function()
+    local steps = 0
     while acc >= STEP and steps < MAX_CATCHUP do
+      host.input.arm_frame()   -- 上帧到达的点击意图举为当帧边沿（见 input.lua 注释）
       tick:tick(STEP)
+      host.input.reset_frame() -- "按下只持续一帧"（#8 D5）
       acc = acc - STEP
       steps = steps + 1
+      ticks_total = ticks_total + 1
     end
   end)
   if acc >= STEP then
-    local dropped = math.floor(acc / STEP)
-    hb.dropped_steps = hb.dropped_steps + dropped
-    acc = 0 -- 丢弃多余时间（#7 决策：单人玩法不做追赶）
+    acc = 0 -- 丢弃多余时间，不做追赶（#7-A1）
   end
-  if steps > 1 then hb.multi_step_frames = hb.multi_step_frames + 1 end
 
-  -- 周期统计（每 10s）
-  if hb.frames % 300 == 0 then
-    log("HB 统计 @%.0fs: frames=%d dt_min=%.4f dt_max=%.4f dt_avg=%.4f jitter_max=%.4f slow=%d 多步帧=%d 丢弃步=%d ticks=%d rendered=%d/%d次",
-      hb.uptime, hb.frames, hb.dt_min, hb.dt_max, hb.dt_sum / hb.frames,
-      hb.jitter_max, hb.slow_frames, hb.multi_step_frames, hb.dropped_steps,
-      ticks_total, last_rendered_tick, render_count)
+  -- 快照：每帧派发结束 dirty 即发（#18 决策 2，无额外节流）
+  local delta = host.eui.drain()
+  if delta then
+    send("delta", delta)
   end
 end)
 
--- ── S8 dispose / 状态注入点（经 $CLI exec --platform server 调用）────
-_G.smoke_status = function()
-  log("STATUS ticks=%d frames=%d uptime=%.1fs rendered=%d（%d 次）fault=%s detached=%s snapshots=%d ready=%s",
-    ticks_total, hb.frames, hb.uptime, last_rendered_tick, render_count,
-    tostring(tree.fault), tostring(tree.is_detached), snapshot_seq, tostring(client_ready))
-end
+-- ── GM 面（$CLI exec --platform server 驱动；自动化验证优先 #1 偏好 2）──
+_G.bd = {
+  status = function()
+    local gs = root.game_state
+    log("STATUS mode=%s ticks=%d uptime=%.1fs money=%s core_hp=%.2f entities=%d eui_nodes=%d seq=%d gen=%d",
+      tostring(gs.mode:now()), ticks_total, uptime,
+      tostring(gs.money:now()),
+      gs.core and gs.core.health.hp_fraction:now() or -1,
+      #host.entity.all(), #host.eui.order, seq, host.eui.generation)
+  end,
+  start = function()
+    if not started then
+      started = true
+      root.game_state:start_game()
+      log("GM start_game")
+    end
+  end,
+  -- 注入一次棋盘点 tap（绕过网络的自动化输入；等价客户端 tap 意图）
+  tap = function(x, z)
+    local ok = host.input.intent_tap(tonumber(x), tonumber(z))
+    log("GM tap(%s,%s) → %s", tostring(x), tostring(z), tostring(ok))
+  end,
+  cancel = function()
+    host.input.intent_cancel()
+    log("GM cancel")
+  end,
+  -- 进入放置模式（「建筑与放置」片的预验口；本切片不挂 UI 按钮）
+  place = function(key)
+    local spec = root.building_specs and root.building_specs[key]
+    if spec then
+      root.board_interactions.placing:set(spec)
+      log("GM place(%s)：placing 已置位", tostring(key))
+    else
+      log("GM place(%s)：未知 spec", tostring(key))
+    end
+  end,
+  dump_entities = function()
+    for _, e in ipairs(host.entity.all()) do
+      local p = e.position
+      log("entity #%d %s @(%.1f,%.1f,%.1f) active=%s", e.id, tostring(e.prefab), p.x, p.y, p.z, tostring(e.active))
+    end
+  end,
+  dump_nodes = function()
+    for _, path in ipairs(host.eui.order) do
+      local n = host.eui.nodes[path]
+      if n then
+        log("node %s text=%q visible=%s fill=%.2f shape=%s",
+          path, n.text, tostring(n.visible), n.fill, tostring(n._shape_only == true))
+      end
+    end
+  end,
+}
 
-_G.smoke_dispose = function()
-  log("DISPOSE 调用前: fault=%s detached=%s render_count=%d",
-    tostring(tree.fault), tostring(tree.is_detached), render_count)
-  local ok, err = pcall(function() tree:dispose() end)
-  log("DISPOSE 结果 ok=%s err=%s detached=%s", tostring(ok), tostring(err), tostring(tree.is_detached))
-end
-
-log("服务端烟测挂载完成：Heartbeat 驱动 GameTick(1/30) + Auto 树 + RemoteEvent(bd_smoke)")
+log("垂直切片服务端挂载完成：GameRootFull + Heartbeat 驱动 GameTick(1/30) + RemoteEvent(bd_game)")
