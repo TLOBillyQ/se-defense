@@ -23,5 +23,9 @@
 - **部署树** — 推送进编辑器前的文件树：`src/spoke/`（spoke-lua 运行时）+ `examples/base_defence/`（业务，mock 已替换）+ 本仓库适配代码，经 byte 镜像进入工作区。
 - **GameTick** — 游戏固定步长节拍。SE 真机由服务端 `RunService.Heartbeat`（30fps 逻辑帧）驱动固定步长；`EVENT.REPEAT_TIMEOUT` 是旧宿主 ECA 周期事件、SE 文档中不存在（调研修正，见 `research/realm-model` 分支）。
 - **RemoteEvent** — SE 中 server→client 的唯一文档化消息通道（`FireClient`/`FireAllClients` → `OnClientEvent`）；仿真快照驱动客户端 EUI 的载体。送达/有序无文档承诺。
+- **快照（snapshot）** — 服务端经 RemoteEvent 发给客户端的 UI 状态表：节点路径 → `{text, visible, color, fill}`。协议为混合制：平时节点级增量（带单调 `seq`），握手（`client_ready`）与序号缺口（`resync`）时全量重同步。ring/line 形状**不进快照**（见双路由）。
+- **双路由（dual routing）** — 服务端 `host.eui` 适配器内部的分流：`text/fill/color/visible` 进快照跨网络；`set_ring`/`set_line` 形状在服务端就地渲为 EffectUnit，随 Unit 复制可见，不跨网络。
+- **recipe 表** — 客户端渲染器的静态注册表：快照节点 path 前缀模式 → 真节点配方（EUI 类型、布局、样式、世界锚定方式）。快照只携状态，表现知识全在 recipe 表。
+- **哑镜像（dumb mirror）** — 客户端 v1 形态：零 spoke 树，订阅快照并差分应用到真 EUI/SceneGui 节点（`src/adapter/eui_render.lua`）。
 - **探针（probe）** — 文档查不到、需真机实测确认的事实项；三份调研分支各附探针清单（`research/realm-model`、`research/input-camera`、`research/visual-primitives`）。
 - **上帝视角（god-view）** — 交互范式：固定俯视棋盘，玩家点击/触摸棋盘放置与选择；输入经 EUI 捕获层 + `CameraService` 屏幕坐标→射线与**棋盘平面（board plane）**求交。
