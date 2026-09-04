@@ -10,7 +10,10 @@
 --
 -- #21 建筑与放置：放置/取消按钮归适配层（src/adapter/build_panel.lua 投影为
 --   快照节点 panel/*，客户端渲成 EUIButton），点击回流 place/cancel 意图；
---   放置预览由业务 board_display 的 ring 双路由承担（eui.lua 给 EffectUnit 上色）。
+--   放置预览由业务 board_display 的 ring 双路由承担。
+-- #23 电网与辅助建筑：业务零改动；覆盖圈 6044 / 连线与光束 4506 的分派、
+--   雷达横杆天线、断电 tint 透传都在适配层（eui.lua / entity.lua）。
+--   GM 新增 money/damage/dump_shapes/buildings 供集成测试编排。
 --
 -- 切片边界：单波次配置（waves 不升级）、不挂 Restart（「胜负与重开」后续片）。
 --
@@ -220,6 +223,39 @@ _G.bd = {
     log("PLACING key=%s valid=%s mouse=%s",
       p and p.key or "nil", tostring(root.board_interactions.placement_valid:now()),
       (function() local m = host.input.get_mouse_world_point(); return m and string.format("(%.2f,%.2f)", m.x, m.z) or "nil" end)())
+  end,
+  -- 直接设余额（集成测试铺建筑用）
+  money = function(n)
+    root.game_state.money:set(tonumber(n) or 0)
+    log("GM money=%s", tostring(root.game_state.money:now()))
+  end,
+  -- 对某建筑（按实体 id）造成伤害；测试「relay 被毁 → 下游断电」
+  damage = function(id, amount)
+    local rec = root.pool and root.pool._live_by_entity_id[tonumber(id)]
+    local b = rec and rec.epoch and rec.epoch.building
+    if not b then log("GM damage：实体 %s 不是 live 建筑", tostring(id)); return end
+    b.health:damage(tonumber(amount) or 999)
+    log("GM damage(%s,%s) → alive=%s", tostring(id), tostring(amount), tostring(b.health.is_alive:now()))
+  end,
+  -- live 建筑一览：id / 类型 / 供电 / 血量
+  buildings = function()
+    for id, rec in pairs(root.pool and root.pool._live_by_entity_id or {}) do
+      local b = rec.epoch and rec.epoch.building
+      if b then
+        local p = rec.entity.position
+        log("building #%d %s @(%.1f,%.1f) powered=%s hp=%.2f",
+          id, tostring(rec.spec and rec.spec.key), p.x, p.z,
+          b.power and tostring(b.power.has_power:now()) or "n/a",
+          b.health.hp_fraction:now())
+      end
+    end
+  end,
+  -- 形状单位（覆盖圈/连线/光束）一览
+  dump_shapes = function()
+    for _, sh in ipairs(host.eui.shapes()) do
+      log("shape %s kind=%s effect=%s visible=%s%s", sh.path, sh.kind, tostring(sh.effect),
+        tostring(sh.visible), sh.radius and string.format(" r=%.2f", sh.radius) or "")
+    end
   end,
   dump_entities = function()
     for _, e in ipairs(host.entity.all()) do

@@ -26,7 +26,9 @@ local VISUALS = {
   Resource = { mesh = "official://mesh/59273", scale = { 0.6, 0.8, 0.6 },  half = 3, color = { 0.2, 0.9, 0.4 } },
   relay =    { mesh = "official://mesh/59273", scale = { 0.5, 0.5, 0.5 },  half = 3, color = { 0.4, 0.7, 1 } },
   radar =    { mesh = "official://mesh/59268", scale = { 0.8, 0.6, 0.8 },  half = 1, color = { 0.6, 0.6, 0.9 } },
-  RadarDish = { mesh = "official://mesh/59268", scale = { 0.1, 2, 0.1 },   half = 1, color = { 0.8, 0.8, 0.9 } },
+  -- 雷达天线（#23）：业务每 tick 绕 Y 轴累加旋转；竖杆绕 Y 转肉眼看不出，
+  -- 改为架在底座顶（radar 高 1.2）上的横杆，lift 指定中心离地高度。
+  RadarDish = { mesh = "official://mesh/59268", scale = { 1.6, 0.12, 0.12 }, half = 1, color = { 0.95, 0.95, 1 }, lift = 1.45 },
   turret =   { mesh = "official://mesh/59268", scale = { 1, 1, 1 },        half = 1, color = { 0.9, 0.5, 0.1 } },
   repair =   { mesh = "official://mesh/59268", scale = { 1, 1, 1 },        half = 1, color = { 0.5, 0.9, 0.7 } },
 }
@@ -61,7 +63,7 @@ end
 function entity.spawn(prefab, pos)
   local vis = VISUALS[prefab] or FALLBACK
   local p = copy_vec3(pos)
-  local ground_y = vis.half * vis.scale[2]
+  local ground_y = vis.lift or (vis.half * vis.scale[2])
 
   local unit = World:CreateUnit("WorldUnit", {
     Name = tostring(entity.next_id), -- #18 决策 4：Name = 业务实体 id
@@ -134,13 +136,15 @@ function entity.spawn(prefab, pos)
     return self.color
   end
 
-  -- XZ 平面朝向角（弧度）→ 世界单位朝向。SE Rotation 轴向语义未经探针，
-  -- 垂直切片只用于雷达天线/炮管（后续片）；此处按「弧度→度、绕 Y 轴」写入。
+  -- XZ 平面朝向角（弧度）→ 世界单位朝向：绕 Y 轴、弧度→度。业务侧雷达天线
+  -- 是无界累加（radar.lua），写引擎前归一到 [0,360) 防浮点漂移；业务读回的
+  -- 仍是原始累加值（get_rotation 语义不变）。轴向语义待真机目视（#23 HITL）。
   function e:set_rotation(r)
     self.rotation = r
     if self._unit then
+      local deg = math.deg(r) % 360
       pcall(function()
-        self._unit.Rotation = Vector3.New(0, math.deg(r), 0)
+        self._unit.Rotation = Vector3.New(0, deg, 0)
       end)
     end
   end

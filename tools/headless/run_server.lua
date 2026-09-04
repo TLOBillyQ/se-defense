@@ -116,6 +116,114 @@ stub.client_send({ kind = "input", itype = "cancel" })
 stub.steps(4)
 check(bi.placing:now() == nil, "cancel → placing 清空")
 
+-- ═══ #23 切片 3：电网与辅助建筑 ═══
+local function shapes_with(prefix)
+  local out = {}
+  for _, sh in ipairs(host.eui.shapes()) do
+    if sh.path:sub(1, #prefix) == prefix then out[#out + 1] = sh end
+  end
+  return out
+end
+local function building_of(prefab)
+  for id, rec in pairs(root.pool._live_by_entity_id) do
+    if rec.spec.key == prefab and rec.epoch.building.health.is_alive:now() then return id, rec.epoch.building, rec.entity end
+  end
+end
+local function hover_clear() stub.client_send({ kind = "input", itype = "hover" }); stub.steps(3) end
+
+real_print("== 切片 3：电网外放置被拒")
+_G.bd.money(1000)
+_G.bd.place("radar")
+stub.client_send({ kind = "input", itype = "hover", x = 0, z = 6 })
+stub.steps(3)
+check(bi.placement_valid:now() == false, "(0,6) 距 Core 6 > provide_range 4 → 无效")
+local pr = shapes_with("board/placement_power")
+check(#pr == 1, "电网覆盖圈仅 Core 一圈（实际 " .. #pr .. "）")
+check(pr[1] and pr[1].effect == "official://effect/6044", "覆盖圈特效 6044（实际 " .. tostring(pr[1] and pr[1].effect) .. "）")
+check(pr[1] and pr[1].radius == 4, "Core 覆盖圈半径 4")
+stub.client_send({ kind = "input", itype = "tap", x = 0, z = 6 })
+stub.steps(4)
+check(entities_of("radar") == 0, "电网外 tap → 不放置")
+_G.bd.cancel(); hover_clear()
+
+real_print("== 切片 3：Relay 外扩")
+stub.steps(10)
+local links0 = #shapes_with("board/power_links") -- 基线：资源点也是 PowerNode，Core 范围内的有连线
+_G.bd.place("relay")
+stub.client_send({ kind = "input", itype = "hover", x = 0, z = 3 })
+stub.steps(3)
+check(bi.placement_valid:now() == true, "(0,3) 电网内 → 有效")
+stub.client_send({ kind = "input", itype = "tap", x = 0, z = 3 })
+stub.steps(4)
+check(entities_of("relay") == 1, "relay 落位 (0,3)")
+hover_clear(); stub.steps(10)
+local links = shapes_with("board/power_links")
+check(#links == links0 + 1, "空闲态电力连线新增 relay→Core 一条（基线 " .. links0 .. " → " .. #links .. "）")
+check(links[1] and links[1].effect == "official://effect/4506", "连线特效 4506")
+check(links[1] and links[1].visible == true, "连线可见")
+local relay_id, relay_b = building_of("relay")
+check(relay_b and relay_b.power.has_power:now() == true, "relay 有电")
+
+real_print("== 切片 3：电网内放置成功（经 relay）")
+_G.bd.place("radar")
+stub.client_send({ kind = "input", itype = "hover", x = 0, z = 6 })
+stub.steps(3)
+check(bi.placement_valid:now() == true, "(0,6) 距 relay 3 < 4 → 有效")
+pr = shapes_with("board/placement_power")
+check(#pr == 2, "电网覆盖圈 Core + relay 两圈（实际 " .. #pr .. "）")
+stub.client_send({ kind = "input", itype = "tap", x = 0, z = 6 })
+stub.steps(4)
+check(entities_of("radar") == 1, "radar 落位 (0,6)")
+hover_clear(); stub.steps(10)
+check(#shapes_with("board/power_links") == links0 + 2, "连线再增一条 radar→relay")
+local radar_id, radar_b, radar_e = building_of("radar")
+check(radar_b and radar_b.power.has_power:now() == true, "radar 经 relay 有电")
+
+real_print("== 切片 3：雷达天线")
+check(entities_of("RadarDish") == 1, "天线实体已生成")
+local dish
+for _, e in ipairs(host.entity.all()) do if e.prefab == "RadarDish" then dish = e end end
+check(dish and dish._unit.Position.y == 1.45 and dish._unit.Scale.x == 1.6, "天线=横杆架在底座顶（y=1.45）")
+local rot0 = dish and dish._unit.Rotation and dish._unit.Rotation.y or 0
+stub.steps(15)
+local rot1 = dish and dish._unit.Rotation.y or 0
+check(rot1 ~= rot0 and rot1 >= 0 and rot1 < 360, string.format("天线绕 Y 旋转（%.1f° → %.1f°，归一 [0,360)）", rot0, rot1))
+local base = radar_e._unit.ModelColor1
+check(base and base.r == 153 and base.g == 153 and base.b == 230, "radar 有电 = 底色 (153,153,230)")
+
+real_print("== 切片 3：relay 被毁 → 断电反馈")
+_G.bd.damage(relay_id, 999)
+stub.steps(3)
+check(relay_b.health.is_alive:now() == false, "relay 死亡")
+stub.steps(12) -- 0.15s debounce + 余量
+check(radar_b.power.has_power:now() == false, "radar 断电")
+local dim = radar_e._unit.ModelColor1
+check(dim and dim.r == 54 and dim.b == 80, "断电 tint 0.35 → ModelColor1 (54,54,80)（实际 " .. tostring(dim and dim.r) .. "）")
+check(entities_of("RadarDish") == 0, "断电 → 天线停转销毁")
+check(#shapes_with("board/power_links") == links0, "relay→Core、radar→relay 两条连线随 relay 消失")
+
+real_print("== 切片 3：Repair 光束 + 治疗")
+local turret_id, turret_b = building_of("turret")
+_G.bd.damage(turret_id, 10)
+check(turret_b.health.hp_fraction:now() < 1, "turret 受损 hp<1")
+_G.bd.place("repair")
+stub.client_send({ kind = "input", itype = "hover", x = 0, z = -3 })
+stub.steps(3)
+stub.client_send({ kind = "input", itype = "tap", x = 0, z = -3 })
+stub.steps(4)
+check(entities_of("repair") == 1, "repair 落位 (0,-3)，距 turret 4.2 < range 5")
+hover_clear(); stub.steps(5)
+local beams = shapes_with("repair_")
+check(#beams == 1 and beams[1].kind == "line", "维修光束 line 已渲")
+check(beams[1] and beams[1].visible == true, "维修中光束可见")
+check(beams[1] and beams[1].effect == "official://effect/4506", "光束特效 4506")
+local beam_node = host.eui.nodes[beams[1].path]
+check(beam_node._shape.line.a.Position.y == 0.8, "光束离地 0.8")
+stub.steps(90) -- 3s × repair_rate 5 ≥ 10 hp
+check(turret_b.health.hp_fraction:now() >= 1, "turret 修满")
+check(beam_node.visible == false and beam_node._shape.line.fx.Visible == false, "修满 → 光束隐藏")
+_G.bd.buildings(); _G.bd.dump_shapes()
+
 real_print("== GM 面")
 _G.bd.place("radar")
 check(bi.placing:now() ~= nil or gs.money:now() < 75, "GM place 走同一入口")
