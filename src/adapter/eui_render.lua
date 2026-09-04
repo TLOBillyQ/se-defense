@@ -84,7 +84,6 @@ function M.new(deps)
     live = {},     -- path → { recipe=, label=/scene_node=/bar=, slot= }
     state = {},    -- path → 最新快照状态（祖先可见性合成用）
     pending_hp = {}, -- path → true（单位未复制到，逐帧重试）
-    pending_fx = {}, -- path → 截止时刻（环 EffectUnit 未复制到，逐帧重试上色）
     column_slots = {}, -- column → 已分配槽位数
   }, R)
 end
@@ -276,38 +275,10 @@ function R:_try_create_healthbar(path)
   return controls
 end
 
--- 环上色（#21）：服务端不能写 EffectUnit 颜色属性（客户端会报 Internal Error），
--- 快照里带 fx 单位名，客户端按名找到复制单位后本地 SetColor。
-local FX_RETRY_SECONDS = 5
-
-function R:_apply_fx_color(path)
-  local live = self.live[path]
-  local st = self.state[path]
-  if not live or not live.fx or not st or not st.color then return true end
-  local unit = World:FindFirstChild(live.fx, true)
-  if not unit then return false end
-  local c = to_color(st.color, { 255, 255, 255 })
-  -- 真机探针（#21）：DiffuseColor/ColorStrength/BlendFactor 每写一次引擎都记一条
-  -- "Lua VM 0 warning: Internal Error"（两端、任何特效 id、任何取值都一样，值却能回读；
-  -- SetColor() 报 3 条），EnableColor 干净。只写 DiffuseColor 把噪音压到每次变色 1 条；
-  -- ColorStrength/BlendFactor 默认即 100/1.0，不写。着色效果是否肉眼可见待 HITL。
-  local ok, err = pcall(function()
-    unit.EnableColor = true
-    unit.DiffuseColor = c
-  end)
-  if not ok and not self.fx_warned then
-    self.fx_warned = true
-    self.log("环上色失败 %s: %s", path, tostring(err))
-  end
-  return true
-end
-
 function R:_create(path, st)
-  local recipe = st.fx and { kind = "fxcolor" } or recipe_for(path)
+  local recipe = recipe_for(path)
   local live = { recipe = recipe }
-  if recipe.kind == "fxcolor" then
-    live.fx = st.fx
-  elseif recipe.kind == "label" then
+  if recipe.kind == "label" then
     local c = self:_create_label(path, recipe)
     if not c then return nil end
     live.label = c.label
@@ -362,13 +333,6 @@ function R:_apply_state(path, st)
       live.button.Visible = visible
     end)
   end
-  if live.fx and st.color ~= nil then
-    if self:_apply_fx_color(path) then
-      self.pending_fx[path] = nil
-    else
-      self.pending_fx[path] = os.clock() + FX_RETRY_SECONDS
-    end
-  end
   if live.scene_node then
     pcall(function()
       live.scene_node.Visible = visible
@@ -387,7 +351,6 @@ function R:_destroy(path)
   if not live then return end
   self.live[path] = nil
   self.pending_hp[path] = nil
-  self.pending_fx[path] = nil
   self.state[path] = nil
   if live.slot and live.column then self:_free_slot(live.column) end
   pcall(function() if live.label then live.label:Destroy() end end)
@@ -471,14 +434,6 @@ function R:tick(_dt)
       self.pending_hp[path] = nil
     end
   end
-  for path, deadline in pairs(self.pending_fx) do
-    if self:_apply_fx_color(path) then
-      self.pending_fx[path] = nil
-    elseif os.clock() > deadline then
-      self.pending_fx[path] = nil
-      self.log("环单位 %s 超时未复制到，放弃上色", tostring(self.live[path] and self.live[path].fx))
-    end
-  end
   for path, live in pairs(self.live) do
     if live.label or live.button or live.scene_node then
       self:_apply_visible(path)
@@ -500,11 +455,10 @@ end
 
 -- GM/验证用统计。
 function R:stats()
-  local labels, bars, none, buttons, fx = 0, 0, 0, 0, 0
+  local labels, bars, none, buttons = 0, 0, 0, 0
   for _, l in pairs(self.live) do
     if l.label then labels = labels + 1 end
     if l.button then buttons = buttons + 1 end
-    if l.fx then fx = fx + 1 end
     if l.scene_node then bars = bars + 1 end
     if l.recipe and l.recipe.kind == "none" then none = none + 1 end
   end
@@ -512,7 +466,7 @@ function R:stats()
   for _ in pairs(self.pending_hp) do pend = pend + 1 end
   local state_n = 0
   for _ in pairs(self.state) do state_n = state_n + 1 end
-  return { state = state_n, labels = labels, bars = bars, none = none, pending = pend, buttons = buttons, fx = fx }
+  return { state = state_n, labels = labels, bars = bars, none = none, pending = pend, buttons = buttons }
 end
 
 return M
