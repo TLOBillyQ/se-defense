@@ -10,7 +10,7 @@ through a thin Lua protocol server on top of the existing SE stub harness.
   behavior (server `main.lua` + host adapters + `tools/headless/se_stub.lua`).
 - `src/acceptance/` — project-specific pipeline components:
   - `generator.clj` — entrypoint generator (thin generated tests + metadata).
-  - `runtime.clj` — scenario execution expansion, step dispatch, reports.
+  - `runtime.clj` — scenario execution expansion, step dispatch, result maps.
   - `handlers.clj` — Gherkin step handlers bridging to the Lua acceptance
     server; regex captures resolve to example values by column name.
   - `lua_bridge.clj` — one headless Lua process per scenario execution.

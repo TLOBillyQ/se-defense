@@ -2,6 +2,15 @@
   (:require [speclj.core :refer :all]
             [acceptance.runtime :as rt]))
 
+(def ^:private dispatch-handlers
+  [[#"^a green step$" (fn [w caps resolve] nil)]
+   [#"^the value is <(\w+)>$"
+    (fn [w caps resolve]
+      (let [v (resolve (first caps))]
+        (when-not (= v "expected")
+          (throw (ex-info (str "got " v)
+                          {:kind :assertion})))))]])
+
 (describe "expand-executions"
   (it "prepends background steps to every scenario"
     (let [ir {:name "f"
@@ -37,32 +46,33 @@
                (mapv :name (rt/expand-executions ir))))))
 
 (describe "dispatch-step"
-  (let [handlers [[#"^a green step$" (fn [w caps resolve] nil)]
-                  [#"^the value is <(\w+)>$" (fn [w caps resolve]
-                                               (let [v (resolve (first caps))]
-                                                 (when-not (= v "expected")
-                                                   (throw (ex-info (str "got " v)
-                                                                   {:kind :assertion})))))]]]
-    (it "routes a step to its handler and passes"
-      (should= nil (rt/dispatch-step {} handlers {:keyword "Given" :text "a green step" :parameters []})))
+  (it "routes a step to its handler and passes"
+    (should= nil
+             (rt/dispatch-step {} dispatch-handlers
+                               {:keyword "Given" :text "a green step" :parameters []})))
 
-    (it "resolves placeholder captures from the example values"
-      (let [world {:example {"v" "expected"}}]
-        (should= nil (rt/dispatch-step world handlers {:keyword "Then" :text "the value is <v>" :parameters ["v"]}))))
+  (it "resolves placeholder captures from the example values"
+    (let [world {:example {"v" "expected"}}]
+      (should= nil
+               (rt/dispatch-step world dispatch-handlers
+                                 {:keyword "Then" :text "the value is <v>" :parameters ["v"]}))))
 
-    (it "fails when the resolved example value is wrong"
-      (let [world {:example {"v" "wrong"}}]
-        (should-throw clojure.lang.ExceptionInfo
-          (rt/dispatch-step world handlers {:keyword "Then" :text "the value is <v>" :parameters ["v"]}))))
-
-    (it "fails on unsupported step text"
+  (it "fails when the resolved example value is wrong"
+    (let [world {:example {"v" "wrong"}}]
       (should-throw clojure.lang.ExceptionInfo
-        (rt/dispatch-step {} handlers {:keyword "Then" :text "no such step" :parameters []})))
+        (rt/dispatch-step world dispatch-handlers
+                          {:keyword "Then" :text "the value is <v>" :parameters ["v"]}))))
 
-    (it "fails when a placeholder is missing from the example"
-      (let [world {:example {}}]
-        (should-throw clojure.lang.ExceptionInfo
-          (rt/dispatch-step world handlers {:keyword "Then" :text "the value is <v>" :parameters ["v"]}))))))
+  (it "fails on unsupported step text"
+    (should-throw clojure.lang.ExceptionInfo
+      (rt/dispatch-step {} dispatch-handlers
+                        {:keyword "Then" :text "no such step" :parameters []})))
+
+  (it "fails when a placeholder is missing from the example"
+    (let [world {:example {}}]
+      (should-throw clojure.lang.ExceptionInfo
+        (rt/dispatch-step world dispatch-handlers
+                          {:keyword "Then" :text "the value is <v>" :parameters ["v"]})))))
 
 (describe "run-execution!"
   (it "uses a fresh world for every execution via world-fn"
@@ -73,35 +83,72 @@
           ir {:name "f" :background []
               :scenarios [{:name "s1" :steps [{:keyword "Given" :text "tag it" :parameters []}] :examples []}
                           {:name "s2" :steps [{:keyword "Given" :text "tag it" :parameters []}] :examples []}]}]
-      (rt/run-iris! {:ir ir :handlers hs :world-fn world-fn})
-      (should= [1 2] @seen))))
+      (rt/execute-iris! {:ir ir :handlers hs :world-fn world-fn})
+      (should= [1 2] @seen)))
 
-(describe "run-iris!"
-  (let [base {:name "f" :background []
-              :scenarios [{:name "s" :steps [] :examples []}]}]
-    (it "reports pass counts for a clean run"
-      (let [result (rt/run-iris! {:ir base :handlers [] :world-fn (fn [] {})})]
-        (should= 1 (:executions result))
-        (should= 0 (:failed result))
-        (should= 0 (:infra result))))
+  (it "disposes the world after a passing execution"
+    (let [closed (atom 0)
+          ir {:name "f" :background []
+              :scenarios [{:name "s" :steps [] :examples []}]}
+          results (rt/execute-iris!
+                   {:ir ir :handlers []
+                    :world-fn (fn [] {:dispose! (fn [] (swap! closed inc))})})]
+      (should= :passed (:status (first results)))
+      (should= 1 @closed)))
 
-    (it "counts assertion failures without aborting the run"
-      (let [hs [[#"^fail it$" (fn [w caps r] (throw (ex-info "nope" {:kind :assertion})))]]
-            ir (assoc base :scenarios [{:name "s" :steps [{:keyword "Then" :text "fail it" :parameters []}] :examples []}])]
-        (let [result (rt/run-iris! {:ir ir :handlers hs :world-fn (fn [] {})})]
-          (should= 1 (:failed result)))))
+  (it "disposes the world after a failing execution"
+    (let [closed (atom 0)
+          hs [[#"^fail it$" (fn [_ _ _] (throw (ex-info "nope" {:kind :assertion})))]]
+          ir {:name "f" :background []
+              :scenarios [{:name "s" :steps [{:keyword "Then" :text "fail it" :parameters []}] :examples []}]}
+          results (rt/execute-iris!
+                   {:ir ir :handlers hs
+                    :world-fn (fn [] {:dispose! (fn [] (swap! closed inc))})})]
+      (should= :failed (:status (first results)))
+      (should= 1 @closed)))
 
-    (it "counts infrastructure errors separately"
-      (let [hs [[#"^crash it$" (fn [w caps r] (throw (ex-info "boom" {:kind :infra})))]]
-            ir (assoc base :scenarios [{:name "s" :steps [{:keyword "Then" :text "crash it" :parameters []}] :examples []}])]
-        (let [result (rt/run-iris! {:ir ir :handlers hs :world-fn (fn [] {})})]
-          (should= 1 (:infra result))
-          (should= 0 (:failed result)))))
+  (it "reports a cleanup failure as infrastructure error after a pass"
+    (let [ir {:name "f" :background []
+              :scenarios [{:name "s" :steps [] :examples []}]}
+          results (rt/execute-iris!
+                   {:ir ir :handlers []
+                    :world-fn (fn [] {:dispose! (fn [] (throw (ex-info "close failed" {})))})})]
+      (should= :infra (:status (first results)))
+      (should= true (boolean (re-find #"world cleanup failed" (:message (first results))))))))
 
-    (it "runs every execution from every scenario in IR order"
-      (let [worlds (atom [])
-            ir {:name "f" :background []
-                :scenarios [{:name "s1" :steps [] :examples [{"a" "1"} {"a" "2"}]}
-                            {:name "s2" :steps [] :examples []}]}]
-        (rt/run-iris! {:ir ir :handlers [] :world-fn (fn [] (swap! worlds conj :w) {})})
-        (should= 3 (count @worlds))))))
+(describe "execute-iris!"
+  (it "returns one pass result for a clean run"
+    (let [base {:name "f" :background []
+                :scenarios [{:name "s" :steps [] :examples []}]}
+          results (rt/execute-iris! {:ir base :handlers [] :world-fn (fn [] {})})]
+      (should= [{:name "s/example_1" :status :passed}] results)
+      (should= {:executions 1 :failed 0 :infra 0}
+               (rt/summarize-results results))))
+
+  (it "returns assertion failures without aborting the run"
+    (let [base {:name "f" :background []
+                :scenarios [{:name "s" :steps [] :examples []}]}
+          hs [[#"^fail it$" (fn [w caps r] (throw (ex-info "nope" {:kind :assertion})))]]
+          ir (assoc base :scenarios [{:name "s" :steps [{:keyword "Then" :text "fail it" :parameters []}] :examples []}])
+          results (rt/execute-iris! {:ir ir :handlers hs :world-fn (fn [] {})})
+          summary (rt/summarize-results results)]
+      (should= :failed (:status (first results)))
+      (should= {:executions 1 :failed 1 :infra 0} summary)))
+
+  (it "returns infrastructure errors separately"
+    (let [base {:name "f" :background []
+                :scenarios [{:name "s" :steps [] :examples []}]}
+          hs [[#"^crash it$" (fn [w caps r] (throw (ex-info "boom" {:kind :infra})))]]
+          ir (assoc base :scenarios [{:name "s" :steps [{:keyword "Then" :text "crash it" :parameters []}] :examples []}])
+          results (rt/execute-iris! {:ir ir :handlers hs :world-fn (fn [] {})})
+          summary (rt/summarize-results results)]
+      (should= :infra (:status (first results)))
+      (should= {:executions 1 :failed 0 :infra 1} summary)))
+
+  (it "runs every execution from every scenario in IR order"
+    (let [worlds (atom [])
+          ir {:name "f" :background []
+              :scenarios [{:name "s1" :steps [] :examples [{"a" "1"} {"a" "2"}]}
+                          {:name "s2" :steps [] :examples []}]}]
+      (rt/execute-iris! {:ir ir :handlers [] :world-fn (fn [] (swap! worlds conj :w) {})})
+      (should= 3 (count @worlds)))))

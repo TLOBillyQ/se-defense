@@ -3,8 +3,8 @@
   (and their specs under JVM Clojure) load without the babashka runtime.")
 
 (defn process!
-  ([] (requiring-resolve 'babashka.process/process))
-  ([& args] (apply (requiring-resolve 'babashka.process/process) args)))
+  [& args]
+  (apply (requiring-resolve 'babashka.process/process) args))
 
 (defn destroy!
   [proc]

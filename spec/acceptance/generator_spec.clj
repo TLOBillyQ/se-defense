@@ -4,8 +4,12 @@
             [acceptance.json :as json]))
 
 (defn- temp-ir-dir []
-  (let [d (java.io.File. (str (System/getProperty "java.io.tmpdir")
-                              "acceptance-gen-" (java.util.UUID/randomUUID)))]
+  (let [parent (java.io.File. (System/getProperty "user.dir") "tmp")
+        d (java.io.File. parent (str "acceptance-gen-"
+                                     (java.util.UUID/randomUUID)))]
+    (.mkdirs parent)
+    (.mkdirs d)
+    (.deleteOnExit d)
     (.mkdirs (java.io.File. (str d "/ir")))
     (str d)))
 
@@ -21,7 +25,8 @@
     (should= "features-orders-cancel-order-feature"
              (gen/slugify "features/orders/Cancel Order.feature"))
     (should= "features-api-v2-happy-path-feature"
-             (gen/slugify "Features/API v2/Happy Path.feature"))))
+             (gen/slugify "Features/API v2/Happy Path.feature"))
+    (should= "" (gen/slugify "???"))))
 
 (describe "run"
   (it "writes an executable test entry point and metadata for a valid IR"
@@ -35,6 +40,18 @@
             meta-file (str out-dir "/metadata/features-base-defence-feature.json")]
         (should= true (.exists (java.io.File. test-file)))
         (should= true (.canExecute (java.io.File. test-file)))
+        (let [perms (java.nio.file.Files/getPosixFilePermissions
+                     (.toPath (java.io.File. test-file))
+                     (into-array java.nio.file.LinkOption []))]
+          (should= true
+                   (.contains perms
+                              java.nio.file.attribute.PosixFilePermission/OWNER_EXECUTE))
+          (should= false
+                    (.contains perms
+                               java.nio.file.attribute.PosixFilePermission/GROUP_EXECUTE))
+          (should= false
+                    (.contains perms
+                               java.nio.file.attribute.PosixFilePermission/OTHERS_EXECUTE)))
         (should= true (.exists (java.io.File. meta-file)))
         (let [meta (json/read-json (slurp meta-file))]
           (should= 1 (get meta "schema_version"))
@@ -47,10 +64,12 @@
         (let [src (slurp test-file)]
           (should= true (boolean (re-find #"^#!/usr/bin/env bb" src)))
           (should= true (clojure.string/includes? src "Base Defence flow"))
-          (should= true (clojure.string/includes? src "acceptance.runtime"))
+          (should= true (clojure.string/includes? src "execute-json-ir!"))
+          (should= true (clojure.string/includes? src "summarize-results"))
+          (should= true (clojure.string/includes? src ":dispose!"))
           (should= true (clojure.string/includes? src "acceptance.handlers"))
-          (should= true (clojure.string/includes? src ir-path)))))
-    ))
+          (should= true (clojure.string/includes? src ir-path))))))
+
   (it "generates deterministic output for a fixed IR"
     (let [dir (temp-ir-dir)
           ir-path (str dir "/ir/base-defence.json")
@@ -63,10 +82,12 @@
                (slurp (str out2 "/features-base-defence-feature_acceptance_test.clj")))
       (should= (slurp (str out1 "/metadata/features-base-defence-feature.json"))
                (slurp (str out2 "/metadata/features-base-defence-feature.json")))))
+
   (it "exits with usage error 2 on wrong argument count"
     (should= 2 (:exit (gen/run [])))
     (should= 2 (:exit (gen/run ["only-one"])))
     (should= 2 (:exit (gen/run ["a" "b" "c"]))))
+
   (it "exits with error 1 when the IR file cannot be read"
     (let [dir (temp-ir-dir)]
-      (should= 1 (:exit (gen/run [(str dir "/ir/missing.json") (str dir "/generated")])))))
+      (should= 1 (:exit (gen/run [(str dir "/ir/missing.json") (str dir "/generated")]))))))

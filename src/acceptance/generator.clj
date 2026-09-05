@@ -5,7 +5,8 @@
   (:require [acceptance.json :as json]
             [clojure.string :as str])
   (:import (java.io File)
-           (java.security MessageDigest)))
+           (java.security MessageDigest)
+           (java.util HashSet)))
 
 (defn slugify
   "Metadata-name mapping: lowercase, runs of non-alphanumerics become one
@@ -51,14 +52,22 @@
        "(require '[acceptance.lua-bridge :as bridge])\n"
        "(def default-ir " (pr-str default-ir) ")\n"
        "(def ir-path (or (first *command-line-args*) default-ir))\n"
-       "(let [result (rt/run-json-ir! ir-path handlers/registry\n"
-       "                             (fn [] {:bridge (bridge/spawn-bridge!)\n"
-       "                                     :extras (atom {})}))]\n"
-       "  (println (str \"executions=\" (:executions result)\n"
-       "                \" failed=\" (:failed result)\n"
-       "                \" infra=\" (:infra result)))\n"
-       "  (when (pos? (+ (:failed result) (:infra result)))\n"
-       "    (System/exit 1)))\n"))
+       "(let [results (rt/execute-json-ir! ir-path handlers/registry\n"
+       "                                  (fn []\n"
+       "                                    (let [b (bridge/spawn-bridge!)]\n"
+       "                                      {:bridge b\n"
+       "                                       :extras (atom {})\n"
+       "                                       :dispose! (fn [] ((:close! b)))})))]\n"
+       "  (doseq [r results]\n"
+       "    (println (case (:status r)\n"
+       "               :passed (str \"  ok    \" (:name r))\n"
+       "               (str \"  FAIL  \" (:name r) \": \" (:message r)))))\n"
+       "  (let [summary (rt/summarize-results results)]\n"
+       "    (println (str \"executions=\" (:executions summary)\n"
+       "                  \" failed=\" (:failed summary)\n"
+       "                  \" infra=\" (:infra summary)))\n"
+       "    (when (pos? (+ (:failed summary) (:infra summary)))\n"
+       "      (System/exit 1))))\n"))
 
 (defn generate!
   "Writes the generated test entry point and its metadata for one IR file."
@@ -75,7 +84,14 @@
     (let [src (test-source (get ir "name") (str ir-path))
           test-file-obj (File. test-file)]
       (spit test-file src)
-      (.setExecutable test-file-obj true false)
+      (java.nio.file.Files/setPosixFilePermissions
+       (.toPath test-file-obj)
+       (doto (HashSet.)
+         (.add java.nio.file.attribute.PosixFilePermission/OWNER_READ)
+         (.add java.nio.file.attribute.PosixFilePermission/OWNER_WRITE)
+         (.add java.nio.file.attribute.PosixFilePermission/OWNER_EXECUTE)
+         (.add java.nio.file.attribute.PosixFilePermission/GROUP_READ)
+         (.add java.nio.file.attribute.PosixFilePermission/OTHERS_READ)))
       (let [hash (sha256-hex (slurp test-file))
             meta (json/write-json
                   (array-map :schema_version 1
@@ -85,7 +101,7 @@
                              :hash_scope "generated_files"
                              :generated_files [test-name]))]
         (spit (str out-dir "/metadata/" stem ".json") meta)))
-    {:exit 0 :test-file test-file}))
+    test-file))
 
 (def usage "usage: acceptance-entrypoint-generator <json-ir> <generated-test-output>")
 
@@ -97,15 +113,12 @@
       (do (binding [*out* *err*] (println usage))
           {:exit 2 :message usage})
       (let [[ir-path out-dir] args]
-        (generate! ir-path out-dir)
-        {:exit 0}))
+        (let [test-file (generate! ir-path out-dir)]
+          {:exit 0 :test-file test-file})))
     (catch Throwable e
       (binding [*out* *err*] (println (str "error: " (or (ex-message e) (str e)))))
       {:exit 1 :message (ex-message e)})))
 
-(defn -main
-  [& args]
-  (System/exit (:exit (run (vec args)))))
-
-(when (= (str *file*) (System/getProperty "babashka.file"))
-  (apply -main *command-line-args*))
+;; clj-mutate-manifest-begin
+;; {:version 2, :hash-algorithm :sha256-source-v1, :verified? true, :tested-at "2026-09-05T11:17:04.176034+08:00", :module-hash "f4c5b5dfd02a89b3b4c18fa62e2a9614dc576b9bb4146768a2a091e6bd6867b1", :provenance {:mutation-rules-version "3", :test-command "speclj -f documentation spec", :test-roots ["spec"], :test-profile-fingerprint "41f17b24aa38e88cefaa35ae3a902ecb76222ad0f99aa027bcda6b7f2fda1dc8"}, :forms [{:id "form/0/ns", :kind "ns", :line 1, :end-line 9, :hash "695fab4a71c6bf2271fbbadc0b4264f2acdb0068dacef177f938cfbba8fea9e7"} {:id "defn/slugify", :kind "defn", :line 11, :end-line 17, :hash "e3f3640563ca129d1e9450c772f2c55fe462d2cbd57880f8618b83967ef7e145"} {:id "defn-/stem-of", :kind "defn-", :line 19, :end-line 22, :hash "c3cbbbbfe494e31d422ace028ff149531417446d86678e48e8be4cee15106054"} {:id "defn/feature-path-for", :kind "defn", :line 24, :end-line 32, :hash "138741d9bf05130071fde0b0c7ff5352e7ad0fee8455ab6070a5717f0c99624d"} {:id "defn-/sha256-hex", :kind "defn-", :line 34, :end-line 38, :hash "11285db318c1da17ffa36ba7cbba98162939335f337ee1c32653a22b222480ba"} {:id "defn/test-source", :kind "defn", :line 40, :end-line 70, :hash "370cf166ff9bf6fd48dfbb44f4d3b2ea5d207b3b0a4341b3f263425f46d6314d"} {:id "defn/generate!", :kind "defn", :line 72, :end-line 104, :hash "a72f30cdca3b67a683cffdf20aa26c6c6ea698b8c7a4daf0193b87712fee8977"} {:id "def/usage", :kind "def", :line 106, :end-line 106, :hash "b06025f485ed07958c117fce17cc0552997b2e1b1ea0a4453754c028099d38c3"} {:id "defn/run", :kind "defn", :line 108, :end-line 120, :hash "355b132c34622e0de6c24ce9be69b46c6bcde6023f0db75205d17b17a38eb1dc"}]}
+;; clj-mutate-manifest-end

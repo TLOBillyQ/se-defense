@@ -6,11 +6,9 @@
   infrastructure_error."
   (:require [acceptance.bb-process :as bbp]
             [acceptance.json :as json]
-            [acceptance.keyed :as keyed]
             [clojure.string :as str])
-  (:import (java.io BufferedReader BufferedWriter File FileReader
-                    InputStreamReader OutputStreamWriter StringReader
-                    StringWriter)))
+  (:import (java.io BufferedReader BufferedWriter File InputStreamReader
+                    OutputStreamWriter)))
 
 (defn parse-timeout
   "Parses <duration>s or <duration>ms into milliseconds; defaults to 30s."
@@ -54,13 +52,13 @@
 
 (defn run-job
   "Runs every generated test entry point against the job's mutated IR and
-  classifies the outcome. opts: {:exec f :root dir}; f is called with
+  classifies the outcome. opts: {:exec f}; f is called with
   [command-vector timeout-ms] and returns {:exit N :out s :err s}."
   [job {:keys [exec]}]
-  (let [feature-json (keyed/get-k job "feature_json")
-        gen-dir (keyed/get-k job "generated_dir")
-        timeout (parse-timeout (keyed/get-k job "timeout"))
-        id (keyed/get-k job "id")
+  (let [feature-json (get job "feature_json")
+        gen-dir (get job "generated_dir")
+        timeout (parse-timeout (get job "timeout"))
+        id (get job "id")
         started (System/nanoTime)]
     (try
       (let [tests (generated-tests gen-dir)]
@@ -140,12 +138,6 @@
        (do (destroy proc)
            (throw (ex-info (str "test runner timeout after " timeout-ms "ms") {})))))))
 
-(defn -main
-  [& _]
-  (handle-jobs *in* *out*
-               {:exec default-exec
-                :root (or (System/getenv "ACCEPTANCE_PROJECT_ROOT")
-                          (System/getProperty "user.dir"))}))
-
-(when (= (str *file*) (System/getProperty "babashka.file"))
-  (apply -main *command-line-args*))
+;; clj-mutate-manifest-begin
+;; {:version 2, :hash-algorithm :sha256-source-v1, :verified? true, :tested-at "2026-09-05T11:14:16.489168+08:00", :module-hash "91e844de62725088aaff4454a8992a1dc1506a8796cacb07d3ccd767d956d010", :provenance {:mutation-rules-version "3", :test-command "speclj -f documentation spec", :test-roots ["spec"], :test-profile-fingerprint "41f17b24aa38e88cefaa35ae3a902ecb76222ad0f99aa027bcda6b7f2fda1dc8"}, :forms [{:id "form/0/ns", :kind "ns", :line 1, :end-line 11, :hash "0c347704b3dfc1eb151ed84de6ec8d7de9f69bf885c71b91599b833be3873433"} {:id "defn/parse-timeout", :kind "defn", :line 13, :end-line 20, :hash "b99a9c9efdca6ae258135393caa2bc9c4cab4868a8f4a9495abb1b4b68a0c98f"} {:id "defn/generated-tests", :kind "defn", :line 22, :end-line 31, :hash "cb559f0a2de1d5f4bd922db35795ae170f9a3f790f5988550df0703c8d06ed02"} {:id "defn-/classify", :kind "defn-", :line 33, :end-line 38, :hash "5f82eb99bba7f7f56e819ab94523f20d7bb712deaafb32ce9d2655e2e9f6ec76"} {:id "defn-/combine-results", :kind "defn-", :line 40, :end-line 51, :hash "c570a9311a116f11b67a0e36014fb7c2a2a3af695edb7b5f68b2dda71b156335"} {:id "defn/run-job", :kind "defn", :line 53, :end-line 77, :hash "aee9a043f1d40dc17b55a4751be1919ffae4702598b90c515567ad49f3fa74ed"} {:id "defn-/as-reader", :kind "defn-", :line 79, :end-line 85, :hash "dfc8d1947bd0a46c24a113db67341722c524175d14c11621018ad9e382b9eb18"} {:id "defn-/as-writer", :kind "defn-", :line 87, :end-line 93, :hash "f3d9f8679861d499343cdd4e796323b05000ac822535bc0e7377533cb0e310b5"} {:id "defn/handle-jobs", :kind "defn", :line 95, :end-line 117, :hash "e5654c45b4a9eaeb53034d0952b51e12b74ff6369299a3a01f5521d8322f4c49"} {:id "defn/default-exec", :kind "defn", :line 119, :end-line 139, :hash "3fe1a33074818a6ab65ceb87b062dd7571b5195a25e35accf2c0136d43073622"}]}
+;; clj-mutate-manifest-end

@@ -15,6 +15,33 @@
   [n property]
   (:pass? (tc/quick-check n property)))
 
+(defn- expand-preserved?
+  [ir]
+  (let [{:keys [background scenarios]} ir
+        execs (rt/expand-executions ir)
+        expected-count (reduce + (map (fn [s]
+                                        (max 1 (count (:examples s))))
+                                      scenarios))
+        bg (vec (or background []))]
+    (and
+     (= expected-count (count execs))
+     (every? (fn [e]
+               (let [s (first (filter #(= (:name %)
+                                           (:scenario-name e))
+                                      scenarios))
+                     rows (if (seq (:examples s))
+                            (vec (:examples s))
+                            [{}])
+                     i (dec (Long/parseLong
+                             (second
+                              (re-find #"/example_(\d+)$"
+                                       (:name e)))))]
+                 (and s
+                      (< -1 i (count rows))
+                      (= (:steps e) (into bg (:steps s)))
+                      (= (:example e) (nth rows i)))))
+             execs))))
+
 (defn- in-long-range
   "Whole-number doubles canonicalize to digits; round trips then compare
   numerically. Doubles are mapped into long range so values pass through
@@ -62,64 +89,47 @@
                        (deep-num-eq? v (json/read-json (json/write-json v))))))))
 
 (describe "slugify"
-  (let [ascii-string (tg/fmap (fn [n]
-                                (apply str
-                                       (repeatedly n #(char (+ 32 (rand-int 95))))))
-                              (tg/choose 0 40))]
-    (it "is idempotent and never produces leading/trailing hyphens"
+  (it "is idempotent and never produces leading/trailing hyphens"
+    (let [ascii-string (tg/fmap (fn [n]
+                                  (apply str
+                                         (repeatedly n #(char (+ 32 (rand-int 95))))))
+                                (tg/choose 0 40))]
       (should= true
                (holds? 200
                        (prop/for-all [s ascii-string]
                          (let [a (gen/slugify s)]
                            (and (= a (gen/slugify a))
-                                (boolean (re-find #"^[a-z0-9-]+$" a))
-                                (not (re-find #"^-|-$" a))))))))
-    (it "is invariant under case folding"
+                                (or (str/blank? a)
+                                    (boolean (re-find #"^[a-z0-9-]+$" a)))
+                                (not (re-find #"^-|-$" a)))))))))
+
+  (it "is invariant under case folding"
+    (let [ascii-string (tg/fmap (fn [n]
+                                  (apply str
+                                         (repeatedly n #(char (+ 32 (rand-int 95))))))
+                                (tg/choose 0 40))]
       (should= true
                (holds? 200
                        (prop/for-all [s ascii-string]
                          (= (gen/slugify s) (gen/slugify (str/lower-case s)))))))))
 
 (describe "expand-executions"
-  (let [step-gen (tg/fmap (fn [[k t]] {:keyword k :text t :parameters ["v"]})
-                          (tg/tuple (tg/elements ["Given" "When" "Then"]) tg/string))
-        scenario-gen (tg/fmap (fn [[idx name steps nrows]]
-                                {:name (str name "__" idx)
-                                 :steps steps
-                                 :examples (vec (for [i (range nrows)]
-                                                 {"v" (str idx i)}))})
-                              (tg/tuple tg/nat tg/string (tg/vector step-gen) (tg/choose 0 3)))
-        ir-gen (tg/fmap (fn [[name bg scs]]
-                          {:name name :background bg :scenarios scs})
-                        (tg/tuple tg/string (tg/vector step-gen) (tg/vector scenario-gen)))]
-    (it "preserves scenario count, row order, and step composition"
+  (it "preserves scenario count, row order, and step composition"
+    (let [step-gen (tg/fmap (fn [[k t]] {:keyword k :text t :parameters ["v"]})
+                            (tg/tuple (tg/elements ["Given" "When" "Then"]) tg/string))
+          scenario-gen (tg/fmap (fn [[idx name steps nrows]]
+                                  {:name (str name "__" idx)
+                                   :steps steps
+                                   :examples (vec (for [i (range nrows)]
+                                                    {"v" (str idx i)}))})
+                                 (tg/tuple tg/nat tg/string (tg/vector step-gen) (tg/choose 0 3)))
+          ir-gen (tg/fmap (fn [[name bg scs]]
+                             {:name name :background bg :scenarios scs})
+                            (tg/tuple tg/string (tg/vector step-gen) (tg/vector scenario-gen)))]
       (should= true
                (holds? 200
                        (prop/for-all [ir ir-gen]
-                         (let [{:keys [background scenarios]} ir
-                               execs (rt/expand-executions ir)
-                               expected-count (reduce + (map (fn [s]
-                                                               (max 1 (count (:examples s))))
-                                                             scenarios))
-                               bg (vec (or background []))]
-                           (and
-                            (= expected-count (count execs))
-                            (every? (fn [e]
-                                      (let [s (first (filter #(= (:name %)
-                                                                  (:scenario-name e))
-                                                              scenarios))
-                                            rows (if (seq (:examples s))
-                                                   (vec (:examples s))
-                                                   [{}])
-                                            i (dec (Long/parseLong
-                                                    (second
-                                                     (re-find #"/example_(\d+)$"
-                                                              (:name e)))))]
-                                        (and s
-                                             (< -1 i (count rows))
-                                             (= (:steps e) (into bg (:steps s)))
-                                             (= (:example e) (nth rows i)))))
-                                    execs)))))))))
+                         (expand-preserved? ir)))))))
 
 (describe "parse-timeout"
   (it "scales seconds and milliseconds, defaulting to 30s"
