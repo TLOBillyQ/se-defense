@@ -1,4 +1,82 @@
 # language: zh-CN
+# mutation-stamp: sha256=541524633c21c8b2c80335de411b59244f8334be08386bf7cc5b39edacfa289e
+# acceptance-mutation-manifest-begin
+# {
+#   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+#   "feature_name": "源码树布局",
+#   "feature_path": "features/source-layout.feature",
+#   "implementation_hash": "sha256:194ee37a4733b6deac278c2933712d2841b455d69f216460c4d31f7edaebffaa",
+#   "scenarios": [
+#     {
+#       "index": 0,
+#       "mutation_count": 4,
+#       "name": "源码树布局 1: src 一级目录只含蛋仔工作区根目录名",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 4,
+#         "Survived": 0,
+#         "Total": 4
+#       },
+#       "scenario_hash": "70911301f7269463af9376457cd7bb46dc95706fbdc7e6d3529a9e568b317926",
+#       "tested_at": "2026-09-05T14:23:56Z"
+#     },
+#     {
+#       "index": 1,
+#       "mutation_count": 0,
+#       "name": "源码树布局 2: src 一级目录都属于工作区根目录名",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "b995f6a0c8ec4acf4bf2dcd100b1525c4c6d97ad1e81b7415eaeb48e85f23235",
+#       "tested_at": "2026-09-05T14:23:56Z"
+#     },
+#     {
+#       "index": 2,
+#       "mutation_count": 7,
+#       "name": "源码树布局 3: 模块按所属端落位",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 7,
+#         "Survived": 0,
+#         "Total": 7
+#       },
+#       "scenario_hash": "8645f0ec0e5c09a75fb101fcd373f0bc877e9662e165e83669121322fa44c385",
+#       "tested_at": "2026-09-05T14:23:57Z"
+#     },
+#     {
+#       "index": 3,
+#       "mutation_count": 10,
+#       "name": "源码树布局 4: 模块名相对 src 根解析",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 10,
+#         "Survived": 0,
+#         "Total": 10
+#       },
+#       "scenario_hash": "8e35f6cf1a7a188a31605a865807ddf7416ae0c39afaa81fca769cc9662ff2ed",
+#       "tested_at": "2026-09-05T14:23:57Z"
+#     },
+#     {
+#       "index": 4,
+#       "mutation_count": 0,
+#       "name": "源码树布局 5: 仓库内不再有 src 前缀的模块名",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "52e89073d55008353a0f1d8b0e2899e374f70c826689b6b2337f17cf955d2921",
+#       "tested_at": "2026-09-05T14:23:57Z"
+#     }
+#   ],
+#   "tested_at": "2026-09-05T14:23:57Z",
+#   "version": 1
+# }
+# acceptance-mutation-manifest-end
 # 场景清单：
 #   源码树布局 1: src 一级目录只含蛋仔工作区根目录名
 #   源码树布局 2: src 一级目录都属于工作区根目录名
@@ -27,8 +105,6 @@
   | 目录    | 存在 |
   | client  | 是   |
   | server  | 是   |
-  | game    | 否   |
-  | adapter | 否   |
 
 场景: 源码树布局 2: src 一级目录都属于工作区根目录名
   那么 src的一级目录都属于client common data server
