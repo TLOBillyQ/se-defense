@@ -1,7 +1,7 @@
 -- 适配层组合根：组装业务模块依赖的 host 表。
 --
--- 部署时经 src/adapter/swap/host_mock.lua 同路径替换到
--- examples/base_defence/host_mock.lua，业务 require 路径不变（零改动机制）。
+-- 业务模块（src/game/）直接 require("src.adapter.host")；无头测试用
+-- tools/headless/se_stub.lua 提供 SE 全局，不再有 mock 替换。
 --
 -- 四域真实现（#19 垂直切片）：
 --   eui         服务端快照出口 + ring/line 双路由（#18）

@@ -13,8 +13,7 @@ mandatory for files under `features/`).
   up by exact step text, so the table resolves keys through Lua patterns and
   literal sentences that differ only by a number share one implementation.
 - `tools/acceptance/headless.lua` — boots a fresh game inside the current
-  process for every scenario execution (drops `src.*`, `examples.*`,
-  `vendor.*` and the SE stub from `package.loaded`, re-runs the boot
+  process for every scenario execution (drops `src.*`, `vendor.*` and the SE stub from `package.loaded`, re-runs the boot
   sequence of `tools/headless/run_server.lua`) and exposes the query surface.
 - `tools/acceptance/bootstrap.lua` — installs `acceptance4lua` into
   `.toolcache/luarocks` on first use (`git clone` + `luarocks make`) and puts
@@ -41,14 +40,6 @@ tools/acceptance/provision.sh                 # refresh .swarmforge/bin forwarde
 Run everything from the repository root. Never run `swarm_tool.sh ensure
 gherkin-parser|ir-dry-checker|gherkin-mutator`: it swaps the forwarders for
 Babashka wrappers.
-
-## Business modules
-
-The game logic `examples/base_defence/` (require prefix `vendor.spoke`) is not
-inlined in this repository yet (`tools/deploy.lua` has the same gap). The lane
-resolves it from `./`, then `vendor/spoke-lua/`, then
-`SE_DEFENSE_BUSINESS_DIR=<dir containing examples/base_defence>`; without it,
-the first background step fails with a clear message.
 
 ## Environment
 

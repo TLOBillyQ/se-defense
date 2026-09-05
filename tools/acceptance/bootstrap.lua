@@ -39,11 +39,6 @@ function M.lua_path()
     "./?.lua",
     "./?/init.lua",
   }
-  local business = os.getenv("SE_DEFENSE_BUSINESS_DIR")
-  if business and business ~= "" then
-    parts[#parts + 1] = business .. "/?.lua"
-    parts[#parts + 1] = business .. "/?/init.lua"
-  end
   parts[#parts + 1] = ""
   parts[#parts + 1] = ""
   return table.concat(parts, ";")

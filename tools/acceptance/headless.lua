@@ -3,32 +3,22 @@
 -- query surface the step handlers need. Same boot sequence as
 -- tools/headless/run_server.lua.
 --
--- Fresh game per scenario: every module under src./examples./vendor. and the
--- SE stub are dropped from package.loaded and required again, so module-level
--- state (adapter registries, stub signal lists, _G.bd) starts from scratch.
---
--- The business modules (examples.base_defence.*) are not inlined in this
--- repository yet; point SE_DEFENSE_BUSINESS_DIR at a tree containing
--- examples/base_defence/ (require prefix vendor.spoke) or place it so that
--- ./examples/base_defence/ or vendor/spoke-lua/examples/base_defence/ resolves.
+-- Fresh game per scenario: every module under src./vendor. and the SE stub
+-- are dropped from package.loaded and required again, so module-level state
+-- (adapter registries, stub signal lists, _G.bd) starts from scratch.
 local M = {}
 
 local real_print = print
 local verbose = os.getenv("VERBOSE") == "1"
 
 local function add_search_paths()
-  local paths = { "./?.lua", "./?/init.lua", "vendor/spoke-lua/?.lua", "vendor/spoke-lua/?/init.lua" }
-  local business = os.getenv("SE_DEFENSE_BUSINESS_DIR")
-  if business and business ~= "" then
-    table.insert(paths, 1, business .. "/?/init.lua")
-    table.insert(paths, 1, business .. "/?.lua")
-  end
+  local paths = { "./?.lua", "./?/init.lua" }
   package.path = table.concat(paths, ";") .. ";" .. package.path
 end
 
 local function reset_modules()
   for name in pairs(package.loaded) do
-    if name:match("^src%.") or name:match("^examples%.") or name:match("^vendor%.")
+    if name:match("^src%.") or name:match("^vendor%.")
       or name == "tools.headless.se_stub" then
       package.loaded[name] = nil
     end
@@ -36,23 +26,10 @@ local function reset_modules()
   _G.bd = nil
 end
 
-local function business_available()
-  local ok = pcall(require, "examples.base_defence.game_root_full")
-  return ok
-end
-
 -- Boots a fresh game; returns a session table {stub, host}.
 function M.boot()
   add_search_paths()
   reset_modules()
-  if not business_available() then
-    error("业务模块 examples.base_defence 无法加载：请设置 SE_DEFENSE_BUSINESS_DIR 指向含 examples/base_defence/ 的目录（见 tools/acceptance/README.md）")
-  end
-  package.preload["examples.base_defence.host_mock"] = function() return require("src.adapter.host") end
-  package.preload["examples.base_defence.eui_mock"] = function() return require("src.adapter.eui") end
-  package.preload["examples.base_defence.input_mock"] = function() return require("src.adapter.input") end
-  package.preload["examples.host_mock"] = function() return require("src.adapter.host_base") end
-
   local stub = require("tools.headless.se_stub")
   print = function(...) if verbose then real_print(...) end end
   local ok, err = pcall(function() assert(loadfile("src/server/main.lua"))() end)

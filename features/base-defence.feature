@@ -1,5 +1,5 @@
 # language: zh-CN
-# mutation-stamp: sha256=2c792104a5215df4e496d8152e80f8d2db30bd321690c6f5552d5f8dd4b77eee
+# mutation-stamp: sha256=3601042eb24a0cc5ba09e1c22d77fd64623f9098eef8523d4cb528cbd1bb790f
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "c4f507e4bad95d88c201ef86458b8fd1dec20282f34eb290f96b2e72a6161f5b",
@@ -18,7 +18,7 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "6fdfed9e76cca01d63cb45a7a611d5dd3fef494aa6a46ec830c123ad43752107",
-#       "tested_at": "2026-09-05T13:13:34Z"
+#       "tested_at": "2026-09-05T13:39:25Z"
 #     },
 #     {
 #       "index": 1,
@@ -31,7 +31,7 @@
 #         "Total": 10
 #       },
 #       "scenario_hash": "124ce31daffd38cde6ceab2e25cd3eb5ebc3d7b312c31cd05a65f90730414335",
-#       "tested_at": "2026-09-05T13:13:36Z"
+#       "tested_at": "2026-09-05T13:39:26Z"
 #     },
 #     {
 #       "index": 2,
@@ -44,7 +44,7 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "55f83b7c69390e3bb9660a6c8e69c9079a1c0fa9803379ff18049c89fc0d0543",
-#       "tested_at": "2026-09-05T13:13:36Z"
+#       "tested_at": "2026-09-05T13:39:26Z"
 #     },
 #     {
 #       "index": 3,
@@ -57,7 +57,7 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "09adee054ff5d493ccfc468031e13c6ef527135c2040b3a966c5abc0f1c582b4",
-#       "tested_at": "2026-09-05T13:13:36Z"
+#       "tested_at": "2026-09-05T13:39:26Z"
 #     },
 #     {
 #       "index": 4,
@@ -70,10 +70,10 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "d3d2b9e1dd35525ba5d9c15d0035dc711ce172c2ea38e3b0176da42d4de43a5e",
-#       "tested_at": "2026-09-05T13:13:36Z"
+#       "tested_at": "2026-09-05T13:39:26Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-05T13:13:36Z",
+#   "tested_at": "2026-09-05T13:39:26Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end

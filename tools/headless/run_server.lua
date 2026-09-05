@@ -2,12 +2,6 @@
 -- 运行（仓库根）：lua5.4 tools/headless/run_server.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
--- mock 同路径替换（与 tools/deploy.lua 的 swap 等价）
-package.preload["examples.base_defence.host_mock"] = function() return require("src.adapter.host") end
-package.preload["examples.base_defence.eui_mock"] = function() return require("src.adapter.eui") end
-package.preload["examples.base_defence.input_mock"] = function() return require("src.adapter.input") end
-package.preload["examples.host_mock"] = function() return require("src.adapter.host_base") end
-
 local stub = require("tools.headless.se_stub")
 local checks, fails = 0, 0
 local real_print = print

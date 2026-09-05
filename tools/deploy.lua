@@ -4,9 +4,8 @@
 --
 -- 部署树（CONTEXT.md「部署树」词条）：
 --   vendor/spoke/                       → 工作区 vendor/spoke/     （spoke 运行时，已从 spoke-lua 内联）
---   src/adapter/（不含 swap/）              → 工作区 src/adapter/          （适配层）
---   vendor/spoke-lua/examples/base_defence/ → 工作区 examples/base_defence/
---     其中 4 个 mock 文件由 src/adapter/swap/ 同路径替换（业务零改动机制）
+--   src/adapter/                        → 工作区 src/adapter/     （适配层）
+--   src/game/                           → 工作区 src/game/        （业务模块）
 --   src/server/main.lua                     → 工作区 server/main.lua
 --   src/client/main.lua                     → 工作区 client/main.lua
 --
@@ -64,7 +63,7 @@ local function require_dir(path, msg)
 end
 
 require_dir("vendor/spoke", "本仓库缺 vendor/spoke（spoke 运行时）")
-require_dir("vendor/spoke-lua/examples/base_defence", "base_defence 业务模块尚未迁入本仓库（spoke-lua 子模块已移除，只内联了运行时与测试）")
+require_dir("src/game", "本仓库缺 src/game（业务模块）")
 require_dir("src/adapter", "本仓库缺 src/adapter")
 require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 
@@ -75,20 +74,17 @@ rm_rf(WORKSPACE .. "/vendor/spoke")
 cp_dir("vendor/spoke", WORKSPACE .. "/vendor/spoke")
 print("vendor/spoke: " .. file_count(WORKSPACE .. "/vendor/spoke") .. " 文件")
 
--- 2) 适配层（swap/ 是部署源材料，不进部署树）
+-- 2) 适配层
 rm_rf(WORKSPACE .. "/src/adapter")
-run("mkdir -p " .. q(WORKSPACE .. "/src/adapter"))
-run("find src/adapter -maxdepth 1 -name '*.lua' -exec cp {} " .. q(WORKSPACE .. "/src/adapter") .. " \\;")
+cp_dir("src/adapter", WORKSPACE .. "/src/adapter")
 print("src/adapter: " .. file_count(WORKSPACE .. "/src/adapter") .. " 文件")
 
--- 3) 业务模块 + 四个 mock 同路径替换
-rm_rf(WORKSPACE .. "/examples/base_defence")
-cp_dir("vendor/spoke-lua/examples/base_defence", WORKSPACE .. "/examples/base_defence")
-cp_file("src/adapter/swap/host_mock.lua", WORKSPACE .. "/examples/base_defence/host_mock.lua")
-cp_file("src/adapter/swap/eui_mock.lua", WORKSPACE .. "/examples/base_defence/eui_mock.lua")
-cp_file("src/adapter/swap/input_mock.lua", WORKSPACE .. "/examples/base_defence/input_mock.lua")
-cp_file("src/adapter/swap/host_mock_base.lua", WORKSPACE .. "/examples/host_mock.lua")
-print("examples/base_defence: " .. file_count(WORKSPACE .. "/examples/base_defence") .. " 文件（4 mock 已替换）")
+-- 3) 业务模块（README 一并镜像，无害）
+rm_rf(WORKSPACE .. "/src/game")
+cp_dir("src/game", WORKSPACE .. "/src/game")
+-- 旧部署树残留：业务曾落在 examples/，清掉避免幽灵文件
+rm_rf(WORKSPACE .. "/examples")
+print("src/game: " .. file_count(WORKSPACE .. "/src/game") .. " 文件")
 
 -- 4) 双端入口（单文件覆盖，server/ client/ 其余内容不碰）
 cp_file("src/server/main.lua", WORKSPACE .. "/server/main.lua")

@@ -50,9 +50,9 @@ end
 local host = require("src.adapter.host")
 local spoke = require("vendor.spoke")
 local SpokeRuntime = require("vendor.spoke.runtime.spoke_runtime")
-local GameTick = require("examples.base_defence.game_tick")
-local GameRootFull = require("examples.base_defence.game_root_full")
-local Session = require("examples.base_defence.session")
+local GameTick = require("src.game.game_tick")
+local GameRootFull = require("src.game.game_root_full")
+local Session = require("src.game.session")
 local BuildPanel = require("src.adapter.build_panel")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
