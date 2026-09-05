@@ -13,6 +13,10 @@
 #     业务模块在 server/game/，服务端宿主适配层在 server/adapter/，客户端渲染器直接在 client/。
 #   - require 名以 src/ 为根（即工作区根），例如 server.game.core、server.adapter.host、
 #     client.eui_render；仓库内不再出现 src. 前缀的模块名。vendor.spoke 前缀不变。
+#   - 仓库内引用旧路径的地方随之跟进：tools/headless/run_server.lua、tools/acceptance/headless.lua
+#     （package.path 需含 ./src/?.lua；按 ^src%. 复位模块的逻辑改为复位 server./client./common. 前缀，
+#     否则每个场景不再是全新对局）、tools/deploy.lua、CONTEXT.md「宿主接缝」「部署树」词条、
+#     src/game/README.md（随目录迁移）、vendor/UPSTREAM.md。
 #   - 现有 features/base-defence.feature 与 tools/headless 冒烟在新布局下必须原样通过。
 功能: 源码树布局
 
