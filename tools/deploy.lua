@@ -3,7 +3,7 @@
 -- 先例：monopoly tools/packages/ops/deploy.lua（镜像部署 + WSL→Windows 接缝）。
 --
 -- 部署树（CONTEXT.md「部署树」词条）：
---   vendor/spoke-lua/src/spoke/             → 工作区 src/spoke/            （spoke 运行时）
+--   src/common/spoke/                       → 工作区 src/common/spoke/     （spoke 运行时，已从 spoke-lua 内联）
 --   src/adapter/（不含 swap/）              → 工作区 src/adapter/          （适配层）
 --   vendor/spoke-lua/examples/base_defence/ → 工作区 examples/base_defence/
 --     其中 4 个 mock 文件由 src/adapter/swap/ 同路径替换（业务零改动机制）
@@ -63,17 +63,17 @@ local function require_dir(path, msg)
   end
 end
 
-require_dir("vendor/spoke-lua/src/spoke", "spoke-lua submodule 未就位？先 git submodule update --init")
-require_dir("vendor/spoke-lua/examples/base_defence", "spoke-lua submodule 缺 base_defence 示例")
+require_dir("src/common/spoke", "本仓库缺 src/common/spoke（spoke 运行时）")
+require_dir("vendor/spoke-lua/examples/base_defence", "base_defence 业务模块尚未迁入本仓库（spoke-lua 子模块已移除，只内联了运行时与测试）")
 require_dir("src/adapter", "本仓库缺 src/adapter")
 require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 
 -- ── 镜像：先重置目标子树，再拷贝 ──────────────────────────────────────────
 
 -- 1) spoke 运行时
-rm_rf(WORKSPACE .. "/src/spoke")
-cp_dir("vendor/spoke-lua/src/spoke", WORKSPACE .. "/src/spoke")
-print("src/spoke: " .. file_count(WORKSPACE .. "/src/spoke") .. " 文件")
+rm_rf(WORKSPACE .. "/src/common/spoke")
+cp_dir("src/common/spoke", WORKSPACE .. "/src/common/spoke")
+print("src/common/spoke: " .. file_count(WORKSPACE .. "/src/common/spoke") .. " 文件")
 
 -- 2) 适配层（swap/ 是部署源材料，不进部署树）
 rm_rf(WORKSPACE .. "/src/adapter")

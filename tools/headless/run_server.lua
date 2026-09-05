@@ -1,6 +1,6 @@
 -- 无头验证：SE 桩 + 真适配层 + GameRootFull 跑服务端 main.lua，断言 #21 放置流。
 -- 运行（仓库根）：lua5.4 tools/headless/run_server.lua
-package.path = "./?.lua;./?/init.lua;vendor/spoke-lua/?.lua;vendor/spoke-lua/?/init.lua;" .. package.path
+package.path = "./?.lua;./?/init.lua;" .. package.path
 
 -- mock 同路径替换（与 tools/deploy.lua 的 swap 等价）
 package.preload["examples.base_defence.host_mock"] = function() return require("src.adapter.host") end

@@ -1,7 +1,7 @@
 -- 无头验收服务器：SE 桩 + 真适配层 + 服务端 main.lua，每场景执行一个进程。
 -- 协议：stdin/stdout 各一行一个 JSON（NDJSON）；stdout 仅协议，诊断走 stderr（VERBOSE=1 开业务日志）。
 -- 与 tools/headless/run_server.lua 相同的 mock 同路径替换与启动序列。
-package.path = "./?.lua;./?/init.lua;vendor/spoke-lua/?.lua;vendor/spoke-lua/?/init.lua;" .. package.path
+package.path = "./?.lua;./?/init.lua;" .. package.path
 
 package.preload["examples.base_defence.host_mock"] = function() return require("src.adapter.host") end
 package.preload["examples.base_defence.eui_mock"] = function() return require("src.adapter.eui") end

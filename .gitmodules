@@ -1,3 +1,0 @@
-[submodule "vendor/spoke-lua"]
-	path = vendor/spoke-lua
-	url = http://lzxsvn:3000/qinyuanj/spoke.git
