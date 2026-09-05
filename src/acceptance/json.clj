@@ -110,15 +110,6 @@
               (str/replace "\r" "\\r")
               (str/replace "\t" "\\t")) \"))
 
-(defn strip-nil
-  "Removes nil values from maps so nil-able fields are omitted from output."
-  [v]
-  (cond
-    (map? v) (into (empty v)
-                   (keep (fn [[k x]] (when (some? x) [k (strip-nil x)])) v))
-    (vector? v) (mapv strip-nil v)
-    :else v))
-
 (defn write-json
   "Serializes a value to JSON. Map keys are emitted as strings (keywords by
   name); map order follows the map's iteration order."

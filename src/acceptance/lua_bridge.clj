@@ -1,52 +1,67 @@
 (ns acceptance.lua-bridge
   "Spawns one headless Lua acceptance server per scenario execution and
   exchanges NDJSON commands with it. babashka.process is resolved lazily so the
-  namespace also loads under JVM Clojure (unit specs use fake bridges)."
-  (:require [acceptance.json :as json]))
+  namespace also loads under JVM Clojure (unit specs inject fake processes)."
+  (:require [acceptance.bb-process :as bbp]
+            [acceptance.json :as json]))
 
-(defn- process!
-  ([] (requiring-resolve 'babashka.process/process))
-  ([& args] (apply (requiring-resolve 'babashka.process/process) args)))
+(defn- write-command!
+  [in cmd]
+  (.write in (json/write-json cmd))
+  (.write in "\n")
+  (.flush in))
 
-(defn- destroy!
-  [proc]
-  (try ((requiring-resolve 'babashka.process/destroy-process) proc)
-       (catch Throwable _ nil)))
+(defn- read-response!
+  [out]
+  (let [line (.readLine out)]
+    (when-not line
+      (throw (ex-info "acceptance server closed" {:kind :infra})))
+    (json/read-json line)))
+
+(defn- send-command!
+  "Writes one command to the server and reads its response, enforcing the
+  timeout and classifying server errors as infrastructure failures."
+  [in out proc timeout-ms destroy cmd]
+  (let [answer (future
+                 (write-command! in cmd)
+                 (read-response! out))
+        resp (try
+               (deref answer timeout-ms ::timeout)
+               (catch Throwable e
+                 (throw (ex-info (str "bridge error: " (or (ex-message e) (str e)))
+                                 {:kind :infra} e))))]
+    (when (= ::timeout resp)
+      (destroy proc)
+      (throw (ex-info (str "bridge timeout after " timeout-ms "ms")
+                      {:kind :infra})))
+    (when-not (= true (get resp "ok"))
+      (throw (ex-info (str "server error: " (or (get resp "error") "unknown"))
+                      {:kind :infra})))
+    resp))
+
+(defn- spawn*
+  [{:keys [timeout-ms spawn destroy]
+    :or {timeout-ms 30000
+         spawn (fn [argv opts] (bbp/process! argv opts))
+         destroy bbp/destroy!}}]
+  (let [lua (or (System/getenv "ACCEPTANCE_LUA") "lua")
+        server "tools/headless/acceptance_server.lua"
+        proc (spawn [lua server] {:in :pipe :out :pipe :err :inherit})
+        in (java.io.OutputStreamWriter. (:in proc) "UTF-8")
+        out (java.io.BufferedReader. (java.io.InputStreamReader. (:out proc) "UTF-8"))]
+    {:proc proc
+     :timeout-ms timeout-ms
+     :close! (fn []
+               (try (.close in) (catch Throwable _ nil))
+               (destroy proc))
+     :send! (fn [cmd] (send-command! in out proc timeout-ms destroy cmd))}))
 
 (defn spawn-bridge!
   "Starts the acceptance server as a child process. Returns a bridge map with
-  :send! (command -> response map) and :close!."
-  ([] (spawn-bridge! 30000))
+  :send! (command -> response map) and :close!. opts: :timeout-ms, and for
+  tests :spawn (argv opts -> process map) and :destroy (process -> nil)."
+  ([] (spawn* {}))
   ([timeout-ms]
-   (let [lua (or (System/getenv "ACCEPTANCE_LUA") "lua")
-         server "tools/headless/acceptance_server.lua"
-         proc (process! [lua server] {:in :pipe :out :pipe :err :inherit})
-         in (java.io.OutputStreamWriter. (:in proc) "UTF-8")
-         out (java.io.BufferedReader. (java.io.InputStreamReader. (:out proc) "UTF-8"))]
-     {:proc proc
-      :timeout-ms timeout-ms
-      :close! (fn []
-                (try (.close in) (catch Throwable _ nil))
-                (destroy! proc))
-      :send! (fn [cmd]
-               (let [answer (future
-                              (.write in (json/write-json cmd))
-                              (.write in "\n")
-                              (.flush in)
-                              (let [line (.readLine out)]
-                                (when-not line
-                                  (throw (ex-info "acceptance server closed" {:kind :infra})))
-                                (json/read-json line)))
-                     resp (try
-                            (deref answer timeout-ms ::timeout)
-                            (catch Throwable e
-                              (throw (ex-info (str "bridge error: " (or (ex-message e) (str e)))
-                                              {:kind :infra} e))))]
-                 (when (= ::timeout resp)
-                   (destroy! proc)
-                   (throw (ex-info (str "bridge timeout after " timeout-ms "ms")
-                                   {:kind :infra})))
-                 (when-not (= true (get resp "ok"))
-                   (throw (ex-info (str "server error: " (or (get resp "error") "unknown"))
-                                   {:kind :infra})))
-                 resp))})))
+   (spawn* (if (map? timeout-ms)
+             timeout-ms
+             {:timeout-ms timeout-ms}))))

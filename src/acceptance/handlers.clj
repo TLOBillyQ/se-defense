@@ -3,23 +3,14 @@
   through the acceptance server bridge. Regex captures are the default style;
   each capture resolves to the current example value when the example has a
   matching column name, otherwise to the capture text itself."
-  (:require [clojure.string :as str]))
-
-(defn- getk
-  "Reads a key tolerant of keyword and string keys (decode vs spec fixtures)."
-  [m k]
-  (if (map? m)
-    (if (keyword? k)
-      (get m k (get m (name k)))
-      (get m k (get m (keyword k))))
-    nil))
+  (:require [acceptance.keyed :as keyed]))
 
 (defn- check!
   [cond msg]
   (when-not cond
     (throw (ex-info msg {:kind :assertion}))))
 
-(defn- num
+(defn- parse-num
   [s]
   (let [v (Double/parseDouble (str s))]
     (if (== v (Math/floor v)) (long v) v)))
@@ -33,11 +24,11 @@
 
 (defn- state!
   [world]
-  (getk (call! world {:cmd "state"}) "state"))
+  (keyed/get-k (call! world {:cmd "state"}) "state"))
 
 (defn- entities!
   [world prefab]
-  (getk (call! world {:cmd "entities" :prefab prefab}) "entities"))
+  (keyed/get-k (call! world {:cmd "entities" :prefab prefab}) "entities"))
 
 (defn- send-input!
   [world msg]
@@ -63,7 +54,7 @@
 
    [#"^the game advances ([0-9]+) ticks?$"
     (fn [world captures _resolve]
-      (call! world {:cmd "steps" :n (num (first captures))}))]
+      (call! world {:cmd "steps" :n (parse-num (first captures))}))]
 
    [#"^the client sends a place intent for <?([A-Za-z0-9_]+)>?$"
     (fn [world captures resolve]
@@ -72,14 +63,14 @@
    [#"^the client taps the board at <?(-?[A-Za-z0-9_.]+)>? <?(-?[A-Za-z0-9_.]+)>?$"
     (fn [world captures resolve]
       (let [state (state! world)]
-        (swap! (extras! world) assoc :money-before-tap (getk state "money")))
+        (swap! (extras! world) assoc :money-before-tap (keyed/get-k state "money")))
       (send-input! world {:kind "input" :itype "tap"
-                          :x (num (resolve (first captures)))
-                          :z (num (resolve (second captures)))}))]
+                          :x (parse-num (resolve (first captures)))
+                          :z (parse-num (resolve (second captures)))}))]
 
    [#"^no building is being placed$"
     (fn [world _captures _resolve]
-      (check! (nil? (getk (state! world) "placing")) "expected no placing selection"))]
+      (check! (nil? (keyed/get-k (state! world) "placing")) "expected no placing selection"))]
 
    [#"^the gm sets the money to <?([A-Za-z0-9_]+)>?$"
     (fn [world captures resolve]
@@ -99,52 +90,52 @@
 
    [#"^the game is in <?([A-Za-z0-9_]+)>? mode$"
     (fn [world captures resolve]
-      (let [mode (getk (state! world) "mode")
+      (let [mode (keyed/get-k (state! world) "mode")
             expected (resolve (first captures))]
         (check! (= expected mode)
                 (str "expected mode " expected ", got " (pr-str mode)))))]
 
    [#"^the money is <?([A-Za-z0-9_]+)>?$"
     (fn [world captures resolve]
-      (let [money (getk (state! world) "money")
-            expected (num (resolve (first captures)))]
+      (let [money (keyed/get-k (state! world) "money")
+            expected (parse-num (resolve (first captures)))]
         (check! (= expected money)
                 (str "expected money " expected ", got " money))))]
 
    [#"^the money decreased by <?([A-Za-z0-9_]+)>?$"
     (fn [world captures resolve]
-      (let [before (getk @(extras! world) :money-before-tap)
-            now (getk (state! world) "money")
-            cost (num (resolve (first captures)))]
+      (let [before (keyed/get-k @(extras! world) :money-before-tap)
+            now (keyed/get-k (state! world) "money")
+            cost (parse-num (resolve (first captures)))]
         (check! (some? before) "no recorded money before the tap")
         (check! (= cost (- before now))
                 (str "expected decrease " cost ", got " (- before now) " (before " before ", now " now ")"))))]
 
    [#"^the entity count on the board is <?([A-Za-z0-9_]+)>?$"
     (fn [world captures resolve]
-      (let [count (getk (entities! world "__all__") "count")
-            expected (num (resolve (first captures)))]
+      (let [count (keyed/get-k (entities! world "__all__") "count")
+            expected (parse-num (resolve (first captures)))]
         (check! (= expected count)
                 (str "expected entity count " expected ", got " count))))]
 
    [#"^the <?([A-Za-z0-9_]+)>? count on the board is <?([A-Za-z0-9_]+)>?$"
     (fn [world captures resolve]
       (let [prefab (resolve (first captures))
-            count (getk (entities! world prefab) "count")
-            expected (num (resolve (second captures)))]
+            count (keyed/get-k (entities! world prefab) "count")
+            expected (parse-num (resolve (second captures)))]
         (check! (= expected count)
                 (str "expected " prefab " count " expected ", got " count))))]
 
    [#"^the <?([A-Za-z0-9_]+)>? has power$"
     (fn [world captures resolve]
       (let [prefab (resolve (first captures))
-            entities (getk (entities! world prefab) "items")]
-        (check! (boolean (some #(true? (getk % :has_power)) entities))
+            entities (keyed/get-k (entities! world prefab) "items")]
+        (check! (boolean (some #(true? (keyed/get-k % :has_power)) entities))
                 (str "expected a live " prefab " with power"))))]
 
    [#"^the (victory|gameover|pregame) banner is visible$"
     (fn [world captures _resolve]
       (let [name (first captures)
-            node (getk (call! world {:cmd "node" :path (str "sidebar/" name)}) "node")]
-        (check! (and node (true? (getk node "visible")))
+            node (keyed/get-k (call! world {:cmd "node" :path (str "sidebar/" name)}) "node")]
+        (check! (and node (true? (keyed/get-k node "visible")))
                 (str "expected sidebar/" name " banner visible"))))]])

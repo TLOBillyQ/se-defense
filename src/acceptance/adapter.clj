@@ -4,7 +4,9 @@
   response per job. Spawns generated test entry points against the supplied
   (mutated) IR and classifies test_success / test_failure /
   infrastructure_error."
-  (:require [acceptance.json :as json]
+  (:require [acceptance.bb-process :as bbp]
+            [acceptance.json :as json]
+            [acceptance.keyed :as keyed]
             [clojure.string :as str])
   (:import (java.io BufferedReader BufferedWriter File FileReader
                     InputStreamReader OutputStreamWriter StringReader
@@ -50,23 +52,15 @@
       :else
       {"outcome" "test_success" "output" output "error" ""})))
 
-(defn- jget
-  "Job field accessor tolerant of keyword and string keys."
-  [job k]
-  (if (map? job)
-    (if (keyword? k)
-      (get job k (get job (name k)))
-      (get job k (get job (keyword k))))
-    nil))
-
 (defn run-job
   "Runs every generated test entry point against the job's mutated IR and
   classifies the outcome. opts: {:exec f :root dir}; f is called with
   [command-vector timeout-ms] and returns {:exit N :out s :err s}."
   [job {:keys [exec]}]
-  (let [feature-json (jget job "feature_json")
-        gen-dir (jget job "generated_dir")
-        timeout (parse-timeout (jget job "timeout"))
+  (let [feature-json (keyed/get-k job "feature_json")
+        gen-dir (keyed/get-k job "generated_dir")
+        timeout (parse-timeout (keyed/get-k job "timeout"))
+        id (keyed/get-k job "id")
         started (System/nanoTime)]
     (try
       (let [tests (generated-tests gen-dir)]
@@ -74,13 +68,13 @@
           (let [results (mapv (fn [test] (exec [test feature-json] timeout)) tests)
                 outcome (combine-results results)]
             (assoc outcome
-                   "id" (jget job "id")
+                   "id" id
                    "duration" (- (System/nanoTime) started)))
-          {:id (jget job "id") "outcome" "infrastructure_error"
+          {:id id "outcome" "infrastructure_error"
            "output" "" "error" (str "no generated tests in " gen-dir)
            "duration" (- (System/nanoTime) started)}))
       (catch Throwable e
-        {:id (jget job "id") "outcome" "infrastructure_error"
+        {:id id "outcome" "infrastructure_error"
          "output" "" "error" (or (ex-message e) (str e))
          "duration" (- (System/nanoTime) started)}))))
 
@@ -126,23 +120,25 @@
 
 (defn default-exec
   "Babashka exec: runs a command as a child process, collecting output and
-  enforcing the timeout (kills the process on expiry)."
-  [cmd timeout-ms]
-  (let [proc ((requiring-resolve 'babashka.process/process)
-              cmd {:dir (System/getProperty "user.dir")
-                   :out :string :err :string})
-        jproc (:proc proc)
-        out-f (future (deref (:out proc)))
-        err-f (future (deref (:err proc)))
-        exited (try (.waitFor jproc (long timeout-ms)
-                              java.util.concurrent.TimeUnit/MILLISECONDS)
-                    (catch Throwable _ false))]
-    (if exited
-      {:exit (.exitValue jproc)
-       :out (deref out-f 10000 "") :err (deref err-f 10000 "")}
-      (do (try ((requiring-resolve 'babashka.process/destroy-process) proc)
-               (catch Throwable _ nil))
-          (throw (ex-info (str "test runner timeout after " timeout-ms "ms") {}))))))
+  enforcing the timeout (kills the process on expiry). opts: :spawn (cmd opts ->
+  process), :destroy (process -> nil), :dir; defaults to babashka.process."
+  ([cmd timeout-ms] (default-exec cmd timeout-ms {}))
+  ([cmd timeout-ms {:keys [spawn destroy dir]
+                    :or {spawn (fn [cmd opts] (bbp/process! cmd opts))
+                         destroy bbp/destroy!
+                         dir (System/getProperty "user.dir")}}]
+   (let [proc (spawn cmd {:dir dir :out :string :err :string})
+         jproc (:proc proc)
+         out-f (future (deref (:out proc)))
+         err-f (future (deref (:err proc)))
+         exited (try (.waitFor jproc (long timeout-ms)
+                               java.util.concurrent.TimeUnit/MILLISECONDS)
+                     (catch Throwable _ false))]
+     (if exited
+       {:exit (.exitValue jproc)
+        :out (deref out-f 10000 "") :err (deref err-f 10000 "")}
+       (do (destroy proc)
+           (throw (ex-info (str "test runner timeout after " timeout-ms "ms") {})))))))
 
 (defn -main
   [& _]

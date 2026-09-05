@@ -128,3 +128,36 @@
             out (java.io.StringWriter.)]
         (a/handle-jobs in out {:exec exec :root dir})
         (should= 1 (count (clojure.string/split-lines (str out))))))))
+
+(describe "default-exec"
+  (letfn [(fake-proc [exited?]
+            (proxy [java.lang.Process] []
+              (waitFor [timeout unit] exited?)
+              (exitValue [] 0)))
+          (fake-spawn [exited? calls]
+            (fn [cmd opts]
+              (let [proc-map {:proc (fake-proc exited?)
+                              :out (future "captured out")
+                              :err (future "captured err")}]
+                (swap! calls conj {:cmd cmd :opts opts :proc-map proc-map})
+                proc-map)))]
+    (it "runs the command and collects output and exit code"
+      (let [calls (atom [])
+            result (a/default-exec ["bb" "spec"] 1000
+                                   {:spawn (fake-spawn true calls)})]
+        (should= {:exit 0 :out "captured out" :err "captured err"} result)
+        (let [{:keys [cmd opts]} (first @calls)]
+          (should= ["bb" "spec"] cmd)
+          (should= {:dir (System/getProperty "user.dir")
+                    :out :string :err :string} opts))))
+
+    (it "destroys the process and throws on timeout"
+      (let [calls (atom [])
+            destroyed (atom nil)
+            result (try
+                     (a/default-exec ["bb" "spec"] 1000
+                                     {:spawn (fake-spawn false calls)
+                                      :destroy (fn [proc] (reset! destroyed proc))})
+                     (catch clojure.lang.ExceptionInfo e e))]
+        (should= true (boolean (re-find #"timeout after 1000ms" (ex-message result))))
+        (should= true (= (:proc-map (first @calls)) @destroyed))))))

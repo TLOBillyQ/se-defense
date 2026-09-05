@@ -33,8 +33,13 @@ through a thin Lua protocol server on top of the existing SE stub harness.
 ```sh
 tools/acceptance/run_acceptance.sh            # normal acceptance run
 tools/acceptance/run_mutation.sh              # mutation run (default feature)
+tools/acceptance/run_property.sh              # property tests (test.check, separate command)
 speclj                                        # pipeline unit specs
 ```
+
+Property tests live under `spec-property/`, outside `spec/`, so they are not
+picked up by unit coverage (Cloverage), CRAP, language mutation, or Gherkin
+mutation runs.
 
 Run everything from the repository root: generated tests and the Lua server
 resolve project paths relative to it.
