@@ -41,7 +41,7 @@ local RunService = game:GetService("RunService")
 local CameraService = game:GetService("CameraService")
 local UIS = game:GetService("UserInputService")
 
-local Renderer = require("src.adapter.eui_render")
+local Renderer = require("client.eui_render")
 
 local function log(fmt, ...)
   print("[bd][client] " .. string.format(fmt, ...))

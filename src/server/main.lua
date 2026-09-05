@@ -8,7 +8,7 @@
 --     seq 缺口 resync 走全量（#18 决策 1）；
 --   - 输入反向通道：客户端捕获层 → FireServer 意图 → host.input 队列（#7 决策 2、#8 D5）。
 --
--- #21 建筑与放置：放置/取消按钮归适配层（src/adapter/build_panel.lua 投影为
+-- #21 建筑与放置：放置/取消按钮归适配层（src/server/adapter/build_panel.lua 投影为
 --   快照节点 panel/*，客户端渲成 EUIButton），点击回流 place/cancel 意图；
 --   放置预览由业务 board_display 的 ring 双路由承担。
 -- #23 电网与辅助建筑：业务零改动；覆盖圈 6044 / 连线与光束 4506 的分派、
@@ -47,13 +47,13 @@ if type(_G.package.loaded) ~= "table" then
   log("package.loaded 不存在，已注入最小 shim（兼容 game_root_full 的缓存复位写法）")
 end
 
-local host = require("src.adapter.host")
+local host = require("server.adapter.host")
 local spoke = require("vendor.spoke")
 local SpokeRuntime = require("vendor.spoke.runtime.spoke_runtime")
-local GameTick = require("src.game.game_tick")
-local GameRootFull = require("src.game.game_root_full")
-local Session = require("src.game.session")
-local BuildPanel = require("src.adapter.build_panel")
+local GameTick = require("server.game.game_tick")
+local GameRootFull = require("server.game.game_root_full")
+local Session = require("server.game.session")
+local BuildPanel = require("server.adapter.build_panel")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
 -- 棋盘 40×40、Core 置世界原点、单位 1:1（#8 D2 假设）。
