@@ -48,8 +48,8 @@ if type(_G.package.loaded) ~= "table" then
 end
 
 local host = require("src.adapter.host")
-local spoke = require("src.common.spoke")
-local SpokeRuntime = require("src.common.spoke.runtime.spoke_runtime")
+local spoke = require("vendor.spoke")
+local SpokeRuntime = require("vendor.spoke.runtime.spoke_runtime")
 local GameTick = require("examples.base_defence.game_tick")
 local GameRootFull = require("examples.base_defence.game_root_full")
 local Session = require("examples.base_defence.session")
