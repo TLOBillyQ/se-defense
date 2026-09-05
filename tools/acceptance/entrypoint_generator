@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# APS acceptance entrypoint generator for se-defense.
+# Usage: acceptance-entrypoint-generator <json-ir> <generated-test-output>
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+exec bb src/acceptance/generator.clj "$@"

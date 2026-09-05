@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Persistent runner adapter for APS Gherkin acceptance mutation.
+# Speaks newline-delimited JSON job requests on stdin, responses on stdout.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+exec bb src/acceptance/adapter.clj "$@"

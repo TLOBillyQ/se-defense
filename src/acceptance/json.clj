@@ -1,0 +1,144 @@
+(ns acceptance.json
+  "Minimal JSON reader/writer for the acceptance pipeline. Dependency-free so
+  the same code runs under Babashka and JVM Clojure. Decodes objects to maps
+  with string keys; encodes keywords as their names."
+  (:require [clojure.string :as str]))
+
+(defn- read-string* [s i]
+  (loop [i (inc i) acc (StringBuilder.)]
+    (if (>= i (count s))
+      (throw (ex-info "unterminated string" {:json-at i}))
+      (let [c (.charAt s i)]
+        (cond
+          (= c \") [(str acc) (inc i)]
+          (= c \\) (let [esc (.charAt s (inc i))]
+                     (case esc
+                       \" (recur (+ i 2) (.append acc \"))
+                       \\ (recur (+ i 2) (.append acc \\))
+                       \/ (recur (+ i 2) (.append acc \/))
+                       \b (recur (+ i 2) (.append acc \backspace))
+                       \f (recur (+ i 2) (.append acc \formfeed))
+                       \n (recur (+ i 2) (.append acc \newline))
+                       \r (recur (+ i 2) (.append acc \return))
+                       \t (recur (+ i 2) (.append acc \tab))
+                       \u (let [hex (subs s (+ i 2) (+ i 6))
+                                code (Integer/parseInt hex 16)]
+                            (recur (+ i 6) (.append acc (char code))))
+                       (throw (ex-info (str "bad escape \\" esc) {:json-at i}))))
+          :else (recur (inc i) (.append acc c)))))))
+
+(defn- skip-ws [s i]
+  (loop [i i]
+    (if (and (< i (count s)) (Character/isWhitespace (.charAt s i)))
+      (recur (inc i))
+      i)))
+
+(declare read-value)
+
+(defn- read-number [s i]
+  (let [m (re-find #"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?" (subs s i))]
+    (when-not m (throw (ex-info "bad number" {:json-at i})))
+    (let [txt m
+          v (if (or (str/includes? txt ".") (str/includes? txt "e") (str/includes? txt "E"))
+              (Double/parseDouble txt)
+              (Long/parseLong txt))]
+      [v (+ i (count txt))])))
+
+(defn- read-array [s i]
+  (loop [i (skip-ws s (inc i)) acc []]
+    (let [c (.charAt s i)]
+      (cond
+        (= c \]) [acc (inc i)]
+        (= c \,) (recur (skip-ws s (inc i)) acc)
+        :else (let [[v j] (read-value s i)]
+                (recur (skip-ws s j) (conj acc v)))))))
+
+(defn- read-object [s i]
+  (loop [i (skip-ws s (inc i)) m {}]
+    (let [c (.charAt s i)]
+      (if (= c \})
+        [m (inc i)]
+        (let [[k j] (read-string* s i)
+              j2 (skip-ws s j)
+              _ (when-not (= \: (.charAt s j2))
+                  (throw (ex-info "expected : after object key" {:json-at j2})))
+              [v j3] (read-value s (skip-ws s (inc j2)))
+              j4 (skip-ws s j3)
+              c2 (.charAt s j4)]
+          (case c2
+            \, (recur (skip-ws s (inc j4)) (assoc m k v))
+            \} [(assoc m k v) (inc j4)]
+            (throw (ex-info "bad object separator" {:json-at j4}))))))))
+
+(defn- read-value [s i]
+  (let [i (skip-ws s i)
+        c (.charAt s i)]
+    (case c
+      \" (read-string* s i)
+      \[ (read-array s i)
+      \{ (read-object s i)
+      \t (if (= "true" (subs s i (+ i 4))) [true (+ i 4)] (throw (ex-info "bad token" {:json-at i})))
+      \f (if (= "false" (subs s i (+ i 5))) [false (+ i 5)] (throw (ex-info "bad token" {:json-at i})))
+      \n (if (= "null" (subs s i (+ i 4))) [nil (+ i 4)] (throw (ex-info "bad token" {:json-at i})))
+      (read-number s i))))
+
+(defn read-json
+  "Parses a JSON document. Returns maps with string keys and vectors for arrays."
+  [s]
+  (let [s (str s)
+        [v j] (read-value s 0)
+        j2 (skip-ws s j)]
+    (when-not (= j2 (count s))
+      (throw (ex-info "trailing data after JSON document" {})))
+    v))
+
+(defn- write-number [v]
+  (cond
+    (instance? Long v) (str v)
+    (instance? Integer v) (str v)
+    (instance? Double v) (let [d (double v)
+                               r (Math/round d)]
+                           (if (and (== d r) (<= (Math/abs d) 1e15)) (str r) (str d)))
+    (instance? Float v) (write-number (double v))
+    :else (str v)))
+
+(defn- write-string [v]
+  (str \" (-> (str v)
+              (str/replace "\\" "\\\\")
+              (str/replace "\"" "\\\"")
+              (str/replace "\n" "\\n")
+              (str/replace "\r" "\\r")
+              (str/replace "\t" "\\t")) \"))
+
+(defn strip-nil
+  "Removes nil values from maps so nil-able fields are omitted from output."
+  [v]
+  (cond
+    (map? v) (into (empty v)
+                   (keep (fn [[k x]] (when (some? x) [k (strip-nil x)])) v))
+    (vector? v) (mapv strip-nil v)
+    :else v))
+
+(defn write-json
+  "Serializes a value to JSON. Map keys are emitted as strings (keywords by
+  name); map order follows the map's iteration order."
+  [v]
+  (letfn [(emit [v]
+            (cond
+              (nil? v) "null"
+              (string? v) (write-string v)
+              (keyword? v) (write-string (name v))
+              (symbol? v) (write-string (str v))
+              (instance? Boolean v) (str v)
+              (number? v) (write-number v)
+              (vector? v) (str "[" (str/join "," (map emit v)) "]")
+              (sequential? v) (str "[" (str/join "," (map emit v)) "]")
+              (map? v) (str "{"
+                            (str/join ","
+                                      (map (fn [[k x]]
+                                             (str (write-string (if (keyword? k) (name k) (str k)))
+                                                  ":" (emit x)))
+                                           v))
+                            "}")
+              :else (write-string (str v))))]
+    (emit v)))

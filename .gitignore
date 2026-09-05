@@ -1,2 +1,6 @@
 .swarmforge/
 .worktrees/
+build/
+acceptance/generated/
+.cpcache/
+tmp/
