@@ -13,7 +13,7 @@ mandatory for files under `features/`).
   up by exact step text, so the table resolves keys through Lua patterns and
   literal sentences that differ only by a number share one implementation.
 - `tools/acceptance/headless.lua` — boots a fresh game inside the current
-  process for every scenario execution (drops `src.*`, `vendor.*` and the SE stub from `package.loaded`, re-runs the boot
+  process for every scenario execution (drops `server.*`, `client.*`, `common.*`, `vendor.*` and the SE stub from `package.loaded`, re-runs the boot
   sequence of `tools/headless/run_server.lua`) and exposes the query surface.
 - `tools/acceptance/bootstrap.lua` — installs `acceptance4lua` into
   `.toolcache/luarocks` on first use (`git clone` + `luarocks make`) and puts

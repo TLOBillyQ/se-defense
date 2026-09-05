@@ -1,17 +1,20 @@
--- 部署脚本：把部署树 byte 镜像进 SE 工作区（票 #6）。
+-- 部署脚本：把部署树 byte 镜像进 SE 工作区（票 #6；src/目录层级调整）。
 -- 运行：在仓库根执行 `lua5.4 tools/deploy.lua`（WSL；经 /mnt/c 直接操作 Windows 侧）。
 -- 先例：monopoly tools/packages/ops/deploy.lua（镜像部署 + WSL→Windows 接缝）。
 --
--- 部署树（CONTEXT.md「部署树」词条）：
---   vendor/spoke/                       → 工作区 vendor/spoke/     （spoke 运行时，已从 spoke-lua 内联）
---   src/adapter/                        → 工作区 src/adapter/     （适配层）
---   src/game/                           → 工作区 src/game/        （业务模块）
---   src/server/main.lua                     → 工作区 server/main.lua
---   src/client/main.lua                     → 工作区 client/main.lua
+-- 部署树（CONTEXT.md「部署树」词条；计划本身在 tools/deploy_plan.lua）：
+--   vendor/spoke/          → 工作区 vendor/spoke/   （spoke 运行时，整子树重置）
+--   src/<端>/<child>/...   → 工作区 <端>/<child>/...（端 = client/common/data/server）
 --
 -- 镜像纪律：先重置目标子树再拷贝，不留幽灵文件（spoke-lua 接入指南）。
--- 只重置本脚本拥有的子树；工作区其余内容（eggy.json、_trigger、data 等）不碰。
+-- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
+-- 工作区其余内容（eggy.json、server/_trigger、data 等）不碰。
+-- 旧布局残留（工作区根的 src/、examples/）随部署清除。
 -- 编辑器 syncEnabled=true：落盘即进编辑器内存，无需 code push（#5 实测）。
+
+package.path = "./?.lua;./?/init.lua;" .. package.path
+
+local plan = require("tools.deploy_plan")
 
 local WORKSPACE = os.getenv("EGGY_WORKSPACE")
   or "/mnt/c/Users/Lzx_8/Desktop/dev/eggy/LuaSource_BaseDefence"
@@ -37,13 +40,15 @@ local function rm_rf(path)
   run("rm -rf " .. q(path))
 end
 
-local function cp_dir(src, dst)
-  run("mkdir -p " .. q(dst))
-  run("cp -r " .. q(src .. "/.") .. " " .. q(dst))
-end
-
-local function cp_file(src, dst)
-  run("cp " .. q(src) .. " " .. q(dst))
+local function cp_entry(src, dst)
+  local ok, _, code = os.execute("test -d " .. q(src))
+  if ok and code == 0 then
+    run("mkdir -p " .. q(dst))
+    run("cp -r " .. q(src .. "/.") .. " " .. q(dst))
+  else
+    run("mkdir -p " .. q(dst:match("^(.*)/[^/]+$") or "."))
+    run("cp " .. q(src) .. " " .. q(dst))
+  end
 end
 
 local function file_count(path)
@@ -51,6 +56,20 @@ local function file_count(path)
   local n = tonumber((handle:read("*a") or ""):match("%d+")) or 0
   handle:close()
   return n
+end
+
+-- 枚举目录一级条目：{ {name=, dir=}, ... }，按名排序保证计划稳定。
+local function entries(dir)
+  local out = {}
+  local handle = io.popen("find " .. q(dir) .. " -mindepth 1 -maxdepth 1 2>/dev/null")
+  for line in handle:lines() do
+    local name = line:sub(#dir + 2)
+    local ok, _, code = os.execute("test -d " .. q(line))
+    out[#out + 1] = { name = name, dir = ok and code == 0 }
+  end
+  handle:close()
+  table.sort(out, function(a, b) return a.name < b.name end)
+  return out
 end
 
 -- ── 前置检查 ──────────────────────────────────────────────────────────────
@@ -63,33 +82,18 @@ local function require_dir(path, msg)
 end
 
 require_dir("vendor/spoke", "本仓库缺 vendor/spoke（spoke 运行时）")
-require_dir("src/game", "本仓库缺 src/game（业务模块）")
-require_dir("src/adapter", "本仓库缺 src/adapter")
+require_dir("src", "本仓库缺 src（源码树）")
 require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 
--- ── 镜像：先重置目标子树，再拷贝 ──────────────────────────────────────────
+-- ── 执行镜像计划 ──────────────────────────────────────────────────────────
 
--- 1) spoke 运行时
-rm_rf(WORKSPACE .. "/vendor/spoke")
-cp_dir("vendor/spoke", WORKSPACE .. "/vendor/spoke")
-print("vendor/spoke: " .. file_count(WORKSPACE .. "/vendor/spoke") .. " 文件")
-
--- 2) 适配层
-rm_rf(WORKSPACE .. "/src/adapter")
-cp_dir("src/adapter", WORKSPACE .. "/src/adapter")
-print("src/adapter: " .. file_count(WORKSPACE .. "/src/adapter") .. " 文件")
-
--- 3) 业务模块（README 一并镜像，无害）
-rm_rf(WORKSPACE .. "/src/game")
-cp_dir("src/game", WORKSPACE .. "/src/game")
--- 旧部署树残留：业务曾落在 examples/，清掉避免幽灵文件
-rm_rf(WORKSPACE .. "/examples")
-print("src/game: " .. file_count(WORKSPACE .. "/src/game") .. " 文件")
-
--- 4) 双端入口（单文件覆盖，server/ client/ 其余内容不碰）
-cp_file("src/server/main.lua", WORKSPACE .. "/server/main.lua")
-cp_file("src/client/main.lua", WORKSPACE .. "/client/main.lua")
-print("入口: server/main.lua client/main.lua")
+for _, op in ipairs(plan.build(entries)) do
+  rm_rf(WORKSPACE .. "/" .. op.dst)
+  if op.kind == "mirror" then
+    cp_entry(op.src, WORKSPACE .. "/" .. op.dst)
+    print(op.dst .. ": " .. file_count(WORKSPACE .. "/" .. op.dst) .. " 文件")
+  end
+end
 
 print("deploy ok → " .. WORKSPACE)
 print("下一步: $CLI code validate && $CLI code diff（经 cmd.exe 从工作区 cwd 执行）")

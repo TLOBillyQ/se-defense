@@ -56,6 +56,6 @@ lua vendor/tests/run.lua && lua vendor/tests/property/run.lua
 ## 业务模块不在 vendor/ 里
 
 上游曾有 `examples/base_defence/`（Base Defence 业务示例），最后版本是上游
-`4bdcf06`，之后被上游删除。它已迁入本仓库 `src/game/`（require 前缀
-`src.game`，宿主 mock 改为直接依赖 `src.adapter.*`），从此在本仓库维护，
+`4bdcf06`，之后被上游删除。它已迁入本仓库 `src/server/game/`（require 前缀
+`server.game`，宿主 mock 改为直接依赖 `server.adapter.*`），从此在本仓库维护，
 **不参与上游同步**。

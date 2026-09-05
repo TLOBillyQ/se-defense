@@ -3,22 +3,24 @@
 -- query surface the step handlers need. Same boot sequence as
 -- tools/headless/run_server.lua.
 --
--- Fresh game per scenario: every module under src./vendor. and the SE stub
--- are dropped from package.loaded and required again, so module-level state
--- (adapter registries, stub signal lists, _G.bd) starts from scratch.
+-- Fresh game per scenario: every module under server./client./common./vendor.
+-- and the SE stub are dropped from package.loaded and required again, so
+-- module-level state (adapter registries, stub signal lists, _G.bd) starts
+-- from scratch.
 local M = {}
 
 local real_print = print
 local verbose = os.getenv("VERBOSE") == "1"
 
 local function add_search_paths()
-  local paths = { "./?.lua", "./?/init.lua" }
+  local paths = { "./?.lua", "./?/init.lua", "./src/?.lua", "./src/?/init.lua" }
   package.path = table.concat(paths, ";") .. ";" .. package.path
 end
 
 local function reset_modules()
   for name in pairs(package.loaded) do
-    if name:match("^src%.") or name:match("^vendor%.")
+    if name:match("^server%.") or name:match("^client%.") or name:match("^common%.")
+      or name:match("^vendor%.")
       or name == "tools.headless.se_stub" then
       package.loaded[name] = nil
     end
@@ -35,7 +37,7 @@ function M.boot()
   local ok, err = pcall(function() assert(loadfile("src/server/main.lua"))() end)
   print = real_print
   if not ok then error(err, 0) end
-  return { stub = stub, host = require("src.adapter.host") }
+  return { stub = stub, host = require("server.adapter.host") }
 end
 
 local function quiet(fn, ...)
