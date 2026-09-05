@@ -1,0 +1,13 @@
+# Local Engineering Rules
+
+## Project Language
+- Project language: Lua 5.4 (adapter layer over the inlined spoke runtime in `vendor/spoke/`, targeting the SE editor host).
+- Clojure/Babashka paragraphs in engineering.prompt do not apply to this project. Never run `bb`/`clj` commands here.
+
+## Command Mapping
+- Unit/headless checks: `lua5.4 tools/headless/run_server.lua` (see CONTEXT.md for the rest of the verification surface).
+- Acceptance suite: `tools/acceptance/run_acceptance.sh`; Gherkin mutation: `tools/acceptance/run_mutation.sh`.
+- APS tools (`gherkin-parser`, `ir-dry-checker`, `gherkin-mutator`) are served by the Gitea `acceptance4lua` rock (`tools/tools.lock`), installed into `.toolcache/luarocks` by `tools/acceptance/bootstrap.lua`. Bare names resolve through `.swarmforge/bin` forwarders written by `tools/acceptance/provision.sh`; re-run it if they are missing.
+- Never run `swarm_tool.sh ensure <aps-tool>`: it replaces the forwarders with Babashka wrappers.
+- Files under `features/` must start with `# language: zh-CN`; write features in Chinese.
+- Step handlers live in `tools/acceptance/steps.lua`; each scenario execution boots a fresh in-process game via `tools/acceptance/headless.lua`.

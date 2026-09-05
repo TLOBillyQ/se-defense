@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Normal acceptance run for se-defense: parse -> dry-check -> generate -> run.
-# Run from the repository root (the script cd's there itself).
+# Normal acceptance run for se-defense: parse -> dry-check (advisory) -> generate -> run.
+# Run from anywhere; the script cd's to the repository root.
+# Needs Lua 5.4 (scripts/pick-lua.sh) and the acceptance4lua rock (auto-installed
+# into .toolcache/luarocks). The business tree examples/base_defence must be
+# resolvable; see tools/acceptance/README.md (SE_DEFENSE_BUSINESS_DIR).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
+. ./scripts/pick-lua.sh
+LUA="$(pick_lua)"
 
 GEN_DIR="acceptance/generated"
 IR_DIR="build/acceptance/ir"
 DRY_DIR="build/acceptance/dry"
 mkdir -p "$GEN_DIR" "$IR_DIR" "$DRY_DIR"
-
-slug() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'
-}
 
 shopt -s nullglob
 features=(features/*.feature)
@@ -21,17 +22,19 @@ if [ "${#features[@]}" -eq 0 ]; then
   exit 1
 fi
 
+LUA_PATH_FOR_SPECS="$("$LUA" -e 'package.path="./?.lua;"..package.path; io.write(require("tools.acceptance.bootstrap").lua_path())')"
+
 fail=0
 for feature in "${features[@]}"; do
   echo "== $feature"
   stem="$(basename "$feature" .feature)"
-  gherkin-parser "$feature" "$IR_DIR/$stem.json"
-  # Advisory only: the dry checker never gates the run.
-  ir-dry-checker "$IR_DIR/$stem.json" "$DRY_DIR/$stem.json" || true
-  ACCEPTANCE_FEATURE_PATH="$feature" tools/acceptance/entrypoint_generator "$IR_DIR/$stem.json" "$GEN_DIR"
-  test_file="$GEN_DIR/$(slug "$feature")_acceptance_test.clj"
-  if ! "$test_file"; then
-    echo "FAILED: $feature ($test_file)" >&2
+  tools/acceptance/gherkin-parser "$feature" "$IR_DIR/$stem.json"
+  tools/acceptance/ir-dry-checker "$IR_DIR/$stem.json" "$DRY_DIR/$stem.json" || true
+  mkdir -p "$GEN_DIR/$stem"
+  tools/acceptance/entrypoint_generator "$IR_DIR/$stem.json" "$GEN_DIR/$stem/feature_acceptance_spec.lua"
+  if ! ACCEPTANCE_FEATURE_JSON="$IR_DIR/$stem.json" LUA_PATH="$LUA_PATH_FOR_SPECS" \
+       "$LUA" "$GEN_DIR/$stem/feature_acceptance_spec.lua"; then
+    echo "FAILED: $feature" >&2
     fail=1
   fi
 done

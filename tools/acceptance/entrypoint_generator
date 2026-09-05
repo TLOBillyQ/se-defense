@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# APS acceptance entrypoint generator for se-defense.
-# Usage: acceptance-entrypoint-generator <json-ir> <generated-test-output>
+# acceptance4lua entrypoint generator bound to tools.acceptance.steps: entrypoint_generator <json-ir> <generated-spec.lua>
+# Run from anywhere; the script cd's to the repository root and uses Lua 5.4.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$ROOT"
-exec bb tools/acceptance/generator_main.clj "$@"
+cd "$(dirname "$0")/../.."
+. ./scripts/pick-lua.sh
+LUA="$(pick_lua)"
+export ACCEPTANCE_LUA_BIN="$LUA"
+exec "$LUA" tools/acceptance/cli/generator.lua "$@"

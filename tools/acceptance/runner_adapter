@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Persistent runner adapter for APS Gherkin acceptance mutation.
-# Speaks newline-delimited JSON job requests on stdin, responses on stdout.
+# APS runner-worker for gherkin-mutator (NDJSON on stdin/stdout).
+# Run from anywhere; the script cd's to the repository root and uses Lua 5.4.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$ROOT"
-exec bb tools/acceptance/adapter_main.clj "$@"
+cd "$(dirname "$0")/../.."
+. ./scripts/pick-lua.sh
+LUA="$(pick_lua)"
+export ACCEPTANCE_LUA_BIN="$LUA"
+exec "$LUA" tools/acceptance/cli/runner_worker.lua "$@"

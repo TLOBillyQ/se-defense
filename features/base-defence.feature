@@ -1,67 +1,141 @@
-# mutation-stamp: sha256=03a28a7db1979fd9c8634d0794ae30f1988c756edd769729e3e7e83a695e4fa2
+# language: zh-CN
+# mutation-stamp: sha256=2c792104a5215df4e496d8152e80f8d2db30bd321690c6f5552d5f8dd4b77eee
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-09-05T03:23:14.017839Z","feature_name":"Base Defence headless game flow","feature_path":"features/base-defence.feature","background_hash":"4a2aa6b9ca0c91b3739c51c9d223601663d76d460b7105ff05d029d92e6a0974","implementation_hash":"sha256:aabdd8c6853ae1d6af3a7b8bb3ca060fe50d85470be7cd5ab906e50a4b9cccd1","scenarios":[{"index":1,"name":"building placement costs its price","scenario_hash":"0e16c13aa7889223c33b434e8b670f3b038c126c40beeae013ad54528bf5ac12","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-09-05T03:16:57.393973Z"}]}
+# {
+#   "background_hash": "c4f507e4bad95d88c201ef86458b8fd1dec20282f34eb290f96b2e72a6161f5b",
+#   "feature_name": "Base Defence 无头对局流程",
+#   "feature_path": "features/base-defence.feature",
+#   "implementation_hash": "sha256:49eaf878ee62d03c2aa5a28b43a464e04d2dd525d52dd1281abb053e1cc0b5ec",
+#   "scenarios": [
+#     {
+#       "index": 0,
+#       "mutation_count": 0,
+#       "name": "开局前拒绝放置直到自动开始",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "6fdfed9e76cca01d63cb45a7a611d5dd3fef494aa6a46ec830c123ad43752107",
+#       "tested_at": "2026-09-05T13:13:34Z"
+#     },
+#     {
+#       "index": 1,
+#       "mutation_count": 10,
+#       "name": "放置建筑扣除其价格",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 10,
+#         "Survived": 0,
+#         "Total": 10
+#       },
+#       "scenario_hash": "124ce31daffd38cde6ceab2e25cd3eb5ebc3d7b312c31cd05a65f90730414335",
+#       "tested_at": "2026-09-05T13:13:36Z"
+#     },
+#     {
+#       "index": 2,
+#       "mutation_count": 0,
+#       "name": "relay把电网扩展到核心之外",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "55f83b7c69390e3bb9660a6c8e69c9079a1c0fa9803379ff18049c89fc0d0543",
+#       "tested_at": "2026-09-05T13:13:36Z"
+#     },
+#     {
+#       "index": 3,
+#       "mutation_count": 0,
+#       "name": "采空全部资源达成胜利且重开重建对局",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "09adee054ff5d493ccfc468031e13c6ef527135c2040b3a966c5abc0f1c582b4",
+#       "tested_at": "2026-09-05T13:13:36Z"
+#     },
+#     {
+#       "index": 4,
+#       "mutation_count": 0,
+#       "name": "核心被摧毁达成游戏结束",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "d3d2b9e1dd35525ba5d9c15d0035dc711ce172c2ea38e3b0176da42d4de43a5e",
+#       "tested_at": "2026-09-05T13:13:36Z"
+#     }
+#   ],
+#   "tested_at": "2026-09-05T13:13:36Z",
+#   "version": 1
+# }
 # acceptance-mutation-manifest-end
+功能: Base Defence 无头对局流程
 
-Feature: Base Defence headless game flow
+背景:
+  假如 一局全新的无头游戏
+  并且 客户端已就绪
 
-  Background:
-    Given a fresh headless game
-    And the client is ready
+场景: 开局前拒绝放置直到自动开始
+  假如 游戏处于Pregame模式
+  当 客户端发送放置意图turret
+  那么 没有建筑处于放置中
+  当 游戏推进100个tick
+  那么 游戏处于Playing模式
+  并且 金钱为100
 
-  Scenario: pregame rejects placement until auto start
-    Given the game is in Pregame mode
-    When the client sends a place intent for turret
-    Then no building is being placed
-    When the game advances 100 ticks
-    Then the game is in Playing mode
-    And the money is 100
+场景大纲: 放置建筑扣除其价格
+  当 游戏推进100个tick
+  那么 游戏处于Playing模式
+  当 客户端发送放置意图<建筑>
+  并且 客户端点击棋盘<x> <z>
+  并且 游戏推进4个tick
+  那么 棋盘上<建筑>的数量为<数量>
+  并且 金钱减少了<价格>
 
-  Scenario Outline: building placement costs its price
-    When the game advances 100 ticks
-    Then the game is in Playing mode
-    When the client sends a place intent for <building>
-    And the client taps the board at <x> <z>
-    And the game advances 4 ticks
-    Then the <building> count on the board is <count>
-    And the money decreased by <cost>
+例子:
+  | 建筑   | x | z | 数量 | 价格 |
+  | turret | 3 | 0 | 1    | 100  |
+  | relay  | 0 | 3 | 1    | 50   |
 
-    Examples:
-      | building | x | z | count | cost |
-      | turret   | 3 | 0 | 1     | 100  |
-      | relay    | 0 | 3 | 1     | 50   |
+场景: relay把电网扩展到核心之外
+  当 游戏推进100个tick
+  那么 游戏处于Playing模式
+  当 GM把金钱设为1000
+  并且 客户端发送放置意图relay
+  并且 客户端点击棋盘0 3
+  并且 游戏推进10个tick
+  那么 棋盘上relay的数量为1
+  并且 relay已通电
+  当 客户端发送放置意图radar
+  并且 客户端点击棋盘0 6
+  并且 游戏推进10个tick
+  那么 棋盘上radar的数量为1
+  并且 radar已通电
 
-  Scenario: relay extends the power grid beyond the core
-    When the game advances 100 ticks
-    Then the game is in Playing mode
-    When the gm sets the money to 1000
-    And the client sends a place intent for relay
-    And the client taps the board at 0 3
-    And the game advances 10 ticks
-    Then the relay count on the board is 1
-    And the relay has power
-    When the client sends a place intent for radar
-    And the client taps the board at 0 6
-    And the game advances 10 ticks
-    Then the radar count on the board is 1
-    And the radar has power
+场景: 采空全部资源达成胜利且重开重建对局
+  当 游戏推进100个tick
+  那么 游戏处于Playing模式
+  当 GM采空全部资源
+  并且 游戏推进3个tick
+  那么 游戏处于Victory模式
+  并且 victory横幅可见
+  当 客户端重开对局
+  并且 游戏推进1个tick
+  那么 游戏处于Pregame模式
+  并且 棋盘上实体总数为7
 
-  Scenario: mining out all resources reaches victory and restart rebuilds the game
-    When the game advances 100 ticks
-    Then the game is in Playing mode
-    When the gm mines out all resources
-    And the game advances 3 ticks
-    Then the game is in Victory mode
-    And the victory banner is visible
-    When the client restarts the game
-    And the game advances 1 tick
-    Then the game is in Pregame mode
-    And the entity count on the board is 7
-
-  Scenario: destroying the core reaches game over
-    When the game advances 100 ticks
-    Then the game is in Playing mode
-    When the gm destroys the core
-    And the game advances 3 ticks
-    Then the game is in GameOver mode
-    And the gameover banner is visible
+场景: 核心被摧毁达成游戏结束
+  当 游戏推进100个tick
+  那么 游戏处于Playing模式
+  当 GM摧毁核心
+  并且 游戏推进3个tick
+  那么 游戏处于GameOver模式
+  并且 gameover横幅可见

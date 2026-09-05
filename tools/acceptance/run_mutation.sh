@@ -13,10 +13,6 @@ if [ ! -f "$FEATURE" ]; then
 fi
 
 WORK="build/acceptance-mutation"
-mkdir -p "$WORK/base" "$WORK/generated" "$WORK/mutations"
-gherkin-parser "$FEATURE" "$WORK/base/feature.json"
-ACCEPTANCE_FEATURE_PATH="$FEATURE" tools/acceptance/entrypoint_generator \
-  "$WORK/base/feature.json" "$WORK/generated"
-
-exec gherkin-mutator --feature "$FEATURE" --work-dir "$WORK" \
-  --generated-dir "$WORK/generated" --runner-worker "tools/acceptance/runner_adapter" "$@"
+mkdir -p "$WORK"
+exec tools/acceptance/gherkin-mutator --feature "$FEATURE" --work-dir "$WORK" \
+  --runner-worker "tools/acceptance/runner_adapter" "$@"

@@ -2,5 +2,5 @@
 .worktrees/
 build/
 acceptance/generated/
-.cpcache/
 tmp/
+.toolcache/

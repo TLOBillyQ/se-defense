@@ -1,45 +1,59 @@
 # se-defense acceptance pipeline
 
 APS (Acceptance Pipeline Specification) Gherkin acceptance for the headless
-game. All pipeline code is project language (Babashka); the game is driven
-through a thin Lua protocol server on top of the existing SE stub harness.
+game, in Lua 5.4 on top of the Gitea `acceptance4lua` rock (see
+`tools/tools.lock`). Features are written in Chinese (`# language: zh-CN`,
+mandatory for files under `features/`).
 
 ## Layout
 
-- `features/*.feature` — Gherkin features exercising real headless game
-  behavior (server `main.lua` + host adapters + `tools/headless/se_stub.lua`).
-- `src/acceptance/` — project-specific pipeline components:
-  - `generator.clj` — entrypoint generator (thin generated tests + metadata).
-  - `runtime.clj` — scenario execution expansion, step dispatch, result maps.
-  - `handlers.clj` — Gherkin step handlers bridging to the Lua acceptance
-    server; regex captures resolve to example values by column name.
-  - `lua_bridge.clj` — one headless Lua process per scenario execution.
-  - `adapter.clj` — persistent runner adapter for `gherkin-mutator`.
-  - `json.clj` — dependency-free JSON codec (bb + JVM Clojure).
-- `tools/headless/acceptance_server.lua` — NDJSON command server over the game.
-- `tools/acceptance/` — convenience scripts:
-  - `entrypoint_generator` — `acceptance-entrypoint-generator <ir> <out>`.
-  - `runner_adapter` — NDJSON worker; stdout is protocol only.
-  - `run_acceptance.sh` — normal acceptance: parse, gherkin-ir-dry-check
-    (advisory), generate, run every feature.
-  - `run_mutation.sh [feature]` — acceptance mutation (differential, hard).
-- `spec/acceptance/*_spec.clj` — Speclj unit specs for the pipeline components.
-- `build/acceptance/`, `acceptance/generated/` — generated artifacts
-  (gitignored); generated metadata `implementation_hash` covers generated
-  acceptance files only.
+- `features/*.feature` — Gherkin features exercising the real headless game
+  (server `main.lua` + host adapters + `tools/headless/se_stub.lua`).
+- `tools/acceptance/steps.lua` — step handlers. acceptance4lua looks handlers
+  up by exact step text, so the table resolves keys through Lua patterns and
+  literal sentences that differ only by a number share one implementation.
+- `tools/acceptance/headless.lua` — boots a fresh game inside the current
+  process for every scenario execution (drops `src.*`, `examples.*`,
+  `vendor.*` and the SE stub from `package.loaded`, re-runs the boot
+  sequence of `tools/headless/run_server.lua`) and exposes the query surface.
+- `tools/acceptance/bootstrap.lua` — installs `acceptance4lua` into
+  `.toolcache/luarocks` on first use (`git clone` + `luarocks make`) and puts
+  it on `package.path`.
+- `tools/acceptance/cli/*.lua` — thin wrappers over `acceptance4lua.cli.*`;
+  `runner_worker.lua` is the NDJSON runner-worker for `gherkin-mutator`.
+- `tools/acceptance/{gherkin-parser,ir-dry-checker,gherkin-mutator}` —
+  bash entrypoints (Lua 5.4 located by `scripts/pick-lua.sh`).
+  `entrypoint_generator` binds generated specs to `tools.acceptance.steps`;
+  `runner_adapter` is the runner-worker command.
+- `tools/acceptance/provision.sh` — writes forwarders for the three PATH
+  names into `.swarmforge/bin` so role prompts' bare commands hit this lane.
+- `build/acceptance/`, `acceptance/generated/`, `.toolcache/` — generated
+  artifacts and tool tree (gitignored).
 
 ## Commands
 
 ```sh
-tools/acceptance/run_acceptance.sh            # normal acceptance run
-tools/acceptance/run_mutation.sh              # mutation run (default feature)
-tools/acceptance/run_property.sh              # property tests (test.check, separate command)
-speclj                                        # pipeline unit specs
+tools/acceptance/run_acceptance.sh            # parse, dry-check (advisory), generate, run
+tools/acceptance/run_mutation.sh [feature]    # Gherkin mutation (differential, hard)
+tools/acceptance/provision.sh                 # refresh .swarmforge/bin forwarders
 ```
 
-Property tests live under `spec-property/`, outside `spec/`, so they are not
-picked up by unit coverage (Cloverage), CRAP, language mutation, or Gherkin
-mutation runs.
+Run everything from the repository root. Never run `swarm_tool.sh ensure
+gherkin-parser|ir-dry-checker|gherkin-mutator`: it swaps the forwarders for
+Babashka wrappers.
 
-Run everything from the repository root: generated tests and the Lua server
-resolve project paths relative to it.
+## Business modules
+
+The game logic `examples/base_defence/` (require prefix `vendor.spoke`) is not
+inlined in this repository yet (`tools/deploy.lua` has the same gap). The lane
+resolves it from `./`, then `vendor/spoke-lua/`, then
+`SE_DEFENSE_BUSINESS_DIR=<dir containing examples/base_defence>`; without it,
+the first background step fails with a clear message.
+
+## Environment
+
+- Lua 5.4 (`brew install lua@5.4`); `scripts/pick-lua.sh` finds it even when
+  PATH `lua` is another version.
+- `luarocks` for the one-time rock install. `SE_DEFENSE_LUA_DIR` can point
+  luarocks at a keg-only Lua (e.g. `/opt/homebrew/opt/lua@5.4`).
+- `VERBOSE=1` prints the game's `[bd]` logs during scenarios.
