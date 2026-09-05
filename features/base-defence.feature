@@ -1,6 +1,6 @@
 # mutation-stamp: sha256=03a28a7db1979fd9c8634d0794ae30f1988c756edd769729e3e7e83a695e4fa2
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-09-05T03:17:15.557158Z","feature_name":"Base Defence headless game flow","feature_path":"features/base-defence.feature","background_hash":"4a2aa6b9ca0c91b3739c51c9d223601663d76d460b7105ff05d029d92e6a0974","implementation_hash":"sha256:aabdd8c6853ae1d6af3a7b8bb3ca060fe50d85470be7cd5ab906e50a4b9cccd1","scenarios":[{"index":1,"name":"building placement costs its price","scenario_hash":"0e16c13aa7889223c33b434e8b670f3b038c126c40beeae013ad54528bf5ac12","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-09-05T03:16:57.393973Z"}]}
+# {"version":1,"tested_at":"2026-09-05T03:23:14.017839Z","feature_name":"Base Defence headless game flow","feature_path":"features/base-defence.feature","background_hash":"4a2aa6b9ca0c91b3739c51c9d223601663d76d460b7105ff05d029d92e6a0974","implementation_hash":"sha256:aabdd8c6853ae1d6af3a7b8bb3ca060fe50d85470be7cd5ab906e50a4b9cccd1","scenarios":[{"index":1,"name":"building placement costs its price","scenario_hash":"0e16c13aa7889223c33b434e8b670f3b038c126c40beeae013ad54528bf5ac12","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-09-05T03:16:57.393973Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: Base Defence headless game flow
