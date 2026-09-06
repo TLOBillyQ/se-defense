@@ -9,10 +9,8 @@ local EPS = 1e-9
 
 function M.tick(match)
   local radars = {}
-  for _, e in ipairs(match.entities.list) do
-    if e.kind == "Radar" and e.state == "alive" and match.grid:powered(e) then
-      radars[#radars + 1] = e
-    end
+  for _, r in ipairs(match.entities:alive_of_kind("Radar")) do
+    if match.grid:powered(r) then radars[#radars + 1] = r end
   end
   for _, enemy in ipairs(match.enemies.list) do
     if enemy.alive then

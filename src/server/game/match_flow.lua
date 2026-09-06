@@ -24,20 +24,25 @@ local M = {}
 local Game = {}
 Game.__index = Game
 
+-- 系统装配：实体登记 → 波次 → 电网 → 经济 → 火力 → 维修；new 与 restart 共用。
+function Game:_reset_systems()
+  self.wave = waves.initial(self)
+  self.enemies = enemies.new()
+  self.entities = entities.new()
+  self.placing_kind = nil -- 放置态：当前待建类型（04 R3）
+  self.grid = power_grid.new(self.entities)
+  self.economy = economy.new(self)
+  self.fire = fire.new(self)
+  self.repair = repair.new(self)
+end
+
 function M.new()
   local g = setmetatable({
     mode = "Pregame",
     money = 0, -- R2：进入 Playing 的瞬间置起始资金
-    entities = entities.new(),
-    placing_kind = nil, -- 放置态：当前待建类型（04 R3）
     rng01 = math.random, -- 随机源（编排可固定，如固定为最大值）
   }, Game)
-  g.wave = waves.initial(g)
-  g.enemies = enemies.new()
-  g.grid = power_grid.new(g.entities)
-  g.economy = economy.new(g)
-  g.fire = fire.new(g)
-  g.repair = repair.new(g)
+  g:_reset_systems()
   return g
 end
 
@@ -55,14 +60,7 @@ function Game:restart()
   if self.mode ~= "Victory" and self.mode ~= "GameOver" then return end
   self.mode = "Pregame"
   self.money = 0
-  self.wave = waves.initial(self)
-  self.enemies = enemies.new()
-  self.entities = entities.new()
-  self.placing_kind = nil
-  self.grid = power_grid.new(self.entities)
-  self.economy = economy.new(self)
-  self.fire = fire.new(self)
-  self.repair = repair.new(self)
+  self:_reset_systems()
 end
 
 -- 放置（04）：Pregame 忽略放置意图（01 R8）；规则判定全归 placement。

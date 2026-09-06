@@ -43,8 +43,8 @@ local function valid(repair, target)
 end
 
 function Repair:tick(dt)
-  for _, e in ipairs(self.match.entities.list) do
-    if e.kind == "Repair" and e.state == "alive" and self.match.grid:powered(e) then -- R6
+  for _, e in ipairs(self.match.entities:alive_of_kind("Repair")) do
+    if self.match.grid:powered(e) then -- R6
       local target = self.targets[e.id]
       if not valid(e, target) then
         target = self:_acquire(e)

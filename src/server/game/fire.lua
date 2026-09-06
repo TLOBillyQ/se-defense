@@ -58,6 +58,18 @@ function Fire:_acquire(turret)
   return best
 end
 
+-- R4：枪口以 180°/s 转向目标；返回是否已对准（夹角 ≤ 2°）。
+function Fire:_aim(turret, target, dt)
+  local muzzle = muzzle_of(turret)
+  local want = math.atan(target.z - turret.z, target.x - turret.x)
+  local diff = wrap(want - angle_of(muzzle))
+  local step = math.max(-world.turret_turn_rate * dt,
+    math.min(world.turret_turn_rate * dt, diff))
+  local a = angle_of(muzzle) + step
+  muzzle.x, muzzle.z = math.cos(a), math.sin(a)
+  return math.abs(wrap(want - a)) <= world.turret_fire_angle
+end
+
 -- R5：光束 0.05 秒后结算伤害；目标已死则落空。
 local function settle_beams(rec, dt)
   local left = {}
@@ -90,14 +102,7 @@ function Fire:_tick_turret(turret, dt)
   local target = rec.target
   if not target then return end -- R8：无目标待机
   -- R4：转向目标，夹角 ≤ 2° 才开火。
-  local muzzle = muzzle_of(turret)
-  local want = math.atan(target.z - turret.z, target.x - turret.x)
-  local diff = wrap(want - angle_of(muzzle))
-  local step = math.max(-world.turret_turn_rate * dt,
-    math.min(world.turret_turn_rate * dt, diff))
-  local a = angle_of(muzzle) + step
-  muzzle.x, muzzle.z = math.cos(a), math.sin(a)
-  if math.abs(wrap(want - a)) > world.turret_fire_angle then return end
+  if not self:_aim(turret, target, dt) then return end
   -- R5：满足条件即开第一枪，之后每 0.5 秒一枪。
   if rec.cooldown > EPS then return end
   rec.beams[#rec.beams + 1] = { target = target, t = world.fire_beam }
@@ -105,16 +110,14 @@ function Fire:_tick_turret(turret, dt)
 end
 
 function Fire:tick(dt)
-  for _, e in ipairs(self.match.entities.list) do
-    if e.kind == "Turret" and e.state == "alive" then
-      local rec = self:_rec(e)
-      if self.match.grid:powered(e) then -- R6
-        self:_tick_turret(e, dt)
-      else
-        settle_beams(rec, dt) -- 已出膛的光束照常结算
-        rec.target = nil
-        rec.cooldown = 0
-      end
+  for _, e in ipairs(self.match.entities:alive_of_kind("Turret")) do
+    local rec = self:_rec(e)
+    if self.match.grid:powered(e) then -- R6
+      self:_tick_turret(e, dt)
+    else
+      settle_beams(rec, dt) -- 已出膛的光束照常结算
+      rec.target = nil
+      rec.cooldown = 0
     end
   end
 end

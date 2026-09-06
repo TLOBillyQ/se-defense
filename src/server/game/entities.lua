@@ -133,6 +133,15 @@ end
 
 -- ── 读取 ──────────────────────────────────────────────────────────────────
 
+-- 某类型的全部在场存活实体（不含碎裂中；通电判定归电网）。
+function Registry:alive_of_kind(kind)
+  local out = {}
+  for _, e in ipairs(self.list) do
+    if e.kind == kind and e.state == "alive" then out[#out + 1] = e end
+  end
+  return out
+end
+
 -- 在场 = 实体仍在场上（含碎裂中）。
 function Registry:present(kind)
   for _, e in ipairs(self.list) do
