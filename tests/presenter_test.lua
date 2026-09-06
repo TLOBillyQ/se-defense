@@ -147,6 +147,17 @@ function TestPresenter.test_defeated_announcement_overrides()
   lu.assertFalse(p:announce_visible())
 end
 
+-- A4：对局结束（非 Playing）后播报立即不显示。
+function TestPresenter.test_announcement_hidden_outside_playing()
+  local g, p = new_presenter()
+  advance_seconds(g, p, 30.5)
+  lu.assertTrue(p:announce_visible())
+  g.entities:kill("Core")
+  advance_seconds(g, p, 3)
+  lu.assertEquals(g.mode, "GameOver")
+  lu.assertFalse(p:announce_visible())
+end
+
 -- A3：公布方向的一边闪烁（周期 0.5 秒），进攻开始后消失。
 function TestPresenter.test_edge_warning()
   local g, p = new_presenter()

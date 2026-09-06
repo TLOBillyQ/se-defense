@@ -112,6 +112,20 @@ function TestEnemies.test_separation_pushes_overlapping_enemies_apart()
   lu.assertTrue(math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2) >= 0.6 - 1e-9)
 end
 
+-- 15 F5：敌人死亡同样碎裂 2 秒后离场（gone），序号保留。
+function TestEnemies.test_dead_enemy_crumbles_then_leaves()
+  local g = new_playing()
+  local e = spawn(g, 0, 10, 1, 0, -1)
+  enemies.kill(e)
+  advance_seconds(g, 1)
+  lu.assertTrue(e.crumbling)
+  lu.assertTrue(not e.gone)
+  lu.assertEquals(g.enemies.list[1], e)
+  advance_seconds(g, 2)
+  lu.assertTrue(e.gone)
+  lu.assertEquals(g.enemies.list[1], e)
+end
+
 -- E4/E5 + 01 R6：Core 受满 20 枚炸弹死亡并离场，对局 GameOver。
 function TestEnemies.test_core_dies_after_twenty_bombs()
   local g = new_playing()

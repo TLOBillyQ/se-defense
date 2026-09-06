@@ -189,7 +189,7 @@ function Presenter:snapshot()
   end
   snap["world.core.explosion"] = { visible = self:explosion_active() }
   for _, e in ipairs(self.match.enemies.list) do
-    if e.alive then
+    if not e.gone then
       snap["enemy." .. e.id .. ".marker"] = { visible = self:enemy_marked(e) }
     end
   end
@@ -258,7 +258,10 @@ end
 
 -- ── A 播报与边缘警示 ───────────────────────────────────────────────────────
 
-function Presenter:announce_visible() return self.announce.left > 0 end
+-- A4：只在 Playing 时播报（结束面板接管屏幕，残留计时立即失效）。
+function Presenter:announce_visible()
+  return self.match.mode == "Playing" and self.announce.left > 0
+end
 function Presenter:announce_line1() return self.announce.line1 end
 function Presenter:announce_line2() return self.announce.line2 end
 
@@ -315,7 +318,7 @@ function Presenter:snapshot()
   end
   snap["world.core.explosion"] = { visible = self:explosion_active() }
   for _, e in ipairs(self.match.enemies.list) do
-    if e.alive then
+    if not e.gone then
       snap["enemy." .. e.id .. ".marker"] = { visible = self:enemy_marked(e) }
     end
   end
@@ -389,7 +392,7 @@ end
 
 -- F5：已揭示的存活敌人带揭示标记。
 function Presenter:enemy_marked(e)
-  return e.alive and e.revealed
+  return e.alive and not e.gone and e.revealed
 end
 
 -- ── 快照产出（CONTEXT.md「快照」：节点路径 → {text, visible, color, fill}） ──
@@ -438,7 +441,7 @@ function Presenter:snapshot()
   end
   snap["world.core.explosion"] = { visible = self:explosion_active() }
   for _, e in ipairs(self.match.enemies.list) do
-    if e.alive then
+    if not e.gone then
       snap["enemy." .. e.id .. ".marker"] = { visible = self:enemy_marked(e) }
     end
   end

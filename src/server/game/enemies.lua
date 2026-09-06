@@ -57,11 +57,14 @@ function M.spawn(match, spec)
   return e
 end
 
--- 编排/规则共用的致死：死亡无奖励（E7），立即不可被选为目标。
+-- 编排/规则共用的致死：死亡无奖励（E7），立即不可被选为目标；
+-- 尸体碎裂 2 秒后离场（15 F5），留在表内保「第 N 个敌人」序号。
 function M.kill(e)
   if not e or not e.alive then return end
   e.health = 0
   e.alive = false
+  e.crumbling = true
+  e.crumble_left = world.crumble_seconds
 end
 
 -- E1/E4：直飞目标至距离 1.2 停下；越过停点当拍收敛到恰好 1.2 处。
@@ -157,6 +160,13 @@ function M.tick(match, dt)
   end
   separate(match.enemies.list)
   settle_bombs(match, dt)
+  -- F5：敌人尸体碎裂计时，结束后离场。
+  for _, e in ipairs(match.enemies.list) do
+    if e.crumbling and not e.gone then
+      e.crumble_left = e.crumble_left - dt
+      if e.crumble_left <= 0 then e.gone = true end
+    end
+  end
 end
 
 return M
