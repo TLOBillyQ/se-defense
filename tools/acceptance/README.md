@@ -10,14 +10,18 @@ mandatory for files under `features/`).
 - `features/gameplay/*.feature`、`features/presentation/*.feature` — 绿地重写的
   Gherkin features（规则真源 `docs/gdd/`），针对无头游戏
   (server `main.lua` + host adapters + `tools/headless/se_stub.lua`)。
+- `features/engineering/*.feature` — 工程 features（源码树布局、部署镜像），
+  背景直接检查仓库与临时工作区，不启动对局。run_acceptance.sh 与
+  run_mutation.sh 扫描 features/ 全部子目录。
 - `tools/acceptance/steps.lua` — step handlers. acceptance4lua looks handlers
   up by exact step text, so the table resolves keys through Lua patterns and
   literal sentences that differ only by a number share one implementation.
 - `tools/acceptance/steps_repo.lua` — steps that inspect the repository itself
   (`source-layout.feature`, `deploy-mirror.feature`); no game is booted. Its
   `patterns` are appended to the `steps.lua` dispatch table.
-- `tools/acceptance/headless.lua` — (待随重写恢复) boots a fresh game inside the
-  current process and exposes the query surface the step handlers need.
+- `tools/acceptance/headless.lua` — boots a fresh game inside the current
+  process (SE stub + real adapters + real server entry) and exposes the
+  orchestration/query surface the step handlers need.
 - `tools/acceptance/bootstrap.lua` — installs `acceptance4lua` into
   `.toolcache/luarocks` on first use (`git clone` + `luarocks make`) and puts
   it on `package.path`.

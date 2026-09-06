@@ -8,16 +8,136 @@
 -- Error messages avoid the phrase "not found": the runner treats it as an
 -- infrastructure error.
 --
--- Game steps for features/gameplay and features/presentation are written
--- alongside the greenfield rewrite (rules in docs/gdd/). Until then only the
--- repository-inspection steps in steps_repo.lua are registered.
+-- Game steps for features/gameplay and features/presentation boot a fresh
+-- headless match per scenario (tools/acceptance/headless.lua); repository
+-- steps in steps_repo.lua never boot a game.
 local repo = require("tools.acceptance.steps_repo")
+local headless = require("tools.acceptance.headless")
 
 local M = {}
 
 -- Each entry: Lua pattern on the resolved step text -> handler(w, captures...).
 local PATTERNS = {}
 for _, entry in ipairs(repo.patterns) do PATTERNS[#PATTERNS + 1] = entry end
+
+-- ── 对局步骤（features/gameplay，规则真源 docs/gdd/）──
+
+local function session(w)
+  if not w.session then return nil, "尚未启动对局（背景缺「一局新对局」）" end
+  return w.session
+end
+
+local function match(w)
+  local s, err = session(w)
+  if not s then return nil, err end
+  return s.match
+end
+
+local function expect_yes_no(value)
+  if value ~= "是" and value ~= "否" then
+    return nil, "在场期望只能是 是/否，实际 " .. tostring(value)
+  end
+  return value == "是"
+end
+
+local EPS = 1e-6
+
+local game_patterns = {
+  { "^一局新对局$", function(w)
+      w.session = headless.boot()
+      return true end },
+  { "^对局阶段为(%S+)$", function(w, expect)
+      local m, err = match(w)
+      if not m then return nil, err end
+      if m.mode == expect then return true end
+      return nil, string.format("对局阶段期望 %s，实际 %s", expect, m.mode) end },
+  { "^玩家开始对局$", function(w)
+      local s, err = session(w)
+      if not s then return nil, err end
+      headless.send(s, { action = "start" })
+      return true end },
+  { "^玩家重开$", function(w)
+      local s, err = session(w)
+      if not s then return nil, err end
+      headless.send(s, { action = "restart" })
+      return true end },
+  { "^玩家在%((%-?[%d.]+),(%-?[%d.]+)%)放置(%w+)$", function(w, x, z, kind)
+      local s, err = session(w)
+      if not s then return nil, err end
+      headless.send(s, { action = "place", kind = kind, x = tonumber(x), z = tonumber(z) })
+      return true end },
+  -- 「推进 N 秒」记下推进前的资金与波次倒计时，供「与推进前相同」比较。
+  { "^推进(%d+)秒$", function(w, seconds)
+      local s, err = session(w)
+      if not s then return nil, err end
+      w.before = { money = s.match.money, countdown = s.match.wave.countdown }
+      headless.advance(s, tonumber(seconds))
+      return true end },
+  { "^资金为(%d+)$", function(w, expect)
+      local m, err = match(w)
+      if not m then return nil, err end
+      if m.money == tonumber(expect) then return true end
+      return nil, string.format("资金期望 %s，实际 %s", expect, m.money) end },
+  { "^资金与推进前相同$", function(w)
+      local m, err = match(w)
+      if not m then return nil, err end
+      if not w.before then return nil, "尚未推进（缺「与推进前相同」的基准）" end
+      if m.money == w.before.money then return true end
+      return nil, string.format("资金期望与推进前 %s 相同，实际 %s", w.before.money, m.money) end },
+  { "^波次倒计时与推进前相同$", function(w)
+      local m, err = match(w)
+      if not m then return nil, err end
+      if not w.before then return nil, "尚未推进（缺「与推进前相同」的基准）" end
+      if m.wave.countdown == w.before.countdown then return true end
+      return nil, string.format("波次倒计时期望与推进前 %s 相同，实际 %s",
+        w.before.countdown, m.wave.countdown) end },
+  { "^第(%d+)波倒计时为([%d.]+)秒$", function(w, number, countdown)
+      local m, err = match(w)
+      if not m then return nil, err end
+      if m.wave.number ~= tonumber(number) then
+        return nil, string.format("波号期望 %s，实际 %s", number, m.wave.number)
+      end
+      if math.abs(m.wave.countdown - tonumber(countdown)) <= EPS then return true end
+      return nil, string.format("第 %s 波倒计时期望 %s 秒，实际 %s",
+        number, countdown, m.wave.countdown) end },
+  { "^采空(%d+)个矿点$", function(w, n)
+      local m, err = match(w)
+      if not m then return nil, err end
+      m:deplete_sites(tonumber(n))
+      return true end },
+  { "^剩余矿点数为(%d+)$", function(w, expect)
+      local m, err = match(w)
+      if not m then return nil, err end
+      local actual = m:count_sites()
+      if actual == tonumber(expect) then return true end
+      return nil, string.format("剩余矿点数期望 %s，实际 %s", expect, actual) end },
+  { "^(%w+)死亡$", function(w, kind)
+      local m, err = match(w)
+      if not m then return nil, err end
+      if m:kill(kind) then return true end
+      return nil, "场上没有可死亡的 " .. kind end },
+  { "^一座已建好的(%w+)位于%((%-?[%d.]+),(%-?[%d.]+)%)$", function(w, kind, x, z)
+      local m, err = match(w)
+      if not m then return nil, err end
+      m:add_building(kind, tonumber(x), tonumber(z))
+      return true end },
+  { "^(%w+)是否在场为(%S+)$", function(w, kind, expect)
+      local m, err = match(w)
+      if not m then return nil, err end
+      local want, bad = expect_yes_no(expect)
+      if bad then return nil, bad end
+      if m:present(kind) == want then return true end
+      return nil, string.format("%s 在场期望 %s，实际 %s",
+        kind, expect, m:present(kind) and "是" or "否") end },
+  { "^场上建筑数为(%d+)$", function(w, expect)
+      local m, err = match(w)
+      if not m then return nil, err end
+      local actual = m:count_buildings()
+      if actual == tonumber(expect) then return true end
+      return nil, string.format("场上建筑数期望 %s，实际 %s", expect, actual) end },
+}
+
+for _, entry in ipairs(game_patterns) do PATTERNS[#PATTERNS + 1] = entry end
 
 local function dispatch(text)
   for _, entry in ipairs(PATTERNS) do
