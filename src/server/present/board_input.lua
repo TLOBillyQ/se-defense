@@ -13,13 +13,16 @@ local function on_board(x, z)
     and z >= world.board.min and z <= world.board.max
 end
 
--- I5/I7：按钮点击。开始/重开按阶段生效（规则层各自把关）；
--- 建筑按钮：放置态中点当前类型 = 取消（I4），否则进入放置态（资金不足或
--- 非 Playing 由 placement.select 把关）。
+-- I5/I7：按钮点击。button 为意图键："start" / "restart" 或建筑类型名
+--（界面文案→意图的翻译归输入适配层）。开始/重开按阶段生效（规则层各自
+-- 把关）；建筑按钮：放置态中点当前类型 = 取消（I4），否则进入放置态
+--（资金不足或非 Playing 由 placement.select 把关）。
+M.buttons = { start = "start", restart = "restart" }
+
 function M.click_button(match, pres, name)
-  if name == "开始" then
+  if name == M.buttons.start then
     match:start()
-  elseif name == "重开" then
+  elseif name == M.buttons.restart then
     match:restart()
   elseif match.placing_kind == name then
     match:cancel()

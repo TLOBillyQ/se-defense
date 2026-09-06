@@ -5,9 +5,12 @@ local S = require("tools.acceptance.steps_support")
 local headless, needs_session, needs_match, expect_yes_no =
   S.headless, S.needs_session, S.needs_match, S.expect_yes_no
 
+-- 界面文案 → 输入意图键（建筑按钮直接用类型名）。
+local BUTTONS = { ["开始"] = "start", ["重开"] = "restart" }
+
 return { patterns = {
-  { "^玩家点击(%S+)按钮$", needs_session(function(w, s, name)
-      headless.send(s, { action = "click_button", name = name })
+  { "^玩家点击(%S+)按钮$", needs_session(function(w, s, label)
+      headless.send(s, { action = "click_button", name = BUTTONS[label] or label })
       return true end) },
   { "^玩家点击棋盘%((%-?[%d.]+),(%-?[%d.]+)%)$", needs_session(function(w, s, x, z)
       headless.send(s, { action = "click_board", x = tonumber(x), z = tonumber(z) })

@@ -62,14 +62,14 @@ function TestBoardInput.test_mode_gating()
   board_input.click_button(g, p, "Relay")
   lu.assertFalse(p:hover_exists())
   lu.assertFalse(g:placing())
-  board_input.click_button(g, p, "开始")
+  board_input.click_button(g, p, "start")
   lu.assertEquals(g.mode, "Playing")
   g.entities:kill("Core")
   for _ = 1, 90 do g:advance(1 / 30); p:tick(1 / 30) end
   lu.assertEquals(g.mode, "GameOver")
   board_input.click_board(g, p, 1.71, 0.06)
   lu.assertFalse(p:hover_exists())
-  board_input.click_button(g, p, "重开")
+  board_input.click_button(g, p, "restart")
   lu.assertEquals(g.mode, "Pregame")
 end
 

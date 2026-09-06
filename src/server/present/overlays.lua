@@ -34,8 +34,8 @@ end
 local function coverage_circles(match, kind, out)
   local range = world.specs[kind].range
   if not range then return end
-  for _, e in ipairs(match.entities.list) do
-    if e.kind == kind and alive(e) and match.grid:powered(e) then
+  for _, e in ipairs(match.entities:alive_of_kind(kind)) do
+    if match.grid:powered(e) then
       out.circles[#out.circles + 1] = { x = e.x, z = e.z, r = range, kind = kind }
     end
   end
