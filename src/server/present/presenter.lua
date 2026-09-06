@@ -56,6 +56,7 @@ function M.new(match)
     entities_ref = match.entities, -- 重开后登记表换对象，据此复位显示侧状态
     fx = {},                       -- 实体 id → { hits_seen, flash_left }
     hover = nil,                   -- 悬停目标实体（引用）
+    preview = nil,                 -- 放置态预览落点（16 I4 拖动更新）
     announce = { line1 = "", line2 = "", left = 0 },
     prev_assault = false,
     prev_wave = match.wave.number,
@@ -74,6 +75,7 @@ function Presenter:tick(dt)
     self.entities_ref = m.entities
     self.fx = {}
     self.hover = nil
+    self.preview = nil
     self.announce = { line1 = "", line2 = "", left = 0 }
     self.prev_assault = false
     self.prev_wave = m.wave.number
@@ -225,6 +227,10 @@ function Presenter:hover_at(x, z)
 end
 
 function Presenter:clear_hover() self.hover = nil end
+
+-- 16 I4：放置态拖动更新预览落点（未拖动时默认棋盘中心）。
+function Presenter:set_preview(x, z) self.preview = { x = x, z = z } end
+function Presenter:preview_point() return self.preview or { x = 0, z = 0 } end
 function Presenter:hover_exists() return self.hover ~= nil end
 
 -- V3：三行描述；矿点第三行为剩余量。

@@ -23,6 +23,8 @@ local SOURCES = {
   "tools.acceptance.steps_fire",
   "tools.acceptance.steps_repair",
   "tools.acceptance.steps_present",
+  "tools.acceptance.steps_overlays",
+  "tools.acceptance.steps_input",
 }
 
 local M = {}

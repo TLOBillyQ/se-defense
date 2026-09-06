@@ -5,7 +5,10 @@
 -- 无头验证时本模块原样运行在 tools/headless/se_stub.lua 提供的 SE 全局上。
 local match_flow = require("server.game.match_flow")
 local presenter = require("server.present.presenter")
+local board_input = require("server.present.board_input")
+local overlays = require("server.present.overlays")
 local eui = require("server.adapter.eui")
+local shapes = require("server.adapter.shapes")
 
 local M = { FIXED_DT = 1 / 30 }
 
@@ -42,15 +45,24 @@ function M.boot(match)
   local pres = presenter.new(match)
   local channel = RemoteEvent.New("bd")
   local router = eui.new(channel)
+  local shape_router = shapes.new(se("World")) -- 形状就地渲为 EffectUnit（双路由）
   se("RunService").Heartbeat:Connect(function(dt)
     dt = dt or M.FIXED_DT
     match:advance(dt)
     pres:tick(dt)
     router:push(pres:snapshot())
+    shape_router:render(overlays.compute(match, pres))
   end)
   channel.OnServerEvent:Connect(function(_, msg)
-    if type(msg) == "table" and msg.action == "client_ready" then
+    if type(msg) ~= "table" then return end
+    if msg.action == "client_ready" then
       router:client_ready()
+    elseif msg.action == "click_button" then -- 16 I5/I7：按钮
+      board_input.click_button(match, pres, msg.name)
+    elseif msg.action == "click_board" then -- 16 I2/I3/I4/I8：棋盘点击
+      board_input.click_board(match, pres, msg.x, msg.z)
+    elseif msg.action == "drag_board" then -- 16 I4：放置态拖动
+      board_input.drag_board(match, pres, msg.x, msg.z)
     else
       M.handle(match, msg)
     end
