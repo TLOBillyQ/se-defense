@@ -123,3 +123,17 @@ function TestEnemies.test_core_dies_after_twenty_bombs()
   lu.assertFalse(g.entities:present("Core"))
   lu.assertEquals(g.mode, "GameOver")
 end
+
+-- 编排接缝：any_alive 只看存活；kill_all 清光后 any_alive 为假且序号不变。
+function TestEnemies.test_any_alive_and_kill_all()
+  local g = new_playing()
+  lu.assertFalse(enemies.any_alive(g))
+  spawn(g, 0, 30, 1, 0, -1)
+  spawn(g, 30, 0, 2, -1, 0)
+  lu.assertTrue(enemies.any_alive(g))
+  enemies.kill_all(g)
+  lu.assertFalse(enemies.any_alive(g))
+  lu.assertEquals(#g.enemies.list, 2)
+  enemies.kill_all(g) -- 幂等
+  lu.assertEquals(#g.enemies.list, 2)
+end

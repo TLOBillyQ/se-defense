@@ -75,6 +75,14 @@ M.directions = {
   { name = "北", x = 0,  z = 1 },
 }
 
+-- 按方向名查向量（东/南/西/北）；未知名返回 nil。
+function M.direction(name)
+  for _, d in ipairs(M.directions) do
+    if d.name == name then return d end
+  end
+  return nil
+end
+
 -- 敌人（GDD 07 E1/E4/E5）：三层级血量/足迹/成本，速度 1/s，停止距离 1.2，
 -- 停稳后每 1 秒投一枚炸弹，引信 0.3 秒，半径 1.2 内建筑 −0.5。
 M.enemy_tiers = {

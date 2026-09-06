@@ -9,11 +9,8 @@ return { patterns = {
     needs_match(function(w, m, x, z, kind, dir_name)
       local e, bad = find_at(m, kind, x, z)
       if not e then return nil, bad end
-      for _, d in ipairs(require("server.game.world").directions) do
-        if d.name == dir_name then
-          e.muzzle = { x = d.x, z = d.z }
-          return true
-        end
-      end
-      return nil, "未知方向: " .. dir_name end) },
+      local heading = require("server.game.world").direction(dir_name)
+      if not heading then return nil, "未知方向: " .. dir_name end
+      require("server.game.fire").set_muzzle(e, heading)
+      return true end) },
 } }

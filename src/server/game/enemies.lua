@@ -65,6 +65,19 @@ function M.kill(e)
 end
 
 -- E1/E4：直飞目标至距离 1.2 停下；越过停点当拍收敛到恰好 1.2 处。
+-- 是否还有存活敌人（波次推进 W9 与编排「本波全灭」共用）。
+function M.any_alive(match)
+  for _, e in ipairs(match.enemies.list) do
+    if e.alive then return true end
+  end
+  return false
+end
+
+-- 编排接缝：击杀本局所有存活敌人。
+function M.kill_all(match)
+  for _, e in ipairs(match.enemies.list) do M.kill(e) end
+end
+
 local function move(e, dt)
   if not e.target then return end
   local d = world.dist(e.x, e.z, e.target.x, e.target.z)

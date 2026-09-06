@@ -38,10 +38,7 @@ return { patterns = {
       return true end) },
   { "^在%((%-?[%d.]+),(%-?[%d.]+)%)生成一个航线朝(%S+)的(%d+)型敌人$",
     needs_match(function(w, m, x, z, dir_name, tier)
-      local heading
-      for _, d in ipairs(world_mod().directions) do
-        if d.name == dir_name then heading = { x = d.x, z = d.z } end
-      end
+      local heading = world_mod().direction(dir_name)
       if not heading then return nil, "未知方向: " .. dir_name end
       enemies_mod().spawn(m, { x = tonumber(x), z = tonumber(z),
         tier = tonumber(tier), heading = heading })

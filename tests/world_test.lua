@@ -56,3 +56,10 @@ function TestWorld.test_gdd_site_coordinates_present()
     lu.assertTrue(found, "缺矿点坐标 " .. w[1] .. "," .. w[2])
   end
 end
+
+-- 方向名查找：四个名字各有向量，未知名为 nil。
+function TestWorld.test_direction_lookup_by_name()
+  lu.assertEquals(world.direction("北"), { name = "北", x = 0, z = 1 })
+  lu.assertEquals(world.direction("西").x, -1)
+  lu.assertNil(world.direction("上"))
+end

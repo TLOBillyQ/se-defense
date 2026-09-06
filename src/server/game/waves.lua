@@ -109,18 +109,11 @@ local function spawn_one(match)
   w.assault = true
 end
 
-local function any_alive_enemy(match)
-  for _, e in ipairs(match.enemies.list) do
-    if e.alive then return true end
-  end
-  return false
-end
-
 -- 每拍：先判全灭推进（W9），再走倒计时（W2）与生成（W4/W6）。
 function M.tick(match, dt)
   local w = match.wave
   -- W9：生成完毕且全灭 → 波号 +1、方向未知、倒计时重置（残敌不清则不推进）。
-  if w.countdown <= 0 and w.spawn_done and not any_alive_enemy(match) then
+  if w.countdown <= 0 and w.spawn_done and not enemies.any_alive(match) then
     match.wave = fresh_wave(match, w.number + 1)
     w = match.wave
   end

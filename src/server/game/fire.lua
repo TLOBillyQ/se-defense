@@ -34,6 +34,11 @@ local function muzzle_of(turret)
   return turret.muzzle
 end
 
+-- 编排接缝：把枪口直接摆到某个朝向（单位向量）。
+function M.set_muzzle(turret, heading)
+  turret.muzzle = { x = heading.x, z = heading.z }
+end
+
 local function angle_of(v)
   return math.atan(v.z, v.x)
 end

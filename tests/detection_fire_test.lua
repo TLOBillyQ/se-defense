@@ -6,6 +6,7 @@
 local lu = require("luaunit")
 local match_flow = require("server.game.match_flow")
 local enemies = require("server.game.enemies")
+local fire = require("server.game.fire")
 
 TestDetectionFire = {}
 
@@ -140,4 +141,14 @@ function TestDetectionFire.test_turnaround_delays_first_shot()
   lu.assertEquals(e.health, 4)
   advance_seconds(g, 0.5)
   lu.assertAlmostEquals(e.health, 3.5, 1e-9)
+end
+
+-- set_muzzle 复制朝向（不共享调用方的表）。
+function TestDetectionFire.test_set_muzzle_copies_heading()
+  local g = new_playing()
+  local t = g.entities:add_building("Turret", 3, 3)
+  local h = { x = 1, z = 0 }
+  fire.set_muzzle(t, h)
+  h.x = 0
+  lu.assertEquals(t.muzzle, { x = 1, z = 0 })
 end
