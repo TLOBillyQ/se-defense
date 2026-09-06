@@ -204,9 +204,12 @@ function Grid:provider(e)
   return rec and rec.provider or nil
 end
 
--- 通电供电者集合（放置系统用）。
-function Grid:powered_providers()
-  return self:_powered_providers()
+-- 点 (x, z) 是否落在某个通电供电者的供电圈内（放置合法落点用，04 R4）。
+function Grid:covers(x, z)
+  for _, p in ipairs(self:_powered_providers()) do
+    if world.dist(x, z, p.x, p.z) <= world.specs[p.kind].provide + EPS then return true end
+  end
+  return false
 end
 
 return M

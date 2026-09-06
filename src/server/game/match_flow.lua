@@ -75,10 +75,12 @@ function Game:cancel()
   placement.cancel(self)
 end
 
--- 复合放置 = 选择待建后在落点确认（feature 约定）。
+-- 复合放置 = 选择待建后在落点确认（feature 约定）。一步完成：失败时不留放置态，
+-- 后续 select 别的类型不会被 R3 挡住。
 function Game:place(kind, x, z)
   if self.mode ~= "Playing" then return end
-  if placement.select(self, kind) then placement.confirm(self, x, z) end
+  if not placement.select(self, kind) then return end
+  if not placement.confirm(self, x, z) then placement.cancel(self) end
 end
 
 -- ── 节拍 ──────────────────────────────────────────────────────────────────

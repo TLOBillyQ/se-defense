@@ -97,9 +97,7 @@ end
 function Registry:kill(kind)
   for _, e in ipairs(self.list) do
     if e.kind == kind and e.state == "alive" then
-      e.health = 0
-      e.state = "crumbling"
-      e.crumble_left = world.crumble_seconds
+      self:hurt(e, e.health)
       return e
     end
   end

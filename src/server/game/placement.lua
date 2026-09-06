@@ -29,8 +29,8 @@ function M.cancel(match)
   match.placing_kind = nil
 end
 
--- 合法落点（R4/R8）：足迹圆不与任何已有足迹圆相交（相切算相交），
--- 且落点位于某个通电供电者的供电圈内，且在棋盘内。
+-- 合法落点（R4/R8）：在棋盘内，足迹圆不与任何已有足迹圆相交（相切算相交），
+-- 且落点位于某个通电供电者的供电圈内（问电网）。
 function M.legal(match, kind, x, z)
   local spec = world.specs[kind]
   if not spec or not spec.price then return false end
@@ -42,10 +42,7 @@ function M.legal(match, kind, x, z)
     local r = world.specs[e.kind].footprint
     if world.dist(x, z, e.x, e.z) <= spec.footprint + r then return false end
   end
-  for _, p in ipairs(match.grid:powered_providers()) do
-    if world.dist(x, z, p.x, p.z) <= world.specs[p.kind].provide then return true end
-  end
-  return false
+  return match.grid:covers(x, z)
 end
 
 -- 确认：合法落点 → 建造、扣费、退出放置态（R5）；非法 → 仍在放置态（R6）。

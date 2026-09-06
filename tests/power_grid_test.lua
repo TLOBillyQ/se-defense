@@ -138,3 +138,13 @@ function TestPowerGrid.test_unpowered_relay_provides_nothing()
   lu.assertFalse(g.grid:powered(at(g, "Relay", 0, 6)))
   lu.assertFalse(g.grid:powered(at(g, "Radar", 0, 8)))
 end
+
+-- covers：点在通电供电者供电圈内（边界算在内），未通电 Relay 的圈不算。
+function TestPowerGrid.test_covers_powered_circles_only()
+  local g = match_flow.new()
+  g:start()
+  lu.assertTrue(g.grid:covers(0, 4))
+  lu.assertFalse(g.grid:covers(0, 4.01))
+  g.entities:add_building("Relay", 0, 6)
+  lu.assertFalse(g.grid:covers(0, 8))
+end

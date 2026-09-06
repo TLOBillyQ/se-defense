@@ -157,3 +157,11 @@ function TestPlacement.test_pregame_place_ignored()
   lu.assertFalse(g.entities:present("Relay"))
   lu.assertFalse(g:placing())
 end
+
+-- 复合放置一步完成：非法落点失败后不留放置态，换类型仍可选。
+function TestPlacement.test_composite_place_failure_leaves_no_placing_state()
+  local g = new_playing()
+  g:place("Relay", 0, 4.01)
+  lu.assertFalse(g:placing())
+  lu.assertTrue(g:select("Turret"))
+end
