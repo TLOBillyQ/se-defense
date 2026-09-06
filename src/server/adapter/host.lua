@@ -12,7 +12,8 @@ local function se(name)
   return _G.game:GetService(name)
 end
 
--- 玩家意图路由：msg = { action = "start" | "restart" | "place", ... }。
+-- 玩家意图路由：msg = { action = "start" | "restart" | "place" |
+-- "select" | "confirm" | "cancel", ... }。place 是「选择待建 + 确认」的复合。
 function M.handle(match, msg)
   if type(match) ~= "table" or type(msg) ~= "table" then return end
   if msg.action == "start" then
@@ -21,6 +22,12 @@ function M.handle(match, msg)
     match:restart()
   elseif msg.action == "place" then
     match:place(msg.kind, msg.x, msg.z)
+  elseif msg.action == "select" then
+    match:select(msg.kind)
+  elseif msg.action == "confirm" then
+    match:confirm(msg.x, msg.z)
+  elseif msg.action == "cancel" then
+    match:cancel()
   end
 end
 

@@ -44,7 +44,9 @@ end
 -- 玩家意图经真实通道上行（RemoteEvent → 适配层）。
 function M.send(s, msg) quiet(s.stub.client_send, msg) end
 
--- 推进 n 秒：宿主固定步长 1/30 秒，由适配层驱动规则层。
-function M.advance(s, seconds) quiet(s.stub.steps, seconds * 30, 1 / 30) end
+-- 推进 n 秒：宿主固定步长 1/30 秒，由适配层驱动规则层（秒数取整到步）。
+function M.advance(s, seconds)
+  quiet(s.stub.steps, math.floor(seconds * 30 + 0.5), 1 / 30)
+end
 
 return M

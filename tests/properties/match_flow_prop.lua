@@ -55,25 +55,30 @@ prop.check("P2 Pregame 时间冻结", 200, function()
   return true
 end)
 
--- P3 守恒：Playing 中资金只被成功放置按价扣减，永不为负，账目可对平。
+-- P3 守恒：Playing 中（不推进、无采集）资金只在放置成功时按价扣减，
+-- 永不为负、永不增加；成功 ⟺ 建筑数增加（合法落点判定在实现侧）。
 prop.check("P3 资金守恒", 200, function()
   local g = match_flow.new()
   g:start()
-  local expected = world.starting_money
   local placed = 0
   for _ = 1, prop.int(1, 60) do
     local kind = prop.pick(KINDS)
     local spec = world.specs[kind]
     local price = spec and spec.price
     local x, z = random_xy()
-    local affordable = price and expected >= price
+    local before_money = g.money
+    local before_count = g.entities:count_buildings()
     g:place(kind, x, z)
-    if affordable then
-      expected = expected - price
+    local built = g.entities:count_buildings() == before_count + 1
+    if built then
       placed = placed + 1
-    end
-    if g.money ~= expected then
-      return nil, string.format("资金对不平: 期望 %s 实际 %s", expected, g.money)
+      if not price then return nil, "无价格实体被放置: " .. tostring(kind) end
+      if g.money ~= before_money - price then
+        return nil, string.format("扣费不对: %s 放置后期望 %s 实际 %s",
+          kind, before_money - price, g.money)
+      end
+    elseif g.money ~= before_money then
+      return nil, string.format("资金对不平: 未建成但资金 %s -> %s", before_money, g.money)
     end
     if g.money < 0 then return nil, "资金为负: " .. g.money end
   end

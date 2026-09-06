@@ -61,6 +61,32 @@ end
 
 -- ── 变更 ──────────────────────────────────────────────────────────────────
 
+-- 编排：令实体直接离场（摧毁 / 矿点采空），不经碎裂。
+function Registry:remove(entity)
+  if entity then self:_remove(entity) end
+end
+
+-- 按类型与坐标找在场实体（含碎裂中），坐标近似匹配。
+function Registry:find(kind, x, z)
+  for _, e in ipairs(self.list) do
+    if e.kind == kind and math.abs(e.x - x) < 1e-9 and math.abs(e.z - z) < 1e-9 then
+      return e
+    end
+  end
+  return nil
+end
+
+-- 炸弹伤害：血量归零后碎裂（矿点无血量，不受伤害）。
+function Registry:hurt(entity, amount)
+  if not entity or not entity.health or entity.state ~= "alive" then return end
+  entity.health = entity.health - amount
+  if entity.health <= 0 then
+    entity.health = 0
+    entity.state = "crumbling"
+    entity.crumble_left = world.crumble_seconds
+  end
+end
+
 -- 直接造好一座建筑（不扣费、不判合法落点）。
 function Registry:add_building(kind, x, z)
   assert(world.specs[kind] and world.specs[kind].health, "未知建筑: " .. tostring(kind))

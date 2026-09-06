@@ -1,13 +1,18 @@
 -- src/server/game/match_flow.lua — 对局流程规则层（规则真源 docs/gdd/01-match-flow.md）。
 -- 四态状态机（Pregame / Playing / Victory / GameOver），只有 Playing 推进 dt；
 -- 最小波次状态（波号 / 倒计时 / 进攻期标志）、胜负判定与重开。
--- 场上实体与离场生命周期归 server.game.entities，本模块只问它「剩余矿点数」
--- 与「Core 是否在场」。纯 Lua、无宿主依赖；宿主固定步长由 server.adapter.host 驱动。
+-- 场上实体与离场生命周期归 server.game.entities，电网归 server.game.power_grid，
+-- 采集归 server.game.economy，放置归 server.game.placement；本模块持四态状态机、
+-- 资金账目、波次状态与胜负判定。纯 Lua、无宿主依赖；宿主固定步长由
+-- server.adapter.host 驱动。
 --
--- 玩家意图：start / restart / place（R8：Pregame 忽略放置）。
--- 编排接缝（无头 harness 与后续系统用）走 game.entities。
+-- 玩家意图：start / restart / select / confirm / cancel / place（复合放置）。
+-- 编排接缝（无头 harness 与后续系统用）走 game.entities / game.grid / game.economy。
 local world = require("server.game.world")
 local entities = require("server.game.entities")
+local power_grid = require("server.game.power_grid")
+local economy = require("server.game.economy")
+local placement = require("server.game.placement")
 
 local M = {}
 
@@ -19,12 +24,16 @@ local function initial_wave()
 end
 
 function M.new()
-  return setmetatable({
+  local g = setmetatable({
     mode = "Pregame",
     money = 0, -- R2：进入 Playing 的瞬间置起始资金
     wave = initial_wave(),
     entities = entities.new(),
+    placing_kind = nil, -- 放置态：当前待建类型（04 R3）
   }, Game)
+  g.grid = power_grid.new(g.entities)
+  g.economy = economy.new(g)
+  return g
 end
 
 -- ── 玩家意图 ──────────────────────────────────────────────────────────────
@@ -43,17 +52,33 @@ function Game:restart()
   self.money = 0
   self.wave = initial_wave()
   self.entities = entities.new()
+  self.placing_kind = nil
+  self.grid = power_grid.new(self.entities)
+  self.economy = economy.new(self)
 end
 
--- R8 + 最小放置：Pregame 忽略；Playing 中资金够则建造并扣费。
--- 合法落点判定归放置系统（docs/gdd/04-placement.md），本模块不实现。
+-- 放置（04）：Pregame 忽略放置意图（01 R8）；规则判定全归 placement。
+function Game:selectable(kind) return placement.selectable(self, kind) end
+function Game:placing() return self.placing_kind ~= nil end
+
+function Game:select(kind)
+  if self.mode ~= "Playing" then return false end
+  return placement.select(self, kind)
+end
+
+function Game:confirm(x, z)
+  if self.mode ~= "Playing" then return false end
+  return placement.confirm(self, x, z)
+end
+
+function Game:cancel()
+  placement.cancel(self)
+end
+
+-- 复合放置 = 选择待建后在落点确认（feature 约定）。
 function Game:place(kind, x, z)
   if self.mode ~= "Playing" then return end
-  local spec = world.specs[kind]
-  if not spec or not spec.price then return end
-  if self.money < spec.price then return end
-  self.money = self.money - spec.price
-  self.entities:add_building(kind, x, z)
+  if placement.select(self, kind) then placement.confirm(self, x, z) end
 end
 
 -- ── 节拍 ──────────────────────────────────────────────────────────────────
@@ -63,6 +88,8 @@ function Game:advance(dt)
   if self.mode ~= "Playing" then return end
   self.wave.countdown = math.max(0, self.wave.countdown - dt)
   self.entities:tick_crumble(dt)
+  self.grid:tick(dt)
+  self.economy:tick(dt)
   if self.entities:count_sites() == 0 then
     self.mode = "Victory"
   elseif not self.entities:present("Core") then

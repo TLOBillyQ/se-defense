@@ -72,9 +72,14 @@ local game_patterns = {
       if bad then return nil, bad end
       headless.send(s, { action = "place", kind = kind, x = tonumber(x), z = tonumber(z) })
       return true end) },
-  -- 「推进 N 秒」记下推进前的资金与波次倒计时，供「与推进前相同」比较。
-  { "^推进(%d+)秒$", needs_session(function(w, s, seconds)
-      w.before = { money = s.match.money, countdown = s.match.wave.countdown }
+  -- 「推进 N 秒」记下推进前的资金、波次倒计时与每个矿点的剩余量，
+  -- 供「与推进前相同」比较。
+  { "^推进([%d.]+)秒$", needs_session(function(w, s, seconds)
+      local sites = {}
+      for _, e in ipairs(s.match.entities.list) do
+        if e.kind == "Site" then sites[#sites + 1] = { x = e.x, z = e.z, remaining = e.remaining } end
+      end
+      w.before = { money = s.match.money, countdown = s.match.wave.countdown, sites = sites }
       headless.advance(s, tonumber(seconds))
       return true end) },
   { "^资金为(%d+)$", needs_match(function(w, m, expect)
@@ -121,6 +126,110 @@ local game_patterns = {
       local actual = m.entities:count_buildings()
       if actual == tonumber(expect) then return true end
       return nil, string.format("场上建筑数期望 %s，实际 %s", expect, actual) end) },
+  -- ── 电网（power-grid.feature，03 R1–R10）──
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的(%w+)是否通电为(%S+)$", needs_match(function(w, m, x, z, kind, expect)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
+      local want, bad = expect_yes_no(expect)
+      if bad then return nil, bad end
+      local e = m.entities:find(kind, tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有 %s", x, z, kind) end
+      if m.grid:powered(e) == want then return true end
+      return nil, string.format("位于(%s,%s)的%s通电期望 %s，实际 %s",
+        x, z, kind, expect, m.grid:powered(e) and "是" or "否") end) },
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的(%w+)被摧毁$", needs_match(function(w, m, x, z, kind)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
+      local e = m.entities:find(kind, tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有 %s", x, z, kind) end
+      m.entities:remove(e) -- 编排动作：摧毁即离场，不经碎裂
+      return true end) },
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的(%w+)的供电者位于%((%-?[%d.]+),(%-?[%d.]+)%)$",
+    needs_match(function(w, m, x, z, kind, px, pz)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
+      local e = m.entities:find(kind, tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有 %s", x, z, kind) end
+      local p = m.grid:provider(e)
+      if not p then return nil, string.format("位于(%s,%s)的%s没有供电者", x, z, kind) end
+      if math.abs(p.x - tonumber(px)) < EPS and math.abs(p.z - tonumber(pz)) < EPS then
+        return true
+      end
+      return nil, string.format("位于(%s,%s)的%s的供电者期望位于(%s,%s)，实际位于(%s,%s)",
+        x, z, kind, px, pz, p.x, p.z) end) },
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的(%w+)受到炸弹伤害([%d.]+)$", needs_match(function(w, m, x, z, kind, dmg)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
+      local e = m.entities:find(kind, tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有 %s", x, z, kind) end
+      m.entities:hurt(e, tonumber(dmg))
+      return true end) },
+  -- ── 经济与矿点（economy.feature，02 R1–R8）──
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的矿点剩余量为(%d+)$", needs_match(function(w, m, x, z, expect)
+      local e = m.entities:find("Site", tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有矿点", x, z) end
+      if e.remaining == tonumber(expect) then return true end
+      return nil, string.format("位于(%s,%s)的矿点剩余量期望 %s，实际 %s",
+        x, z, expect, e.remaining) end) },
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的矿点剩余量设为(%d+)$", needs_match(function(w, m, x, z, n)
+      local e = m.entities:find("Site", tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有矿点", x, z) end
+      e.remaining = tonumber(n)
+      if e.remaining <= 0 then m.entities:remove(e) end -- 设为 0 即离场
+      return true end) },
+  { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的矿点剩余量与推进前相同$", needs_match(function(w, m, x, z)
+      if not w.before or not w.before.sites then
+        return nil, "尚未推进（缺「与推进前相同」的基准）"
+      end
+      local e = m.entities:find("Site", tonumber(x), tonumber(z))
+      if not e then return nil, string.format("(%s,%s) 处没有矿点", x, z) end
+      for _, b in ipairs(w.before.sites) do
+        if math.abs(b.x - e.x) < EPS and math.abs(b.z - e.z) < EPS then
+          if e.remaining == b.remaining then return true end
+          return nil, string.format("位于(%s,%s)的矿点剩余量期望与推进前 %s 相同，实际 %s",
+            x, z, b.remaining, e.remaining)
+        end
+      end
+      return nil, string.format("推进前 (%s,%s) 处没有矿点记录", x, z) end) },
+  { "^进入进攻期$", needs_match(function(w, m)
+      m.wave.assault = true
+      return true end) },
+  { "^本波全灭$", needs_match(function(w, m)
+      m.wave.assault = false
+      return true end) },
+  { "^采集速率为([%d.]+)$", needs_match(function(w, m, expect)
+      local actual = m.economy:rate()
+      if math.abs(actual - tonumber(expect)) <= EPS then return true end
+      return nil, string.format("采集速率期望 %s，实际 %s", expect, actual) end) },
+  -- ── 放置（placement.feature，04 R1–R10）──
+  { "^资金设为(%d+)$", needs_match(function(w, m, n)
+      m.money = tonumber(n)
+      return true end) },
+  { "^(%w+)是否可选为(%S+)$", needs_match(function(w, m, kind, expect)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
+      local want, bad = expect_yes_no(expect)
+      if bad then return nil, bad end
+      if m:selectable(kind) == want then return true end
+      return nil, string.format("%s 可选期望 %s，实际 %s",
+        kind, expect, m:selectable(kind) and "是" or "否") end) },
+  { "^玩家选择待建(%w+)$", needs_session(function(w, s, kind)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
+      headless.send(s, { action = "select", kind = kind })
+      return true end) },
+  { "^玩家在%((%-?[%d.]+),(%-?[%d.]+)%)确认放置$", needs_session(function(w, s, x, z)
+      headless.send(s, { action = "confirm", x = tonumber(x), z = tonumber(z) })
+      return true end) },
+  { "^玩家取消放置$", needs_session(function(w, s)
+      headless.send(s, { action = "cancel" })
+      return true end) },
+  { "^是否处于放置态为(%S+)$", needs_match(function(w, m, expect)
+      local want, bad = expect_yes_no(expect)
+      if bad then return nil, bad end
+      if m:placing() == want then return true end
+      return nil, string.format("放置态期望 %s，实际 %s",
+        expect, m:placing() and "是" or "否") end) },
 }
 
 for _, entry in ipairs(game_patterns) do PATTERNS[#PATTERNS + 1] = entry end

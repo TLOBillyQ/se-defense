@@ -9,6 +9,11 @@ M.board = { min = -20, max = 20 }
 
 M.starting_money = 100
 M.first_wave_countdown = 30
+-- 通电/断电去抖（GDD 03 R8 / README「已知的移植差异」）。
+M.power_debounce = 0.15
+-- 采集：每个通电矿点非进攻期每 0.8 秒兑 1 单位为 $1（GDD 02 R3/R6）。
+M.harvest_interval = 0.8
+M.harvest_rate = 1.25
 -- 建筑死亡后碎裂 2 秒离场（docs/gdd/README.md「已知的移植差异」）。
 M.crumble_seconds = 2
 

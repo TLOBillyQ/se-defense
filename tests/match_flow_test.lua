@@ -139,7 +139,7 @@ end
 function TestMatchFlow.test_playing_placement_builds_and_charges()
   local g = match_flow.new()
   g:start()
-  g:place("Relay", 2, 0)
+  g:place("Relay", 0, 3)
   lu.assertTrue(g.entities:present("Relay"))
   lu.assertEquals(g.money, 90)
 end
@@ -164,7 +164,7 @@ end
 function TestMatchFlow.test_place_insufficient_funds_is_noop()
   local g = match_flow.new()
   g:start()
-  g:place("Repair", 2, 0)
+  g:place("Repair", 0, 3)
   lu.assertEquals(g.money, 0)
   g:place("Relay", 4, 0)
   lu.assertFalse(g.entities:present("Relay"))
