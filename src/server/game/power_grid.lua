@@ -16,9 +16,9 @@ Grid.__index = Grid
 
 local EPS = 1e-9
 
+-- 实体间欧氏距离（world.dist 的实体形参包装）。
 local function dist(a, b)
-  local dx, dz = a.x - b.x, a.z - b.z
-  return math.sqrt(dx * dx + dz * dz)
+  return world.dist(a.x, a.z, b.x, b.z)
 end
 
 -- 供电圈大于零的才是供电者（R1：只有 Core 与 Relay 对外供电）。
@@ -68,23 +68,32 @@ function Grid:_powered_providers()
   return out
 end
 
--- 链路维护：失效断开、新节点接入（取最近的通电供电者）、抢占（R6）。
-function Grid:_reconcile_links()
-  local alive = {}
-  for _, e in ipairs(self.registry.list) do alive[e.id] = e end
-  for id, rec in pairs(self.recs) do
+-- 清理已离场实体的记录；alive 为 id → 实体。
+function Grid:_prune_gone(alive)
+  for id in pairs(self.recs) do
     if not alive[id] then self.recs[id] = nil end
   end
+end
 
+-- 供电者离场或不再相交时断开链路；下游断电由 _compute_want 沿链递推（R7）。
+function Grid:_break_stale_links(alive)
   for _, e in ipairs(self.registry.list) do
     local rec = self:_rec(e)
-    if rec.provider then
-      local p = rec.provider
-      if not alive[p.id] or not self:_in_range(e, p) then rec.provider = nil end
+    local p = rec.provider
+    if p and (not alive[p.id] or not self:_in_range(e, p)) then
+      rec.provider = nil
     end
   end
+end
 
-  local providers = self:_powered_providers()
+-- 候选供电者资格：未接入者皆可接入；已接入者只在更近且非下游时可抢占（R6）。
+function Grid:_eligible(rec, e, p, d)
+  if not rec.provider then return true end
+  return d < dist(e, rec.provider) - EPS and not self:_downstream_of(p, e)
+end
+
+-- 接入与抢占：每个非 Core 节点取最近的合格通电供电者。
+function Grid:_relink(providers)
   for _, e in ipairs(self.registry.list) do
     if e.kind ~= "Core" then
       local rec = self.recs[e.id]
@@ -92,18 +101,23 @@ function Grid:_reconcile_links()
       for _, p in ipairs(providers) do
         if p ~= e and self:_in_range(e, p) then
           local d = dist(e, p)
-          if not rec.provider then
-            -- 接入：取最近的通电供电者
-            if not best_d or d < best_d then best, best_d = p, d end
-          elseif d < dist(e, rec.provider) - EPS and not self:_downstream_of(p, e) then
-            -- 抢占：更近且非下游才切换
-            if not best_d or d < best_d then best, best_d = p, d end
+          if self:_eligible(rec, e, p, d) and (not best_d or d < best_d) then
+            best, best_d = p, d
           end
         end
       end
       if best then rec.provider = best end
     end
   end
+end
+
+-- 链路维护：清离场、失效断开、接入与抢占（R6）。
+function Grid:_reconcile_links()
+  local alive = {}
+  for _, e in ipairs(self.registry.list) do alive[e.id] = e end
+  self:_prune_gone(alive)
+  self:_break_stale_links(alive)
+  self:_relink(self:_powered_providers())
 end
 
 -- 目标通电状态：Core 恒通电；其余节点 = 已接入且供电者目标通电（R4）。

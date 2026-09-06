@@ -1,11 +1,17 @@
 -- src/server/game/world.lua — 世界数据表（规则真源 docs/gdd/00-world.md）。
 -- 集中定义：棋盘、起始资金、首波倒计时、实体总表、初始布局（Core + 27 矿点）。
--- 纯数据模块：无状态、无宿主依赖，所有系统从这里取共享事实。
+-- 纯数据 + 纯函数：无状态、无宿主依赖，所有系统从这里取共享事实。
 
 local M = {}
 
 -- 棋盘 40 × 40，中心 (0, 0)，x 东为正、z 北为正。
 M.board = { min = -20, max = 20 }
+
+-- 棋盘平面上的欧氏距离（放置相交判定、电网相交判定共用）。
+function M.dist(ax, az, bx, bz)
+  local dx, dz = ax - bx, az - bz
+  return math.sqrt(dx * dx + dz * dz)
+end
 
 M.starting_money = 100
 M.first_wave_countdown = 30

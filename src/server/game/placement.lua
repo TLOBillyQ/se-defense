@@ -29,11 +29,6 @@ function M.cancel(match)
   match.placing_kind = nil
 end
 
-local function dist_xy(ax, az, bx, bz)
-  local dx, dz = ax - bx, az - bz
-  return math.sqrt(dx * dx + dz * dz)
-end
-
 -- 合法落点（R4/R8）：足迹圆不与任何已有足迹圆相交（相切算相交），
 -- 且落点位于某个通电供电者的供电圈内，且在棋盘内。
 function M.legal(match, kind, x, z)
@@ -45,10 +40,10 @@ function M.legal(match, kind, x, z)
   end
   for _, e in ipairs(match.entities.list) do
     local r = world.specs[e.kind].footprint
-    if dist_xy(x, z, e.x, e.z) <= spec.footprint + r then return false end
+    if world.dist(x, z, e.x, e.z) <= spec.footprint + r then return false end
   end
   for _, p in ipairs(match.grid:powered_providers()) do
-    if dist_xy(x, z, p.x, p.z) <= world.specs[p.kind].provide then return true end
+    if world.dist(x, z, p.x, p.z) <= world.specs[p.kind].provide then return true end
   end
   return false
 end
