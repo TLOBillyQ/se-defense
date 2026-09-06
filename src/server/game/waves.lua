@@ -67,6 +67,14 @@ function M.set_wave(match, number)
   match.wave = fresh_wave(match, number)
 end
 
+-- 编排接缝：平静期尚未推进（倒计时满、未生成、非进攻期）时按当前随机源
+-- 重抽来袭方向，供「随机源固定为最大值」之类的编排在新对局开局生效。
+function M.reroll_direction(match)
+  local w = match.wave
+  if w.countdown < world.wave.calm or w.assault or w.spawned > 0 then return end
+  w.direction = randi(match, 1, #world.directions)
+end
+
 -- W2：倒计时 ≤ 5 公布方向，否则未知。
 function M.revealed_direction(match)
   local w = match.wave

@@ -76,10 +76,13 @@ function Registry:find(kind, x, z)
   return nil
 end
 
--- 炸弹伤害：血量归零后碎裂（矿点无血量，不受伤害）。
+-- 炸弹伤害：血量归零后碎裂（矿点无血量，不受伤害）。受击留下 hurt_mark
+-- 事件标记（15 F2 受击红闪），由表现层消费——伤害可能落在两拍之间，
+-- 靠血量差分检测不到首次受击。
 function Registry:hurt(entity, amount)
   if not entity or not entity.health or entity.state ~= "alive" then return end
   entity.health = entity.health - amount
+  entity.hurt_mark = true
   if entity.health <= 0 then
     entity.health = 0
     entity.state = "crumbling"

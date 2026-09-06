@@ -11,9 +11,18 @@ function M.apply(snapshot)
   end
 end
 
--- 订阅 RemoteEvent 通道的客户端事件。
+-- 订阅 RemoteEvent 通道的客户端事件。信封 {seq, nodes, full}：
+-- full 替换整树（握手/重同步），否则按节点增量合并；裸快照表直接应用。
 function M.connect(channel)
-  channel.OnClientEvent:Connect(function(msg) M.apply(msg) end)
+  channel.OnClientEvent:Connect(function(msg)
+    if type(msg) ~= "table" then return end
+    if msg.nodes then
+      if msg.full then M.applied = {} end
+      M.apply(msg.nodes)
+    else
+      M.apply(msg)
+    end
+  end)
 end
 
 return M

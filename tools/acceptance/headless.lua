@@ -38,7 +38,8 @@ function M.boot()
   reset_modules()
   local stub = require("tools.headless.se_stub")
   quiet(function() assert(loadfile("src/server/main.lua"))() end)
-  return { stub = stub, match = require("server.adapter.host").match }
+  local host = require("server.adapter.host")
+  return { stub = stub, match = host.match, presenter = host.presenter }
 end
 
 -- 玩家意图经真实通道上行（RemoteEvent → 适配层）。

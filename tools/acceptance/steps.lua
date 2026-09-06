@@ -22,6 +22,7 @@ local SOURCES = {
   "tools.acceptance.steps_waves",
   "tools.acceptance.steps_fire",
   "tools.acceptance.steps_repair",
+  "tools.acceptance.steps_present",
 }
 
 local M = {}

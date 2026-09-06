@@ -32,6 +32,7 @@ end
 return { patterns = {
   { "^随机源固定为最大值$", needs_match(function(w, m)
       m.rng01 = function() return 1 end
+      waves_mod().reroll_direction(m) -- 平静期未推进时按新随机源重抽方向
       return true end) },
   { "^设定当前波次为(%d+)$", needs_match(function(w, m, n)
       waves_mod().set_wave(m, tonumber(n))
