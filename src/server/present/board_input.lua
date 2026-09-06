@@ -4,10 +4,13 @@
 -- 的含义：按钮按阶段路由（开始/重开/选择待建/取消），棋盘点击仅 Playing
 -- 有效（I8）、棋盘外无效（I2）、放置态在合法落点确认（I4）、非放置态驱动
 -- 悬停（I3）。纯 Lua、无宿主依赖；玩家意图经适配层 RemoteEvent 上行至此。
+local world = require("server.game.world")
+
 local M = {}
 
 local function on_board(x, z)
-  return x >= -20 and x <= 20 and z >= -20 and z <= 20
+  return x >= world.board.min and x <= world.board.max
+    and z >= world.board.min and z <= world.board.max
 end
 
 -- I5/I7：按钮点击。开始/重开按阶段生效（规则层各自把关）；

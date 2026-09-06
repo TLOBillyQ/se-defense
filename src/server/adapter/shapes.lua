@@ -15,24 +15,21 @@ end
 -- 展开形状集合为 keyed 形状表：键内带序号与内容键，内容一致即复用。
 local function flatten(shapes)
   local out = {}
-  local function put(key, props)
-    out[key] = props
-  end
   for i, l in ipairs(shapes.lines or {}) do
-    put("line" .. i, { shape = "line", ax = l.ax, az = l.az, bx = l.bx, bz = l.bz })
+    out["line" .. i] = { shape = "line", ax = l.ax, az = l.az, bx = l.bx, bz = l.bz }
   end
   for i, c in ipairs(shapes.circles or {}) do
-    put("circle" .. i, { shape = "circle", x = c.x, z = c.z, r = c.r, kind = c.kind })
+    out["circle" .. i] = { shape = "circle", x = c.x, z = c.z, r = c.r, kind = c.kind }
   end
   for i, c in ipairs(shapes.supply or {}) do
-    put("supply" .. i, { shape = "supply", x = c.x, z = c.z, r = c.r, kind = c.kind })
+    out["supply" .. i] = { shape = "supply", x = c.x, z = c.z, r = c.r, kind = c.kind }
   end
   if shapes.ring then
-    put("ring", { shape = "ring", x = shapes.ring.x, z = shapes.ring.z, r = shapes.ring.r })
+    out["ring"] = { shape = "ring", x = shapes.ring.x, z = shapes.ring.z, r = shapes.ring.r }
   end
   if shapes.preview then
-    put("preview", { shape = "preview", x = shapes.preview.x, z = shapes.preview.z,
-      r = shapes.preview.r, legal = shapes.preview.legal })
+    out["preview"] = { shape = "preview", x = shapes.preview.x, z = shapes.preview.z,
+      r = shapes.preview.r, legal = shapes.preview.legal }
   end
   return out
 end
