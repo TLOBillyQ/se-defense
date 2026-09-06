@@ -23,14 +23,17 @@ return { patterns = {
       if bad then return nil, bad end
       headless.send(s, { action = "place", kind = kind, x = tonumber(x), z = tonumber(z) })
       return true end) },
-  -- 「推进 N 秒」记下推进前的资金、波次倒计时与每个矿点的剩余量，
-  -- 供「与推进前相同」比较。
+  -- 「推进 N 秒」记下推进前的资金、波次倒计时、每个矿点的剩余量与每个
+  -- 敌人的血量，供「与推进前相同」「低于推进前」比较。
   { "^推进([%d.]+)秒$", needs_session(function(w, s, seconds)
       local sites = {}
       for _, e in ipairs(s.match.entities.list) do
         if e.kind == "Site" then sites[#sites + 1] = { x = e.x, z = e.z, remaining = e.remaining } end
       end
-      w.before = { money = s.match.money, countdown = s.match.wave.countdown, sites = sites }
+      local enemy_healths = {}
+      for i, e in ipairs(s.match.enemies.list) do enemy_healths[i] = e.health end
+      w.before = { money = s.match.money, countdown = s.match.wave.countdown,
+        sites = sites, enemies = enemy_healths }
       headless.advance(s, tonumber(seconds))
       return true end) },
   { "^资金为(%d+)$", needs_match(function(w, m, expect)

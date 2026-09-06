@@ -13,26 +13,31 @@ local entities = require("server.game.entities")
 local power_grid = require("server.game.power_grid")
 local economy = require("server.game.economy")
 local placement = require("server.game.placement")
+local waves = require("server.game.waves")
+local enemies = require("server.game.enemies")
+local detection = require("server.game.detection")
+local fire = require("server.game.fire")
+local repair = require("server.game.repair")
 
 local M = {}
 
 local Game = {}
 Game.__index = Game
 
-local function initial_wave()
-  return { number = 1, countdown = world.first_wave_countdown, assault = false }
-end
-
 function M.new()
   local g = setmetatable({
     mode = "Pregame",
     money = 0, -- R2：进入 Playing 的瞬间置起始资金
-    wave = initial_wave(),
     entities = entities.new(),
     placing_kind = nil, -- 放置态：当前待建类型（04 R3）
+    rng01 = math.random, -- 随机源（编排可固定，如固定为最大值）
   }, Game)
+  g.wave = waves.initial(g)
+  g.enemies = enemies.new()
   g.grid = power_grid.new(g.entities)
   g.economy = economy.new(g)
+  g.fire = fire.new(g)
+  g.repair = repair.new(g)
   return g
 end
 
@@ -50,11 +55,14 @@ function Game:restart()
   if self.mode ~= "Victory" and self.mode ~= "GameOver" then return end
   self.mode = "Pregame"
   self.money = 0
-  self.wave = initial_wave()
+  self.wave = waves.initial(self)
+  self.enemies = enemies.new()
   self.entities = entities.new()
   self.placing_kind = nil
   self.grid = power_grid.new(self.entities)
   self.economy = economy.new(self)
+  self.fire = fire.new(self)
+  self.repair = repair.new(self)
 end
 
 -- 放置（04）：Pregame 忽略放置意图（01 R8）；规则判定全归 placement。
@@ -88,10 +96,14 @@ end
 -- R3：只有 Playing 推进。R4/R5/R6：胜负只在 Playing 判定。
 function Game:advance(dt)
   if self.mode ~= "Playing" then return end
-  self.wave.countdown = math.max(0, self.wave.countdown - dt)
-  self.entities:tick_crumble(dt)
+  waves.tick(self, dt)
   self.grid:tick(dt)
+  enemies.tick(self, dt)
+  detection.tick(self)
+  self.fire:tick(dt)
+  self.repair:tick(dt)
   self.economy:tick(dt)
+  self.entities:tick_crumble(dt)
   if self.entities:count_sites() == 0 then
     self.mode = "Victory"
   elseif not self.entities:present("Core") then

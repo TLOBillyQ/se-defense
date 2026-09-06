@@ -19,6 +19,9 @@ local SOURCES = {
   "tools.acceptance.steps_grid",
   "tools.acceptance.steps_economy",
   "tools.acceptance.steps_placement",
+  "tools.acceptance.steps_waves",
+  "tools.acceptance.steps_fire",
+  "tools.acceptance.steps_repair",
 }
 
 local M = {}

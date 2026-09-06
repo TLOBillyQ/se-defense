@@ -34,6 +34,9 @@ return { patterns = {
       m.wave.assault = true
       return true end) },
   { "^本波全灭$", needs_match(function(w, m)
+      for _, e in ipairs(m.enemies.list) do
+        if e.alive then require("server.game.enemies").kill(e) end
+      end
       m.wave.assault = false
       return true end) },
   { "^采集速率为([%d.]+)$", needs_match(function(w, m, expect)

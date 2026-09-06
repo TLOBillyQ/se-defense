@@ -50,4 +50,54 @@ M.sites = {
   { x = -15.31, z = 13.35 },  { x = 6.15,   z = -7.75 },  { x = -1.99,  z = -0.10 },
 }
 
+
+-- 波次（GDD 07 W1–W7）：平静期、方向公布阈值、预算、间隔、层级门槛、生成点。
+M.wave = {
+  calm = 30,               -- W2 平静期秒数
+  reveal_at = 5,           -- W2 倒计时 ≤ 5 公布来袭方向
+  budget_base = 2,         -- W3 预算 = 2 + (N − 1)
+  interval_base = 1,       -- W4 间隔 = max(0.25, 1 − 0.1(N−1))
+  interval_step = 0.1,
+  interval_min = 0.25,
+  tier2_wave = 4,          -- W5 N ≥ 4 解锁 2 型
+  tier3_wave = 8,          -- W5 N ≥ 8 解锁 3 型
+  tier3_budget = 2.5,      -- W5 剩余 < 2.5 上限降为 2
+  tier2_budget = 1.5,      -- W5 剩余 < 1.5 上限降为 1
+  spawn_offboard = 6,      -- W7 边界外 6 单位生成
+  route_spread = 10,       -- E2 航线指向中心 ± 10 区域内一点
+}
+
+-- 来袭方向表（W2）：索引序即随机抽取序，固定最大值时取北。
+M.directions = {
+  { name = "东", x = 1,  z = 0 },
+  { name = "南", x = 0,  z = -1 },
+  { name = "西", x = -1, z = 0 },
+  { name = "北", x = 0,  z = 1 },
+}
+
+-- 敌人（GDD 07 E1/E4/E5）：三层级血量/足迹/成本，速度 1/s，停止距离 1.2，
+-- 停稳后每 1 秒投一枚炸弹，引信 0.3 秒，半径 1.2 内建筑 −0.5。
+M.enemy_tiers = {
+  [1] = { health = 4,  footprint = 0.3, cost = 1 },
+  [2] = { health = 8,  footprint = 0.4, cost = 1.5 },
+  [3] = { health = 16, footprint = 0.5, cost = 2.5 },
+}
+M.enemy_speed = 1
+M.enemy_stop_distance = 1.2
+M.bomb_interval = 1
+M.bomb_fuse = 0.3
+M.bomb_radius = 1.2
+M.bomb_damage = 0.5
+
+-- 火力（GDD 05 R4/R5）：转速 180°/s、开火夹角 ≤ 2°、伤害 0.5、
+-- 射速 2/s、光束 0.05 秒后结算。探测圈/射程圈见实体总表 range。
+M.fire_damage = 0.5
+M.fire_interval = 0.5
+M.fire_beam = 0.05
+M.turret_turn_rate = math.pi -- 弧度/秒
+M.turret_fire_angle = math.rad(2)
+
+-- 维修（GDD 06 R3）：速率 0.5 血/秒；维修圈见实体总表 range。
+M.repair_rate = 0.5
+
 return M
