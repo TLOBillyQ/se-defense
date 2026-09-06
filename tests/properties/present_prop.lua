@@ -27,16 +27,21 @@ local function state_equal(a, b)
   return true
 end
 
--- 假通道：FireAllClients 即送达客户端哑镜像（有序、不丢包）。
+-- 假通道：FireAllClients 即送达客户端哑镜像（有序、不丢包）；客户端上行
+-- client_ready（握手 / 序号缺口）直达路由器全量重同步。
 local function wired()
-  local handler
+  local handler, router
   local channel = {
     FireAllClients = function(_, msg) handler(msg) end,
     OnClientEvent = { Connect = function(_, fn) handler = fn end },
+    FireServer = function(_, msg)
+      if router and msg.action == "client_ready" then router:client_ready() end
+    end,
   }
   client.applied = {}
   client.connect(channel)
-  return channel
+  router = eui.new(channel)
+  return router
 end
 
 -- PR-P1 round trip：任意快照流经增量路由后，镜像 == 最新快照
@@ -44,7 +49,7 @@ end
 prop.check("PR-P1 快照路由收敛", 100, function()
   local g = match_flow.new()
   local pres = presenter.new(g)
-  local router = eui.new(wired())
+  local router = wired() -- 上一轮残留的客户端序号靠缺口→client_ready 自愈
   local last_seq = 0
   g:start()
   for _ = 1, prop.int(1, 25) do

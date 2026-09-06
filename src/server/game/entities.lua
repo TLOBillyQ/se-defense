@@ -8,6 +8,8 @@ local world = require("server.game.world")
 
 local M = {}
 
+local EPS = 1e-9
+
 local Registry = {}
 Registry.__index = Registry
 
@@ -20,6 +22,7 @@ local function new_building(id, kind, x, z)
     health = world.specs[kind].health,
     state = "alive", -- alive | crumbling（碎裂中，仍在场）
     crumble_left = 0,
+    hits = 0,        -- 累计受击次数（只增；表现层据差分做受击红闪）
   }
 end
 
@@ -67,6 +70,34 @@ function Registry:remove(entity)
 end
 
 -- 按类型与坐标找在场实体（含碎裂中），坐标近似匹配。
+-- 实体是否仍在场（引用比较；采空/拆除/碎裂完毕即不在）。
+function Registry:has(entity)
+  for _, e in ipairs(self.list) do
+    if e == entity then return true end
+  end
+  return false
+end
+
+-- 落点命中：足迹圆包含 (x,z) 的实体中取最近者（14 V1 悬停；半径 0 落点）。
+function Registry:pick(x, z)
+  local best, best_d
+  for _, e in ipairs(self.list) do
+    local d = world.dist(x, z, e.x, e.z)
+    if d <= world.specs[e.kind].footprint + EPS and (not best_d or d < best_d) then
+      best, best_d = e, d
+    end
+  end
+  return best
+end
+
+-- 某类建筑是否有正在碎裂的（碎裂 2 秒仍占位）。
+function Registry:crumbling(kind)
+  for _, e in ipairs(self.list) do
+    if e.kind == kind and e.state == "crumbling" then return true end
+  end
+  return false
+end
+
 function Registry:find(kind, x, z)
   for _, e in ipairs(self.list) do
     if e.kind == kind and math.abs(e.x - x) < 1e-9 and math.abs(e.z - z) < 1e-9 then
@@ -76,13 +107,13 @@ function Registry:find(kind, x, z)
   return nil
 end
 
--- 炸弹伤害：血量归零后碎裂（矿点无血量，不受伤害）。受击留下 hurt_mark
--- 事件标记（15 F2 受击红闪），由表现层消费——伤害可能落在两拍之间，
--- 靠血量差分检测不到首次受击。
+-- 炸弹伤害：血量归零后碎裂（矿点无血量，不受伤害）。每次受击 hits +1
+-- （15 F2 受击红闪按计数差分检测——伤害可能落在两拍之间，靠血量差分
+-- 检测不到被维修抵消的受击；计数只增，表现层不必回写规则层）。
 function Registry:hurt(entity, amount)
   if not entity or not entity.health or entity.state ~= "alive" then return end
   entity.health = entity.health - amount
-  entity.hurt_mark = true
+  entity.hits = entity.hits + 1
   if entity.health <= 0 then
     entity.health = 0
     entity.state = "crumbling"

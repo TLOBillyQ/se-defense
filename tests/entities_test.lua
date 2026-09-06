@@ -64,3 +64,34 @@ function TestEntities.test_deplete_sites_removes_first_n_sites_immediately()
   r:deplete_sites(100)
   lu.assertEquals(r:count_sites(), 0)
 end
+
+-- 受击计数只增，供表现层差分；矿点不计。
+function TestEntities.test_hurt_increments_hits()
+  local r = entities.new()
+  local t = r:add_building("Turret", 0, 3)
+  lu.assertEquals(t.hits, 0)
+  r:hurt(t, 0.5)
+  r:hurt(t, 0.5)
+  lu.assertEquals(t.hits, 2)
+end
+
+-- pick：足迹圆包含落点的最近实体；空处为 nil。has：引用在场判定。
+function TestEntities.test_pick_and_has()
+  local r = entities.new()
+  local t = r:add_building("Turret", 0, 3)
+  lu.assertEquals(r:pick(0.2, 3), t)
+  lu.assertNil(r:pick(0, 20))
+  lu.assertTrue(r:has(t))
+  r:remove(t)
+  lu.assertFalse(r:has(t))
+end
+
+-- crumbling：该类有正在碎裂的实体才为真。
+function TestEntities.test_crumbling_by_kind()
+  local r = entities.new()
+  local t = r:add_building("Turret", 0, 3)
+  lu.assertFalse(r:crumbling("Turret"))
+  r:hurt(t, t.health)
+  lu.assertTrue(r:crumbling("Turret"))
+  lu.assertFalse(r:crumbling("Core"))
+end

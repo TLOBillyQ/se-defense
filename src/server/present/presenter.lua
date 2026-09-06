@@ -25,8 +25,6 @@ M.blink_period = 0.5    -- A3 边缘警示闪烁周期
 M.flash_seconds = 0.15  -- F2 受击红闪
 M.tint_dim = 0.35       -- F4 未通电变暗
 
-local EPS = 1e-9
-
 -- 方向的英文显示名（HUD/播报用）。
 local DIRECTION_EN = { ["东"] = "East", ["南"] = "South", ["西"] = "West", ["北"] = "North" }
 
@@ -56,7 +54,7 @@ function M.new(match)
   return setmetatable({
     match = match,
     entities_ref = match.entities, -- 重开后登记表换对象，据此复位显示侧状态
-    fx = {},                       -- 实体 id → { last_health, flash_left }
+    fx = {},                       -- 实体 id → { hits_seen, flash_left }
     hover = nil,                   -- 悬停目标实体（引用）
     announce = { line1 = "", line2 = "", left = 0 },
     prev_assault = false,
@@ -65,13 +63,6 @@ function M.new(match)
 end
 
 -- ── 节拍（显示侧状态） ─────────────────────────────────────────────────────
-
-local function entity_present(match, entity)
-  for _, e in ipairs(match.entities.list) do
-    if e == entity then return true end
-  end
-  return false
-end
 
 function Presenter:say(line1, line2)
   self.announce = { line1 = line1, line2 = line2, left = M.announce_seconds }
@@ -98,21 +89,21 @@ function Presenter:tick(dt)
   self.prev_assault = m.wave.assault
   self.prev_wave = m.wave.number
   if self.announce.left > 0 then self.announce.left = self.announce.left - dt end
-  -- F2：受击（hurt_mark 事件）即红闪 0.15 秒。
+  -- F2：受击计数增加即红闪 0.15 秒（规则层只读，按 hits 差分）。
   for _, e in ipairs(m.entities.list) do
     local fx = self.fx[e.id]
-    if not fx then
-      fx = { flash_left = 0 }
+    if not fx then -- 首次看到即从 0 起算：建好当拍就挨的打也要闪
+      fx = { flash_left = 0, hits_seen = 0 }
       self.fx[e.id] = fx
     end
-    if e.hurt_mark then
+    if (e.hits or 0) > fx.hits_seen then
+      fx.hits_seen = e.hits
       fx.flash_left = M.flash_seconds
-      e.hurt_mark = nil
     end
     if fx.flash_left > 0 then fx.flash_left = fx.flash_left - dt end
   end
   -- 悬停目标离场（采空/拆除/碎裂完毕）即消失。
-  if self.hover and not entity_present(m, self.hover) then self.hover = nil end
+  if self.hover and not m.entities:has(self.hover) then self.hover = nil end
 end
 
 -- ── H1 面板 ────────────────────────────────────────────────────────────────
@@ -229,15 +220,8 @@ function Presenter:hover_at(x, z)
     self.hover = nil
     return nil
   end
-  local best, best_d
-  for _, e in ipairs(self.match.entities.list) do
-    local d = world.dist(x, z, e.x, e.z)
-    if d <= world.specs[e.kind].footprint + EPS and (not best_d or d < best_d) then
-      best, best_d = e, d
-    end
-  end
-  self.hover = best
-  return best
+  self.hover = self.match.entities:pick(x, z)
+  return self.hover
 end
 
 function Presenter:clear_hover() self.hover = nil end

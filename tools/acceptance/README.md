@@ -19,7 +19,8 @@ mandatory for files under `features/`).
   a number share one implementation.
 - `tools/acceptance/steps_<system>.lua` — one step table per gameplay system,
   next to the feature it serves (`steps_match`, `steps_grid`, `steps_economy`,
-  `steps_placement`); shared preludes and validators live in
+  `steps_placement`, `steps_waves`, `steps_fire`, `steps_repair`, and
+  `steps_present` for the presentation features); shared preludes and validators live in
   `steps_support.lua`. Add a new system by adding a file and listing it in
   `steps.lua`.
 - `tools/acceptance/steps_repo.lua` — steps that inspect the repository itself

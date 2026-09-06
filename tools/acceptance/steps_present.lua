@@ -172,11 +172,7 @@ return { patterns = {
   { "^(%w+)是否碎裂中为(%S+)$", needs_match(function(w, m, kind, expect)
       local _, bad = known_kind(kind)
       if bad then return nil, bad end
-      local crumbling = false
-      for _, e in ipairs(m.entities.list) do
-        if e.kind == kind and e.state == "crumbling" then crumbling = true end
-      end
-      return expect_visible(crumbling, expect, kind .. "碎裂中") end) },
+      return expect_visible(m.entities:crumbling(kind), expect, kind .. "碎裂中") end) },
   { "^Core是否播放爆炸为(%S+)$", needs_pres(function(w, s, p, expect)
       return expect_visible(p:explosion_active(), expect, "Core 爆炸") end) },
   { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的(%w+)的着色为([%d.]+)$",
