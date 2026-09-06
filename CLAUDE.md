@@ -17,3 +17,7 @@ Issues 在 Gitea（`lzxsvn:3000/qinyuanj/se-defense`），用 `tea` CLI + Gitea 
 ### Domain docs
 
 单上下文布局：根 `CONTEXT.md` + `docs/adr/`。见 `docs/agents/domain.md`。
+
+### GDD
+
+Base Defence 绿地重写的规则真源在 `docs/gdd/`（索引 `docs/gdd/README.md`）。写 gameplay/presentation feature 前先读对应系统文档。
