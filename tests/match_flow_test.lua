@@ -143,3 +143,37 @@ function TestMatchFlow.test_playing_placement_builds_and_charges()
   lu.assertTrue(g:present("Relay"))
   lu.assertEquals(g.money, 90)
 end
+
+-- 放置守卫：未知建筑、不可建造（无价格）与资金不足都是无操作
+function TestMatchFlow.test_place_unknown_kind_is_noop()
+  local g = match_flow.new()
+  g:start()
+  g:place("Bogus", 2, 0)
+  lu.assertEquals(g.money, 100)
+  lu.assertEquals(g:count_buildings(), 1)
+end
+
+function TestMatchFlow.test_place_unbuildable_core_is_noop()
+  local g = match_flow.new()
+  g:start()
+  g:place("Core", 2, 0)
+  lu.assertEquals(g.money, 100)
+  lu.assertEquals(g:count_buildings(), 1)
+end
+
+function TestMatchFlow.test_place_insufficient_funds_is_noop()
+  local g = match_flow.new()
+  g:start()
+  g:place("Repair", 2, 0)
+  lu.assertEquals(g.money, 0)
+  g:place("Relay", 4, 0)
+  lu.assertFalse(g:present("Relay"))
+  lu.assertEquals(g.money, 0)
+end
+
+-- kill 未命中：场上没有该类型的活建筑时返回 nil 且布局不变
+function TestMatchFlow.test_kill_absent_kind_returns_nil()
+  local g = match_flow.new()
+  lu.assertNil(g:kill("Turret"))
+  lu.assertEquals(g:count_buildings(), 1)
+end

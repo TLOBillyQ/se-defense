@@ -22,15 +22,19 @@ for _, entry in ipairs(repo.patterns) do PATTERNS[#PATTERNS + 1] = entry end
 
 -- ── 对局步骤（features/gameplay，规则真源 docs/gdd/）──
 
-local function session(w)
-  if not w.session then return nil, "尚未启动对局（背景缺「一局新对局」）" end
-  return w.session
+-- 前置包装：handler 需要一局已启动的对局。needs_session 注入 session，
+-- needs_match 注入规则层对局对象；未启动时返回统一错误。
+local function needs_session(fn)
+  return function(w, ...)
+    if not w.session then return nil, "尚未启动对局（背景缺「一局新对局」）" end
+    return fn(w, w.session, ...)
+  end
 end
 
-local function match(w)
-  local s, err = session(w)
-  if not s then return nil, err end
-  return s.match
+local function needs_match(fn)
+  return needs_session(function(w, s, ...)
+    return fn(w, s.match, ...)
+  end)
 end
 
 local function expect_yes_no(value)
@@ -46,95 +50,65 @@ local game_patterns = {
   { "^一局新对局$", function(w)
       w.session = headless.boot()
       return true end },
-  { "^对局阶段为(%S+)$", function(w, expect)
-      local m, err = match(w)
-      if not m then return nil, err end
+  { "^对局阶段为(%S+)$", needs_match(function(w, m, expect)
       if m.mode == expect then return true end
-      return nil, string.format("对局阶段期望 %s，实际 %s", expect, m.mode) end },
-  { "^玩家开始对局$", function(w)
-      local s, err = session(w)
-      if not s then return nil, err end
+      return nil, string.format("对局阶段期望 %s，实际 %s", expect, m.mode) end) },
+  { "^玩家开始对局$", needs_session(function(w, s)
       headless.send(s, { action = "start" })
-      return true end },
-  { "^玩家重开$", function(w)
-      local s, err = session(w)
-      if not s then return nil, err end
+      return true end) },
+  { "^玩家重开$", needs_session(function(w, s)
       headless.send(s, { action = "restart" })
-      return true end },
-  { "^玩家在%((%-?[%d.]+),(%-?[%d.]+)%)放置(%w+)$", function(w, x, z, kind)
-      local s, err = session(w)
-      if not s then return nil, err end
+      return true end) },
+  { "^玩家在%((%-?[%d.]+),(%-?[%d.]+)%)放置(%w+)$", needs_session(function(w, s, x, z, kind)
       headless.send(s, { action = "place", kind = kind, x = tonumber(x), z = tonumber(z) })
-      return true end },
+      return true end) },
   -- 「推进 N 秒」记下推进前的资金与波次倒计时，供「与推进前相同」比较。
-  { "^推进(%d+)秒$", function(w, seconds)
-      local s, err = session(w)
-      if not s then return nil, err end
+  { "^推进(%d+)秒$", needs_session(function(w, s, seconds)
       w.before = { money = s.match.money, countdown = s.match.wave.countdown }
       headless.advance(s, tonumber(seconds))
-      return true end },
-  { "^资金为(%d+)$", function(w, expect)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return true end) },
+  { "^资金为(%d+)$", needs_match(function(w, m, expect)
       if m.money == tonumber(expect) then return true end
-      return nil, string.format("资金期望 %s，实际 %s", expect, m.money) end },
-  { "^资金与推进前相同$", function(w)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return nil, string.format("资金期望 %s，实际 %s", expect, m.money) end) },
+  { "^资金与推进前相同$", needs_match(function(w, m)
       if not w.before then return nil, "尚未推进（缺「与推进前相同」的基准）" end
       if m.money == w.before.money then return true end
-      return nil, string.format("资金期望与推进前 %s 相同，实际 %s", w.before.money, m.money) end },
-  { "^波次倒计时与推进前相同$", function(w)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return nil, string.format("资金期望与推进前 %s 相同，实际 %s", w.before.money, m.money) end) },
+  { "^波次倒计时与推进前相同$", needs_match(function(w, m)
       if not w.before then return nil, "尚未推进（缺「与推进前相同」的基准）" end
       if m.wave.countdown == w.before.countdown then return true end
       return nil, string.format("波次倒计时期望与推进前 %s 相同，实际 %s",
-        w.before.countdown, m.wave.countdown) end },
-  { "^第(%d+)波倒计时为([%d.]+)秒$", function(w, number, countdown)
-      local m, err = match(w)
-      if not m then return nil, err end
+        w.before.countdown, m.wave.countdown) end) },
+  { "^第(%d+)波倒计时为([%d.]+)秒$", needs_match(function(w, m, number, countdown)
       if m.wave.number ~= tonumber(number) then
         return nil, string.format("波号期望 %s，实际 %s", number, m.wave.number)
       end
       if math.abs(m.wave.countdown - tonumber(countdown)) <= EPS then return true end
       return nil, string.format("第 %s 波倒计时期望 %s 秒，实际 %s",
-        number, countdown, m.wave.countdown) end },
-  { "^采空(%d+)个矿点$", function(w, n)
-      local m, err = match(w)
-      if not m then return nil, err end
+        number, countdown, m.wave.countdown) end) },
+  { "^采空(%d+)个矿点$", needs_match(function(w, m, n)
       m:deplete_sites(tonumber(n))
-      return true end },
-  { "^剩余矿点数为(%d+)$", function(w, expect)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return true end) },
+  { "^剩余矿点数为(%d+)$", needs_match(function(w, m, expect)
       local actual = m:count_sites()
       if actual == tonumber(expect) then return true end
-      return nil, string.format("剩余矿点数期望 %s，实际 %s", expect, actual) end },
-  { "^(%w+)死亡$", function(w, kind)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return nil, string.format("剩余矿点数期望 %s，实际 %s", expect, actual) end) },
+  { "^(%w+)死亡$", needs_match(function(w, m, kind)
       if m:kill(kind) then return true end
-      return nil, "场上没有可死亡的 " .. kind end },
-  { "^一座已建好的(%w+)位于%((%-?[%d.]+),(%-?[%d.]+)%)$", function(w, kind, x, z)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return nil, "场上没有可死亡的 " .. kind end) },
+  { "^一座已建好的(%w+)位于%((%-?[%d.]+),(%-?[%d.]+)%)$", needs_match(function(w, m, kind, x, z)
       m:add_building(kind, tonumber(x), tonumber(z))
-      return true end },
-  { "^(%w+)是否在场为(%S+)$", function(w, kind, expect)
-      local m, err = match(w)
-      if not m then return nil, err end
+      return true end) },
+  { "^(%w+)是否在场为(%S+)$", needs_match(function(w, m, kind, expect)
       local want, bad = expect_yes_no(expect)
       if bad then return nil, bad end
       if m:present(kind) == want then return true end
       return nil, string.format("%s 在场期望 %s，实际 %s",
-        kind, expect, m:present(kind) and "是" or "否") end },
-  { "^场上建筑数为(%d+)$", function(w, expect)
-      local m, err = match(w)
-      if not m then return nil, err end
+        kind, expect, m:present(kind) and "是" or "否") end) },
+  { "^场上建筑数为(%d+)$", needs_match(function(w, m, expect)
       local actual = m:count_buildings()
       if actual == tonumber(expect) then return true end
-      return nil, string.format("场上建筑数期望 %s，实际 %s", expect, actual) end },
+      return nil, string.format("场上建筑数期望 %s，实际 %s", expect, actual) end) },
 }
 
 for _, entry in ipairs(game_patterns) do PATTERNS[#PATTERNS + 1] = entry end
