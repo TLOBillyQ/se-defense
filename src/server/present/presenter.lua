@@ -143,60 +143,7 @@ end
 
 function Presenter:pause_visible() return self.match.wave.assault end
 function Presenter:pause_text() return "harvesting paused" end
-function Presenter:pause_color() -- ── 快照产出（CONTEXT.md「快照」：节点路径 → {text, visible, color, fill}） ──
--- 快照只携状态；布局与样式归客户端 recipe 表。
-
-local BUTTON_KINDS = { "Relay", "Radar", "Turret", "Repair" }
-local EDGES = { { key = "east", name = "东" }, { key = "south", name = "南" },
-  { key = "west", name = "西" }, { key = "north", name = "北" } }
-
-function Presenter:snapshot()
-  local snap = {
-    ["hud.panel.pregame"] = { visible = self:panel_visible("pregame") },
-    ["hud.panel.playing"] = { visible = self:panel_visible("playing") },
-    ["hud.panel.victory"] = { visible = self:panel_visible("victory") },
-    ["hud.panel.gameover"] = { visible = self:panel_visible("gameover") },
-    ["hud.restart"] = { visible = self:restart_visible() },
-    ["hud.money"] = { text = self:money_text() },
-    ["hud.pause"] = { visible = self:pause_visible(), text = self:pause_text(),
-      color = self:pause_color() },
-    ["hud.sites"] = { text = self:sites_text() },
-    ["hud.wave"] = { text = self:wave_text() },
-    ["hud.countdown"] = { text = self:countdown_text(), color = self:countdown_color() },
-    ["hud.message"] = { text = self:message_text() },
-    ["announce.line1"] = { visible = self:announce_visible(), text = self:announce_line1() },
-    ["announce.line2"] = { visible = self:announce_visible(), text = self:announce_line2() },
-  }
-  for _, kind in ipairs(BUTTON_KINDS) do
-    local b = self:button(kind)
-    snap["hud.button." .. kind:lower()] = { text = b.text, enabled = b.enabled }
-  end
-  for _, edge in ipairs(EDGES) do
-    snap["edge." .. edge.key] = { visible = self:edge_visible(edge.name) }
-  end
-  local hover = self:hover_lines() or { "", "", "" }
-  for i = 1, 3 do
-    snap["hover.line" .. i] = { visible = self.hover ~= nil, text = hover[i] }
-  end
-  for _, e in ipairs(self.match.entities.list) do
-    if e.kind ~= "Site" then
-      local bar = self:healthbar(e)
-      snap["unit." .. e.id .. ".healthbar"] = { visible = bar.visible, fill = bar.fill,
-        color = bar.color }
-      snap["unit." .. e.id .. ".flash"] = { visible = self:flashing(e) }
-      snap["unit." .. e.id .. ".tint"] = { fill = self:tint(e) }
-    end
-  end
-  snap["world.core.explosion"] = { visible = self:explosion_active() }
-  for _, e in ipairs(self.match.enemies.list) do
-    if not e.gone then
-      snap["enemy." .. e.id .. ".marker"] = { visible = self:enemy_marked(e) }
-    end
-  end
-  return snap
-end
-
-return M.colors.amber end
+function Presenter:pause_color() return M.colors.amber end
 
 -- H3
 function Presenter:sites_text()
@@ -272,60 +219,7 @@ function Presenter:edge_visible(edge)
   return waves.revealed_direction(m) == edge
 end
 
-function Presenter:blink_period() -- ── 快照产出（CONTEXT.md「快照」：节点路径 → {text, visible, color, fill}） ──
--- 快照只携状态；布局与样式归客户端 recipe 表。
-
-local BUTTON_KINDS = { "Relay", "Radar", "Turret", "Repair" }
-local EDGES = { { key = "east", name = "东" }, { key = "south", name = "南" },
-  { key = "west", name = "西" }, { key = "north", name = "北" } }
-
-function Presenter:snapshot()
-  local snap = {
-    ["hud.panel.pregame"] = { visible = self:panel_visible("pregame") },
-    ["hud.panel.playing"] = { visible = self:panel_visible("playing") },
-    ["hud.panel.victory"] = { visible = self:panel_visible("victory") },
-    ["hud.panel.gameover"] = { visible = self:panel_visible("gameover") },
-    ["hud.restart"] = { visible = self:restart_visible() },
-    ["hud.money"] = { text = self:money_text() },
-    ["hud.pause"] = { visible = self:pause_visible(), text = self:pause_text(),
-      color = self:pause_color() },
-    ["hud.sites"] = { text = self:sites_text() },
-    ["hud.wave"] = { text = self:wave_text() },
-    ["hud.countdown"] = { text = self:countdown_text(), color = self:countdown_color() },
-    ["hud.message"] = { text = self:message_text() },
-    ["announce.line1"] = { visible = self:announce_visible(), text = self:announce_line1() },
-    ["announce.line2"] = { visible = self:announce_visible(), text = self:announce_line2() },
-  }
-  for _, kind in ipairs(BUTTON_KINDS) do
-    local b = self:button(kind)
-    snap["hud.button." .. kind:lower()] = { text = b.text, enabled = b.enabled }
-  end
-  for _, edge in ipairs(EDGES) do
-    snap["edge." .. edge.key] = { visible = self:edge_visible(edge.name) }
-  end
-  local hover = self:hover_lines() or { "", "", "" }
-  for i = 1, 3 do
-    snap["hover.line" .. i] = { visible = self.hover ~= nil, text = hover[i] }
-  end
-  for _, e in ipairs(self.match.entities.list) do
-    if e.kind ~= "Site" then
-      local bar = self:healthbar(e)
-      snap["unit." .. e.id .. ".healthbar"] = { visible = bar.visible, fill = bar.fill,
-        color = bar.color }
-      snap["unit." .. e.id .. ".flash"] = { visible = self:flashing(e) }
-      snap["unit." .. e.id .. ".tint"] = { fill = self:tint(e) }
-    end
-  end
-  snap["world.core.explosion"] = { visible = self:explosion_active() }
-  for _, e in ipairs(self.match.enemies.list) do
-    if not e.gone then
-      snap["enemy." .. e.id .. ".marker"] = { visible = self:enemy_marked(e) }
-    end
-  end
-  return snap
-end
-
-return M.blink_period end
+function Presenter:blink_period() return M.blink_period end
 
 -- ── V 悬停 ─────────────────────────────────────────────────────────────────
 
