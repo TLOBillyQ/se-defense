@@ -19,11 +19,12 @@ local function line(out, a, b)
 end
 
 -- O4：Core/Relay 的供电圈只按通电状态显示（Core 恒通电）。
+-- O5：形状携带 kind，目的地按类型着色（并集轮廓为纯表现，客户端渲染）。
 local function supply_circles(match, out)
   for _, e in ipairs(match.entities.list) do
     local provide = world.specs[e.kind].provide or 0
     if provide > 0 and alive(e) and match.grid:powered(e) then
-      out.supply[#out.supply + 1] = { x = e.x, z = e.z, r = provide }
+      out.supply[#out.supply + 1] = { x = e.x, z = e.z, r = provide, kind = e.kind }
     end
   end
 end
@@ -34,7 +35,7 @@ local function coverage_circles(match, kind, out)
   if not range then return end
   for _, e in ipairs(match.entities.list) do
     if e.kind == kind and alive(e) and match.grid:powered(e) then
-      out.circles[#out.circles + 1] = { x = e.x, z = e.z, r = range }
+      out.circles[#out.circles + 1] = { x = e.x, z = e.z, r = range, kind = kind }
     end
   end
 end
@@ -68,7 +69,7 @@ local function hover_shapes(match, hover, out)
   elseif (spec.provide or 0) > 0 then -- Power 类：同类供电圈
     for _, e in ipairs(match.entities.list) do
       if e.kind == hover.kind and alive(e) and match.grid:powered(e) then
-        out.supply[#out.supply + 1] = { x = e.x, z = e.z, r = spec.provide }
+        out.supply[#out.supply + 1] = { x = e.x, z = e.z, r = spec.provide, kind = e.kind }
       end
     end
   end

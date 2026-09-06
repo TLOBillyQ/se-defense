@@ -22,10 +22,10 @@ local function flatten(shapes)
     put("line" .. i, { shape = "line", ax = l.ax, az = l.az, bx = l.bx, bz = l.bz })
   end
   for i, c in ipairs(shapes.circles or {}) do
-    put("circle" .. i, { shape = "circle", x = c.x, z = c.z, r = c.r })
+    put("circle" .. i, { shape = "circle", x = c.x, z = c.z, r = c.r, kind = c.kind })
   end
   for i, c in ipairs(shapes.supply or {}) do
-    put("supply" .. i, { shape = "supply", x = c.x, z = c.z, r = c.r })
+    put("supply" .. i, { shape = "supply", x = c.x, z = c.z, r = c.r, kind = c.kind })
   end
   if shapes.ring then
     put("ring", { shape = "ring", x = shapes.ring.x, z = shapes.ring.z, r = shapes.ring.r })

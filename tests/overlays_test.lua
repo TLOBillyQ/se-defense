@@ -64,6 +64,7 @@ function TestOverlays.test_hover_turret_coverage_chain_ring()
   lu.assertEquals(#s.circles, 2)
   lu.assertEquals(circle_at(s, 0, 5.5).r, 5)
   lu.assertEquals(circle_at(s, 2, 0).r, 5)
+  lu.assertEquals(circle_at(s, 0, 5.5).kind, "Turret") -- O5：按类型着色所需
   lu.assertEquals(#s.lines, 2)
   lu.assertTrue(has_line(s, 0, 5.5, 0, 3))
   lu.assertTrue(has_line(s, 0, 3, 0, 0))

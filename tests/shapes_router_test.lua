@@ -46,11 +46,15 @@ function TestShapesRouter.test_all_shape_kinds_become_effect_units()
   local r = shapes.new(world)
   r:render({
     lines = { { ax = 0, az = 3, bx = 0, bz = 0 } },
-    circles = { { x = 2, z = 0, r = 5 } },
-    supply = { { x = 0, z = 0, r = 4 } },
+    circles = { { x = 2, z = 0, r = 5, kind = "Turret" } },
+    supply = { { x = 0, z = 0, r = 4, kind = "Core" } },
     ring = { x = 0, z = 5.5, r = 0.6 },
     preview = { x = 0, z = 2, r = 0.4, legal = true },
   })
   lu.assertEquals(alive(world), 5)
   for _, u in ipairs(world.units) do lu.assertEquals(u.kind, "EffectUnit") end
+  local by_shape = {} -- O5：类型随 props 过双路由
+  for _, u in ipairs(world.units) do by_shape[u.props.shape] = u end
+  lu.assertEquals(by_shape.circle.props.kind, "Turret")
+  lu.assertEquals(by_shape.supply.props.kind, "Core")
 end
