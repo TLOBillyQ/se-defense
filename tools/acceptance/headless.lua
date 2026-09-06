@@ -7,14 +7,17 @@ local M = {}
 local real_print = print
 local verbose = os.getenv("VERBOSE") == "1"
 
+local paths_added = false
 local function add_search_paths()
+  if paths_added then return end
+  paths_added = true
   local paths = { "./?.lua", "./?/init.lua", "./src/?.lua", "./src/?/init.lua" }
   package.path = table.concat(paths, ";") .. ";" .. package.path
 end
 
 local function reset_modules()
   for name in pairs(package.loaded) do
-    if name:match("^server%.") or name:match("^client%.") or name:match("^common%.")
+    if name:match("^server%.") or name:match("^client%.")
       or name == "tools.headless.se_stub" then
       package.loaded[name] = nil
     end
@@ -35,7 +38,7 @@ function M.boot()
   reset_modules()
   local stub = require("tools.headless.se_stub")
   quiet(function() assert(loadfile("src/server/main.lua"))() end)
-  return { stub = stub, match = require("server.adapter.host").game }
+  return { stub = stub, match = require("server.adapter.host").match }
 end
 
 -- 玩家意图经真实通道上行（RemoteEvent → 适配层）。

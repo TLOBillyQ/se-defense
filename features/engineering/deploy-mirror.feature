@@ -1,4 +1,56 @@
 # language: zh-CN
+# mutation-stamp: sha256=6ab94943e7365ed2578af8dbe55ce8cd671dc20655673d42c18d148b4f817907
+# acceptance-mutation-manifest-begin
+# {
+#   "background_hash": "dec0798057c6072fd5bc9200831a8be7a95e38764b4ffc6a47a3a2c4b300e951",
+#   "feature_name": "部署镜像",
+#   "feature_path": "features/engineering/deploy-mirror.feature",
+#   "implementation_hash": "sha256:3ae7009950ff4596685d956c6ea747bb1a55254168101ace4c6441d6ce2fd2e9",
+#   "scenarios": [
+#     {
+#       "index": 0,
+#       "mutation_count": 7,
+#       "name": "部署镜像 1: 部署把 src 各端镜像到工作区根",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 7,
+#         "Survived": 0,
+#         "Total": 7
+#       },
+#       "scenario_hash": "77f64659dd143ec539ee9ce7705652b0a7ba04457efdc64012595a871421a8c7",
+#       "tested_at": "2026-09-06T13:39:55Z"
+#     },
+#     {
+#       "index": 1,
+#       "mutation_count": 0,
+#       "name": "部署镜像 2: 部署后工作区根不再有 src 目录",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "24b6b5c362fc846d460f3bceaa745fa91fe5600ad7cd1eab217546bdefd0dd8c",
+#       "tested_at": "2026-09-06T13:39:55Z"
+#     },
+#     {
+#       "index": 2,
+#       "mutation_count": 3,
+#       "name": "部署镜像 3: 部署不触碰工作区中不归本仓库的文件",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 3,
+#         "Survived": 0,
+#         "Total": 3
+#       },
+#       "scenario_hash": "f870fd96c7984e05155e34e610b2e6d59c660c4e4ac79d20f72d546ebb6004f9",
+#       "tested_at": "2026-09-06T13:39:58Z"
+#     }
+#   ],
+#   "tested_at": "2026-09-06T13:39:58Z",
+#   "version": 1
+# }
+# acceptance-mutation-manifest-end
 # 场景清单：
 #   部署镜像 1: 部署把 src 各端镜像到工作区根
 #   部署镜像 2: 部署后工作区根不再有 src 目录

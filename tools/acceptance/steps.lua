@@ -23,7 +23,8 @@ for _, entry in ipairs(repo.patterns) do PATTERNS[#PATTERNS + 1] = entry end
 -- ── 对局步骤（features/gameplay，规则真源 docs/gdd/）──
 
 -- 前置包装：handler 需要一局已启动的对局。needs_session 注入 session，
--- needs_match 注入规则层对局对象；未启动时返回统一错误。
+-- needs_match 注入规则层对局对象（编排动作与实体读取走 m.entities）；
+-- 未启动时返回统一错误。
 local function needs_session(fn)
   return function(w, ...)
     if not w.session then return nil, "尚未启动对局（背景缺「一局新对局」）" end
@@ -44,6 +45,13 @@ local function expect_yes_no(value)
   return value == "是"
 end
 
+-- 实体名必须来自实体总表，拒绝拼写变体（杀软变异存活体）。只在对局已启动后调用：
+-- 实体总表随每场景的模块复位重新加载，因此按需 require 而非模块顶部捕获。
+local function known_kind(kind)
+  if require("server.game.world").specs[kind] then return true end
+  return nil, "未知实体: " .. tostring(kind)
+end
+
 local EPS = 1e-6
 
 local game_patterns = {
@@ -60,6 +68,8 @@ local game_patterns = {
       headless.send(s, { action = "restart" })
       return true end) },
   { "^玩家在%((%-?[%d.]+),(%-?[%d.]+)%)放置(%w+)$", needs_session(function(w, s, x, z, kind)
+      local _, bad = known_kind(kind)
+      if bad then return nil, bad end
       headless.send(s, { action = "place", kind = kind, x = tonumber(x), z = tonumber(z) })
       return true end) },
   -- 「推进 N 秒」记下推进前的资金与波次倒计时，供「与推进前相同」比较。
@@ -87,26 +97,28 @@ local game_patterns = {
       return nil, string.format("第 %s 波倒计时期望 %s 秒，实际 %s",
         number, countdown, m.wave.countdown) end) },
   { "^采空(%d+)个矿点$", needs_match(function(w, m, n)
-      m:deplete_sites(tonumber(n))
+      m.entities:deplete_sites(tonumber(n))
       return true end) },
   { "^剩余矿点数为(%d+)$", needs_match(function(w, m, expect)
-      local actual = m:count_sites()
+      local actual = m.entities:count_sites()
       if actual == tonumber(expect) then return true end
       return nil, string.format("剩余矿点数期望 %s，实际 %s", expect, actual) end) },
   { "^(%w+)死亡$", needs_match(function(w, m, kind)
-      if m:kill(kind) then return true end
+      if m.entities:kill(kind) then return true end
       return nil, "场上没有可死亡的 " .. kind end) },
   { "^一座已建好的(%w+)位于%((%-?[%d.]+),(%-?[%d.]+)%)$", needs_match(function(w, m, kind, x, z)
-      m:add_building(kind, tonumber(x), tonumber(z))
+      m.entities:add_building(kind, tonumber(x), tonumber(z))
       return true end) },
   { "^(%w+)是否在场为(%S+)$", needs_match(function(w, m, kind, expect)
+      local _, bad_kind = known_kind(kind)
+      if bad_kind then return nil, bad_kind end
       local want, bad = expect_yes_no(expect)
       if bad then return nil, bad end
-      if m:present(kind) == want then return true end
+      if m.entities:present(kind) == want then return true end
       return nil, string.format("%s 在场期望 %s，实际 %s",
-        kind, expect, m:present(kind) and "是" or "否") end) },
+        kind, expect, m.entities:present(kind) and "是" or "否") end) },
   { "^场上建筑数为(%d+)$", needs_match(function(w, m, expect)
-      local actual = m:count_buildings()
+      local actual = m.entities:count_buildings()
       if actual == tonumber(expect) then return true end
       return nil, string.format("场上建筑数期望 %s，实际 %s", expect, actual) end) },
 }

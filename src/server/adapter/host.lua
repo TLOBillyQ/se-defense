@@ -24,13 +24,14 @@ function M.handle(match, msg)
   end
 end
 
--- 启动一局：match 可由入口注入（默认新建）。返回对局对象。
+-- 启动一局：match 可由入口注入（默认新建）。返回对局对象，同时挂在 M.match
+-- 供无头 harness 经真入口启动后取回。
 function M.boot(match)
   match = match or match_flow.new()
   se("RunService").Heartbeat:Connect(function(dt) match:advance(dt or M.FIXED_DT) end)
   local channel = RemoteEvent.New("bd")
   channel.OnServerEvent:Connect(function(_, msg) M.handle(match, msg) end)
-  M.game = match
+  M.match = match
   return match
 end
 

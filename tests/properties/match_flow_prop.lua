@@ -34,7 +34,7 @@ end)
 -- P2 冻结：Pregame 中任意推进/放置操作序列不改变阶段、资金、倒计时与布局。
 prop.check("P2 Pregame 时间冻结", 200, function()
   local g = match_flow.new()
-  local n0 = #g.entities
+  local n0 = #g.entities.list
   for _ = 1, prop.int(1, 30) do
     local op = prop.int(1, 3)
     if op == 1 then
@@ -50,7 +50,7 @@ prop.check("P2 Pregame 时间冻结", 200, function()
     if g.wave.countdown ~= world.first_wave_countdown then
       return nil, "倒计时漂移: " .. g.wave.countdown
     end
-    if #g.entities ~= n0 then return nil, "实体数漂移: " .. #g.entities end
+    if #g.entities.list ~= n0 then return nil, "实体数漂移: " .. #g.entities.list end
   end
   return true
 end)
@@ -77,8 +77,8 @@ prop.check("P3 资金守恒", 200, function()
     end
     if g.money < 0 then return nil, "资金为负: " .. g.money end
   end
-  if g:count_buildings() ~= 1 + placed then
-    return nil, string.format("建筑数对不平: 期望 %d 实际 %d", 1 + placed, g:count_buildings())
+  if g.entities:count_buildings() ~= 1 + placed then
+    return nil, string.format("建筑数对不平: 期望 %d 实际 %d", 1 + placed, g.entities:count_buildings())
   end
   return true
 end)
@@ -90,18 +90,18 @@ prop.check("P4 实体计数一致", 200, function()
   for _ = 1, prop.int(1, 40) do
     local op = prop.int(1, 4)
     if op == 1 then
-      g:kill(prop.pick(KINDS))
+      g.entities:kill(prop.pick(KINDS))
     elseif op == 2 then
-      g:deplete_sites(prop.int(0, 6))
+      g.entities:deplete_sites(prop.int(0, 6))
     elseif op == 3 then
       local x, z = random_xy()
-      g:add_building(prop.pick(BUILDABLE), x, z)
+      g.entities:add_building(prop.pick(BUILDABLE), x, z)
     else
       g:advance(prop.number(0, 10))
     end
-    if g:count_sites() + g:count_buildings() ~= #g.entities then
+    if g.entities:count_sites() + g.entities:count_buildings() ~= #g.entities.list then
       return nil, string.format("计数不一致: %d + %d != %d",
-        g:count_sites(), g:count_buildings(), #g.entities)
+        g.entities:count_sites(), g.entities:count_buildings(), #g.entities.list)
     end
   end
   return true
@@ -112,11 +112,11 @@ prop.check("P5 终态吸收", 200, function()
   local g = match_flow.new()
   g:start()
   if prop.int(1, 2) == 1 then
-    g:deplete_sites(g:count_sites())
+    g.entities:deplete_sites(g.entities:count_sites())
     g:advance(1)
     if g.mode ~= "Victory" then return nil, "未到 Victory: " .. g.mode end
   else
-    g:kill("Core")
+    g.entities:kill("Core")
     g:advance(world.crumble_seconds + 1)
     if g.mode ~= "GameOver" then return nil, "未到 GameOver: " .. g.mode end
   end
