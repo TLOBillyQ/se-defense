@@ -53,8 +53,9 @@
 ## 迁移说明
 
 - 旧 Lua 移植保留在分支 `legacy/lua-port`，仅作参考。
-- 旧 `features/base-defence.feature` 与 `acceptance/generated/base-defence/` 在新 feature 集落地时删除（与新集在价格、开局方式上矛盾）。
-- `features/source-layout.feature`、`features/deploy-mirror.feature` 是工程 feature，保留不动。
+- main 已清空旧移植：`src/`、旧 feature（base-defence / source-layout / deploy-mirror）、旧无头启动器与集成脚本都只在 `legacy/lua-port`。
+- 源码树布局与部署镜像的规则仍然有效（见 `CONTEXT.md`「部署树」），新树落地后需重新写成工程 feature，随首个 gameplay ticket 一起做。
+- 保留的基础设施：`vendor/spoke/`（运行时）、`tools/acceptance/`（APS 管线，步骤表已清空为仓库检查步骤）、`tools/headless/se_stub.lua`（SE 全局桩）、`tools/deploy*.lua`（部署工具）、`tools/probes/`（真机探针）、`docs/research/`。
 
 ## 已知的移植差异（照 Unity 写，实现时由适配层吸收）
 
