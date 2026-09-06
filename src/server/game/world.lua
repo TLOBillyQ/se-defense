@@ -84,6 +84,7 @@ M.enemy_tiers = {
 }
 M.enemy_speed = 1
 M.enemy_stop_distance = 1.2
+M.enemy_separation = 0.6 -- E6 间距下限
 M.bomb_interval = 1
 M.bomb_fuse = 0.3
 M.bomb_radius = 1.2

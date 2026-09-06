@@ -100,6 +100,18 @@ function TestEnemies.test_spawned_within_stop_distance_stays_put()
   lu.assertTrue(g.entities:find("Turret", 1.5, 3.5).health < 5)
 end
 
+-- E6：间距 < 0.6 时相互推开，不重叠堆叠。
+function TestEnemies.test_separation_pushes_overlapping_enemies_apart()
+  local g = new_playing()
+  g.entities:remove(g.entities:find("Core", 0, 0)) -- 无目标可飞，隔离分离规则
+  spawn(g, 0, 10, 1, 0, -1)
+  spawn(g, 0.3, 10, 1, 0, -1)
+  advance_seconds(g, 0.1)
+  local a, b = g.enemies.list[1], g.enemies.list[2]
+  lu.assertTrue(math.abs(a.x - b.x) + math.abs(a.z - b.z) > 0)
+  lu.assertTrue(math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2) >= 0.6 - 1e-9)
+end
+
 -- E4/E5 + 01 R6：Core 受满 20 枚炸弹死亡并离场，对局 GameOver。
 function TestEnemies.test_core_dies_after_twenty_bombs()
   local g = new_playing()

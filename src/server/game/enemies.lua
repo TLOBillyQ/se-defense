@@ -108,6 +108,28 @@ local function settle_bombs(match, dt)
   match.enemies.bombs = left
 end
 
+-- E6：间距 < 0.6 时沿连线相互推开（规则层只要求不重叠堆叠）。
+local function separate(list)
+  for i = 1, #list do
+    local a = list[i]
+    if a.alive then
+      for j = i + 1, #list do
+        local b = list[j]
+        if b.alive then
+          local d = world.dist(a.x, a.z, b.x, b.z)
+          if d < world.enemy_separation then
+            local nx, nz = 1, 0 -- 完全重叠时沿 x 轴分开
+            if d > EPS then nx, nz = (a.x - b.x) / d, (a.z - b.z) / d end
+            local push = (world.enemy_separation - d) / 2
+            a.x, a.z = a.x + nx * push, a.z + nz * push
+            b.x, b.z = b.x - nx * push, b.z - nz * push
+          end
+        end
+      end
+    end
+  end
+end
+
 function M.tick(match, dt)
   for _, e in ipairs(match.enemies.list) do
     if e.alive then
@@ -120,6 +142,7 @@ function M.tick(match, dt)
       if e.stopped then drop_bombs(match, e, dt) else move(e, dt) end
     end
   end
+  separate(match.enemies.list)
   settle_bombs(match, dt)
 end
 
