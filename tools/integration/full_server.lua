@@ -20,6 +20,7 @@
 
 local World = game:GetService("World")
 local RunService = game:GetService("RunService")
+local Roster = require("server.game.roster")
 local bd = _G.bd
 local function root() return bd.root end
 local function gs() return root().game_state end
@@ -53,13 +54,7 @@ local function has_node_prefix(prefix)
   for path in pairs(host().eui.nodes) do if path:sub(1, #prefix) == prefix then return true end end
   return false
 end
-local function alive_enemies()
-  local list = {}
-  for _, en in ipairs(root().enemies) do
-    if en.health and en.health.is_alive:now() then list[#list + 1] = en end
-  end
-  return list
-end
+local function alive_enemies() return Roster.alive_enemies(root()) end
 local function assaulting() return wd().wave:now().starts_in == 0 end
 
 -- 全局波次记录（运行器每帧喂）：不依赖当前在哪一步，来袭撞上放置也能记全。
@@ -91,9 +86,8 @@ local function spawn_complete()
 end
 local function near(a, b, tol) return math.abs(a - b) <= tol end
 local function building_by_key(key)
-  for id, rec in pairs(root().pool._live_by_entity_id) do
-    if rec.spec and rec.spec.key == key and rec.epoch and rec.epoch.building then return id, rec end
-  end
+  local _, rec = Roster.each_building(root(), function(_, r) return r.spec and r.spec.key == key end)
+  if rec then return rec.entity.id, rec end
 end
 
 -- ── 步骤定义 ────────────────────────────────────────────────────────
