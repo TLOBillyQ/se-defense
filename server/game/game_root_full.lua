@@ -44,15 +44,6 @@ local World = require("server.game.world")
 
 local host_default = require("server.adapter.host")
 
-local function default_resources()
-  return {
-    { position = { x = -2.5, y = 0, z = 2.5 }, start_resources = 20 },
-    { position = { x = 2.5, y = 0, z = 2.5 }, start_resources = 20 },
-    { position = { x = -2.5, y = 0, z = -2.5 }, start_resources = 20 },
-    { position = { x = 2.5, y = 0, z = -2.5 }, start_resources = 20 },
-  }
-end
-
 local GameRootFull = Epoch.extend("GameRootFull", {
   constructor = function(self, config)
     config = config or {}
@@ -69,7 +60,7 @@ local GameRootFull = Epoch.extend("GameRootFull", {
     self.enemy_config = config.enemy or {}
     self.resource_configs = config.resources
     if self.resource_configs == nil then
-      self.resource_configs = default_resources()
+      self.resource_configs = World.near_core_resource_configs()
     end
 
     self.building_spec_overrides = config.building_specs
