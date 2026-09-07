@@ -41,6 +41,7 @@ Turret = Epoch.extend("Turret", {
     self.turret_zone = config.turret_zone
     self.ground_zone = config.ground_zone
 
+    self.radius = config.radius or 0.4
     self.range = config.range or 5
     self.rotation_speed = config.rotation_speed or math.pi
     self.damage = config.damage or 1
@@ -85,7 +86,10 @@ Turret = Epoch.extend("Turret", {
       entity = entity,
       max_hp = self.max_hp,
       display_name = self.display_name,
+      radius = self.radius,
       ground_zone = self.ground_zone,
+      -- footprint owner 指向本组件（带 hover_info），悬停命中才能取到描述。
+      ground_collider_owner = self,
       power = self.power,
       game_tick = self.game_tick,
       pool = self.pool,
@@ -149,15 +153,16 @@ Turret = Epoch.extend("Turret", {
         end))
       end
 
-      -- 最近被追踪的敌人。
+      -- 最近被追踪的存活敌人（R3：死亡后重选，不以尸体为目标；
+      -- overlaps 近→远排序，第一个合格即最近者）。
       local target = s2:call(Memo.new("Turret.target", function(m)
         if not sensor then
           return nil
         end
         for _, body in ipairs(m:d(sensor.overlaps)) do
           local owner = body.owner
-          if owner and owner.is_tracked then
-            if m:d(owner.is_tracked) then
+          if owner and owner.is_tracked and owner.health then
+            if m:d(owner.is_tracked) and m:d(owner.health.is_alive) then
               return owner
             end
           end

@@ -42,6 +42,11 @@ PowerNode = Epoch.extend("PowerNode", {
     self.provide_range = config.provide_range or 4
     self.power_zone = config.power_zone or error("PowerNode requires power_zone", 2)
     self.game_tick = config.game_tick
+    -- 可选：对局模式信号。Pregame 期间通断电立即生效（初始布局收敛，
+    -- rewrite power_grid._settle_initial 同义）；Playing 后一律 0.15s 去抖。
+    self.mode = config.mode
+    -- 可选：链路线显示排除本节点（GDD 13 O1：整树链路不含矿点）。
+    self.link_hidden = config.link_hidden or false
 
     -- 位置来源：get_position fn 优先，否则持续读 position 表（调用方可原地改）。
     if config.get_position then
@@ -98,15 +103,26 @@ PowerNode = Epoch.extend("PowerNode", {
         self.has_power:set(true)
       end
 
+      -- 目标态沿供电链递推：供电者「目标」断电时本节点同拍视为断电，
+      -- 分支整链的去抖因此同时起跑、同时生效（GDD 03 场景 3「同时断电」；
+      -- rewrite power_grid._compute_want 同语义）。供电者的 memo 先于其
+      -- providing 阶段挂载，链路授予时必已存在。
       local next_has_power = s3:memo("PowerNode.next_has_power", function(m)
-        return self._is_root or m:d(self.parent) ~= nil
+        if self._is_root then return true end
+        local p = m:d(self.parent)
+        if p == nil then return false end
+        if p._next_has_power == nil then return true end
+        return m:d(p._next_has_power) and true or false
       end)
+      self._next_has_power = next_has_power
       local should_change = s3:memo("PowerNode.should_change", function(m)
         return m:d(next_has_power) ~= m:d(self.has_power)
       end)
 
       s3:phase("PowerNode.settle", should_change, function(s4)
-        if not self.game_tick then
+        -- Pregame 初始布局立即收敛（无启动去抖）。
+        local pregame = self.mode and self.mode:now() == "Pregame"
+        if not self.game_tick or pregame then
           -- 无游戏时钟的纯响应式上下文：退化为立即生效。
           self.has_power:set(next_has_power:now())
           return
@@ -119,6 +135,9 @@ PowerNode = Epoch.extend("PowerNode", {
 
       s3:on_cleanup(function()
         self.has_power:set(false)
+        if self._next_has_power == next_has_power then
+          self._next_has_power = nil
+        end
       end)
     end)
   end,

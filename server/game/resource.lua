@@ -29,9 +29,10 @@ local Resource = Epoch.extend("Resource", {
     config = config or {}
     self.host = config.host or require("server.adapter.host")
     self.entity = config.entity or error("Resource requires entity", 2)
-    self.radius = config.radius or 0.6
-    self.collect_time = config.collect_time or 2
-    self.start_resources = config.start_resources or 20
+    self.radius = config.radius or 0.5
+    self.collect_time = config.collect_time or 0.8
+    self.start_resources = config.start_resources or 300
+    self.receive_range = config.receive_range or 0.5
     self.power = config.power
     self.power_zone = config.power_zone
     self.ground_zone = config.ground_zone
@@ -56,9 +57,11 @@ local Resource = Epoch.extend("Resource", {
     if not self.power and self.power_zone then
       self.power = s:call(PowerNode.new({
         provide_range = 0,
-        receive_range = 0.1,
+        receive_range = self.receive_range,
         power_zone = self.power_zone,
         game_tick = game_tick,
+        mode = game_state.mode,
+        link_hidden = true, -- O1：默认链路线不含矿点
         get_position = function()
           return entity:get_position()
         end,
@@ -105,19 +108,19 @@ local Resource = Epoch.extend("Resource", {
       hide_when_empty = true,
     }))
 
-    -- 4. Footprint：供点选/范围伤害使用。
-    if self.ground_zone then
-      s:use(self.ground_zone:add_collider(self, function()
-        return { center = entity:get_position(), radius = radius }
-      end))
-    end
-
     -- 5. 存活资源计数：未采空时 resources_remaining +1，cleanup -1。
     local has_resources = s:call(Memo.new("Resource.has_resources", function(s2)
       return s2:d(self.remaining) > 0
     end, self.remaining))
 
     s:call(Phase.new("Resource.standing", has_resources, function(s2)
+      -- 4. Footprint：供点选/范围伤害/放置占位使用；只在场时登记，
+      --    采空离场后落点放开（placement 场景 7）。
+      if self.ground_zone then
+        s2:use(self.ground_zone:add_collider(self, function()
+          return { center = entity:get_position(), radius = radius }
+        end))
+      end
       game_state.resources_remaining:update(function(x)
         return x + 1
       end)

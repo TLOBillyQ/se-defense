@@ -71,11 +71,14 @@ Radar = Epoch.extend("Radar", {
       display_name = self.display_name,
       radius = self.radius,
       ground_zone = self.ground_zone,
+      -- footprint owner 指向本组件（带 hover_info），悬停命中才能取到描述。
+      ground_collider_owner = self,
       power = self.power_node,
       game_tick = self.game_tick,
       pool = self.pool,
       pool_instance = self.pool_instance,
     }))
+    self.health = self.building.health
 
     -- 3. HoverInfo。
     self.hover_info = State.new({

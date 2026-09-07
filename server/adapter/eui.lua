@@ -231,6 +231,7 @@ function eui.node(path)
     visible = true,
     color = { r = 1, g = 1, b = 1, a = 1 },
     fill = 1,
+    enabled = true, -- 按钮可用态（GDD 11 H7：资金不足/放置态禁用）
   }
 
   function n:set_text(t)
@@ -243,6 +244,13 @@ function eui.node(path)
     if self.fill == f then return end
     self.fill = f
     mark_dirty(self, "fill")
+  end
+
+  function n:set_enabled(v)
+    v = v and true or false
+    if self.enabled == v then return end
+    self.enabled = v
+    mark_dirty(self, "enabled")
   end
 
   function n:set_visible(v)
@@ -311,15 +319,17 @@ function eui.node(path)
         sh.line.a.Position = Vector3.New(f.x, y + f.y, f.z)
         sh.line.b.Position = Vector3.New(t.x, y + t.y, t.z)
       end)
+      sh.from = f
+      sh.to = t
       return
     end
     destroy_shape(self)
-    self._shape = { kind = "line", line = spawn_line(self, f, t) }
+    self._shape = { kind = "line", line = spawn_line(self, f, t), from = f, to = t }
   end
 
   eui.nodes[path] = n
   eui.order[#eui.order + 1] = path
-  dirty[path] = { text = true, visible = true, color = true, fill = true }
+  dirty[path] = { text = true, visible = true, color = true, fill = true, enabled = true }
   new_nodes[path] = true
   return n
 end
@@ -385,7 +395,7 @@ function eui.full()
   for _, path in ipairs(eui.order) do
     local n = eui.nodes[path]
     if n and not n._shape_only then
-      nodes[path] = snapshot_state(n, { text = true, visible = true, color = true, fill = true })
+      nodes[path] = snapshot_state(n, { text = true, visible = true, color = true, fill = true, enabled = true })
     end
   end
   return nodes
@@ -403,6 +413,7 @@ function eui.shapes()
         path = path, kind = sh.kind, disc = sh.disc or false,
         effect = u and (u.EffectId or u.RenderMeshId) or "nil",
         visible = n.visible, radius = sh.radius,
+        center = sh.center, from = sh.from, to = sh.to,
       }
     end
   end

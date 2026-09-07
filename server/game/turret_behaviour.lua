@@ -46,13 +46,17 @@ function TurretBehaviour.rotate(turret, dt)
   end
 end
 
--- 闲逛：无目标时每隔 rng(1, 3) 秒随机换一个朝向。
+-- 闲逛：无目标时每隔 rng(1, 3) 秒随机换一个朝向（GDD 05 R8：纯表现层，
+-- 不影响规则）。编排设定过枪口朝向（muzzle_pinned）时不改向——验收
+-- 「枪口朝<方向>」约定设定后保持到首次接敌。
 function TurretBehaviour.idle(turret, s)
   s:coroutine(turret.game_tick, function(yield, wait_seconds)
     while true do
       wait_seconds(turret.rng(1, 3))
-      local angle = turret.rng(0, 2 * math.pi)
-      turret.target_direction = { x = math.cos(angle), z = math.sin(angle) }
+      if not turret.muzzle_pinned then
+        local angle = turret.rng(0, 2 * math.pi)
+        turret.target_direction = { x = math.cos(angle), z = math.sin(angle) }
+      end
     end
   end)
 end

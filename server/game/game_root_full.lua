@@ -13,7 +13,6 @@
 local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
-local Dock = spoke.Dock
 
 local GameState = require("server.game.game_state")
 local Core = require("server.game.core")
@@ -40,6 +39,8 @@ local function get_enemy_class()
   end
   return Enemy
 end
+
+local World = require("server.game.world")
 
 local host_default = require("server.adapter.host")
 
@@ -98,9 +99,10 @@ local GameRootFull = Epoch.extend("GameRootFull", {
       local core = ss:call(Core.new({
         host = self.host,
         entity = core_entity,
-        max_hp = self.core_config.max_hp or self.game_state_config.core_max_hp or 50,
+        max_hp = self.core_config.max_hp or self.game_state_config.core_max_hp or World.specs.Core.health,
         display_name = self.core_config.display_name or "Core",
-        provide_range = self.core_config.provide_range or 4,
+        provide_range = self.core_config.provide_range or World.specs.Core.provide,
+        radius = self.core_config.radius or World.specs.Core.footprint,
         power_zone = game_state.power_zone,
         ground_zone = game_state.ground_zone,
         game_tick = self.game_tick,
@@ -145,52 +147,48 @@ local GameRootFull = Epoch.extend("GameRootFull", {
       }))
       self.board_interactions = board_interactions
 
-      -- 波次：每波敌人用 Dock 盛放。
-      local waves_dock = ss:dock("waves")
-      local current_wave_dock
+      -- 敌人：常驻 Dock 盛放（波次自动生成与编排生成同一序列，「第 N 个
+      -- 敌人」序号即 self.enemies 顺序）；死亡敌人 epoch 失活但留在 Dock，
+      -- 整局重建（session.restart 拆树）时一并清理。
+      local enemies_dock = ss:dock("enemies")
       local enemy_serial = 0
 
-      local function spawn_enemy(front, position, wave_enemy_config)
+      -- spawn_enemy(spec)：spec = { x, z, tier, heading={x,z} }（GDD 07 W7/E2）。
+      -- 数值取 world.enemy_tiers / 全局敌人常量，可被 config.enemy 覆盖。
+      local function spawn_enemy(spec)
         enemy_serial = enemy_serial + 1
         local key = "enemy_" .. enemy_serial
         local base_cfg = self.enemy_config
-        local wave_cfg = wave_enemy_config or {}
+        local tier_cfg = World.enemy_tiers[spec.tier or 1]
         local enemy = get_enemy_class().new({
           host = self.host,
           game_tick = self.game_tick,
           game_state = game_state,
-          position = position,
-          prefab = wave_cfg.prefab or base_cfg.prefab or "enemy",
-          max_hp = wave_cfg.max_hp or base_cfg.max_hp,
-          move_speed = wave_cfg.move_speed or base_cfg.move_speed,
-          stop_distance = wave_cfg.stop_distance or base_cfg.stop_distance,
-          fire_rate = wave_cfg.fire_rate or base_cfg.fire_rate,
-          damage = wave_cfg.damage or base_cfg.damage,
-          radius = wave_cfg.radius or base_cfg.radius,
+          position = { x = spec.x, y = 0, z = spec.z },
+          heading = spec.heading,
+          tier = spec.tier,
+          prefab = base_cfg.prefab or "enemy",
+          max_hp = base_cfg.max_hp or tier_cfg.health,
+          move_speed = base_cfg.move_speed or World.enemy_speed,
+          stop_distance = base_cfg.stop_distance or World.enemy_stop_distance,
+          radius = base_cfg.radius or tier_cfg.footprint,
           enemy_zone = game_state.enemy_zone,
           radar_zone = game_state.radar_zone,
         })
 
-        if not current_wave_dock then
-          error("spawn_enemy called before any wave_started", 2)
-        end
-        current_wave_dock:call(key, enemy)
+        enemies_dock:call(key, enemy)
 
         self.enemies[#self.enemies + 1] = enemy
         return enemy
       end
+      -- 编排生成经 GM 面直达（tools/acceptance headless 步骤用）。
+      self.spawn_enemy = spawn_enemy
 
       local wave_director = ss:call(WaveDirector.new({
         game_state = game_state,
         game_tick = self.game_tick,
         spawn_enemy = spawn_enemy,
-        waves = self.wave_director_config.waves,
-        lull_duration = self.wave_director_config.lull_duration,
-        front_reveal_time = self.wave_director_config.front_reveal_time,
-        spawn_interval = self.wave_director_config.spawn_interval,
-        enemy_count = self.wave_director_config.enemy_count,
-        spawn_margin = self.wave_director_config.spawn_margin,
-        pick_front = self.wave_director_config.pick_front,
+        rng01 = self.wave_director_config.rng01,
       }))
       self.wave_director = wave_director
 
@@ -233,17 +231,6 @@ local GameRootFull = Epoch.extend("GameRootFull", {
         game_tick = self.game_tick,
       }))
 
-      -- 每波开始时新建 Dock。
-      ss:subscribe(wave_director.wave_started, function(w)
-        current_wave_dock = Dock.new("wave_" .. w.number)
-        waves_dock:call("wave_" .. w.number, current_wave_dock)
-      end)
-
-      -- 波次清场。
-      ss:subscribe(wave_director.wave_defeated, function(w)
-        waves_dock:drop("wave_" .. w.number)
-        current_wave_dock = nil
-      end)
     end))
   end,
 })

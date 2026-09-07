@@ -50,7 +50,9 @@ function EffectBuilder:coroutine(game_tick, body)
         if unlisten then unlisten() end
         return
       end
-      if deadline and game_tick:time() < deadline then
+      -- EPS 吸收 dt 累加的浮点尾差：deadline 恰落在步长边界（如 0.8s=24 步）
+      -- 时不当场错过一拍（1e-9 远小于一个步长，不会提前触发）。
+      if deadline and game_tick:time() < deadline - 1e-9 then
         return
       end
       local ok, err = coroutine.resume(co, yield, wait_seconds)

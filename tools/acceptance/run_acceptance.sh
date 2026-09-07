@@ -18,7 +18,9 @@ rm -rf "$GEN_DIR"
 mkdir -p "$GEN_DIR" "$IR_DIR" "$DRY_DIR"
 
 shopt -s nullglob
-features=(features/*.feature)
+# Scan every subdirectory lane (gameplay / presentation / engineering) plus any
+# top-level feature; stems carry the lane so same-named files cannot collide.
+features=(features/*.feature features/*/*.feature)
 if [ "${#features[@]}" -eq 0 ]; then
   echo "no feature files under features/" >&2
   exit 1
@@ -29,7 +31,7 @@ LUA_PATH_FOR_SPECS="$("$LUA" -e 'package.path="./?.lua;"..package.path; io.write
 fail=0
 for feature in "${features[@]}"; do
   echo "== $feature"
-  stem="$(basename "$feature" .feature)"
+  stem="$(echo "${feature#features/}" | sed 's|/|_|g; s|\.feature$||')"
   tools/acceptance/gherkin-parser "$feature" "$IR_DIR/$stem.json"
   tools/acceptance/ir-dry-checker "$IR_DIR/$stem.json" "$DRY_DIR/$stem.json" || true
   mkdir -p "$GEN_DIR/$stem"

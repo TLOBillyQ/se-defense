@@ -2,7 +2,7 @@
 --
 -- 职责：维护全局模式、金钱、采集速率、资源余量以及 Core（宿主实体 + Health）。
 -- 对应上游 GameState.cs 的 Init 语义：进入 Playing 时重置金钱；Playing 期间
--- 所有矿点采空则 Victory，Core 死亡则 GameOver。
+-- 所有矿点采空则 Victory，Core 离场（死亡且碎裂完成）则 GameOver（GDD 01 R5）。
 --
 -- 可选扩展（opt-in，不影响旧测试）：
 --   - config.game_tick：提供时创建六个碰撞区并在每 tick 刷新（对应上游
@@ -112,8 +112,15 @@ local GameState = Epoch.extend("GameState", {
 
       -- coreLost memo：必须在 Phase(is_playing) 内，因为 external 模式下 core
       -- 由组合方在进入 Playing 前赋值，此处读取才安全。
+      -- GDD 01 R5：失败判在 Core「离场」（死亡且碎裂完成），不是死亡瞬间；
+      -- 组合 Core 走 building.departed，内建简易 Core 退化为死亡即离场。
       local core_lost = ss:memo(function(sss)
-        return not sss:d(self.core.health.is_alive)
+        local core = self.core
+        local departed = core.building and core.building.departed
+        if departed then
+          return sss:d(departed)
+        end
+        return not sss:d(core.health.is_alive)
       end)
 
       ss:phase(core_lost, function()

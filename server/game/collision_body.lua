@@ -17,12 +17,13 @@ local CollisionBody = {}
 local Body = {}
 Body.__index = Body
 
---- 判断两个圆在 XZ 平面是否重叠（恰相切不算）。
+--- 判断两个圆在 XZ 平面是否重叠（GDD 04 R4：相切算相交；EPS 吸收浮点尾差）。
+local OVERLAP_EPS = 1e-9
 function CollisionBody.circles_overlap(a, b)
   local reach = a.radius + b.radius
   local dx = a.center.x - b.center.x
   local dz = a.center.z - b.center.z
-  return dx * dx + dz * dz < reach * reach
+  return dx * dx + dz * dz <= reach * reach + OVERLAP_EPS
 end
 
 --- 按值比较两个 circle（上游 Circle.Equals：Center + Radius 全等）。

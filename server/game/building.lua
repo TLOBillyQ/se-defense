@@ -5,19 +5,22 @@
 --
 -- 既定裁剪（ADR）：
 --   - 命中闪烁 → 实体变色（红），0.1 秒后恢复为当前电力 tint 目标色；
---   - 碎裂动画裁掉，死亡直接 despawn/destroy；
+--   - 碎裂（GDD README「已知的移植差异」）：死亡后尸体保留 2 秒再离场
+--     （despawn/destroy），离场经 departed State 暴露（胜负判定依赖离场）；
 --   - 断电变暗 → 实体 tint（set_color）。
 --
 -- 建筑实体由外部注入（pool 或组合方拥有生命周期），本组件不自行 spawn 实体。
 
 local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
+local State = spoke.State
 local Effect = spoke.Effect
 local Phase = require("common.spoke.reactive.phase")
 local Memo = require("common.spoke.reactive.memo")
 local Reaction = require("common.spoke.reactive.reaction")
 local Health = require("server.game.health")
 local HealthBar = require("server.game.health_bar")
+local World = require("server.game.world")
 
 -- 注册 s:coroutine() 扩展。
 require("server.game.coroutine")
@@ -96,23 +99,26 @@ Building = Epoch.extend("Building", {
         end))
       end
 
-      -- 受击闪烁。无 game_tick 时只变红不恢复。
+      -- 受击红闪 0.15 秒（GDD 15 F2）。无 game_tick 时只变红不恢复。
       s2:reaction("Building.blink", function(s3)
         safe_set_color({ r = 1, g = 0, b = 0, a = 1 })
         if not game_tick then
           return
         end
         s3:coroutine(game_tick, function(_, wait_seconds)
-          wait_seconds(0.1)
+          wait_seconds(0.15)
           safe_set_color(current_tint_color())
         end)
       end, self.health.damaged)
     end))
 
-    -- 4. 死亡阶段：日志 + 回收/销毁。
+    -- 4. 死亡阶段：禁用电网 → 日志 → 碎裂 2 秒 → 离场（回收/销毁）。
     local is_dead = s:call(Memo.new("Building.is_dead", function(s2)
       return not s2:d(self.health.is_alive)
     end, self.health.is_alive))
+
+    -- 离场信号：碎裂结束、despawn/destroy 之前置 true（对局流程据此刻判负）。
+    self.departed = State.new("Building.departed", false)
 
     s:call(Phase.new("Building.dead", is_dead, function(s2)
       -- 对应上游 Building.cs：死亡时禁用 PowerNode，使其退出电网；
@@ -126,11 +132,24 @@ Building = Epoch.extend("Building", {
 
       -- 死亡消息；使用 print 避免无 logger 时默认日志打印完整调用栈。
       print(self.display_name .. " destroyed")
-      -- pool_instance 可能由外部在 spawn 后补填，因此运行时读 self.*。
-      if self.pool and self.pool_instance then
-        self.pool:despawn(self.pool_instance)
-      elseif entity and entity.destroy then
-        entity:destroy()
+
+      local function depart()
+        self.departed:set(true)
+        -- pool_instance 可能由外部在 spawn 后补填，因此运行时读 self.*。
+        if self.pool and self.pool_instance then
+          self.pool:despawn(self.pool_instance)
+        elseif entity and entity.destroy then
+          entity:destroy()
+        end
+      end
+
+      if game_tick then
+        s2:coroutine(game_tick, function(_, wait_seconds)
+          wait_seconds(World.crumble_seconds)
+          depart()
+        end)
+      else
+        depart()
       end
     end))
 

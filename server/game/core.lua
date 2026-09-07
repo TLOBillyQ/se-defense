@@ -26,6 +26,7 @@ local Core = Epoch.extend("Core", {
     self.max_hp = config.max_hp or error("Core requires max_hp", 2)
     self.display_name = config.display_name or "Core"
     self.provide_range = config.provide_range or 4
+    self.radius = config.radius or 0.5
     self.power_zone = config.power_zone
     self.ground_zone = config.ground_zone
     self.game_tick = config.game_tick
@@ -59,6 +60,7 @@ local Core = Epoch.extend("Core", {
       entity = entity,
       max_hp = self.max_hp,
       display_name = display_name,
+      radius = self.radius,
       ground_zone = self.ground_zone,
       ground_collider_owner = self,
       power = power_node,
@@ -74,11 +76,23 @@ local Core = Epoch.extend("Core", {
     -- 悬浮提示。
     self.hover_info = State.new({
       description = display_name:upper()
-        .. "\n\nSeeds the power grid; all buildings must trace a path to it for power.\n\n"
+        .. "\n\nSeeds the power grid, all buildings must trace a path to it for receiving power.\n\n"
         .. "Game is over if this building is destroyed.",
       coverage = "Power",
       power_node = power_node,
     })
+
+    -- 死亡爆炸（GDD 15 F3：Core 死亡额外播放爆炸）：碎裂 2 秒期间点亮
+    -- core_explosion 节点，Core 离场（departed）时熄灭。
+    local explosion = host.eui.node("core_explosion")
+    explosion:set_visible(false)
+    s:call(Effect.new("Core.explosion", function(s2)
+      local gone = not s2:d(self.health.is_alive)
+      explosion:set_visible(gone and not self.building.departed:now())
+    end, self.health.is_alive, self.building.departed))
+    s:on_cleanup(function()
+      host.eui.destroy(explosion)
+    end)
 
     -- 死亡消息（上游爆炸特效的裁剪对应物）。
     s:call(Effect.new("Core.death_message", function(s2)

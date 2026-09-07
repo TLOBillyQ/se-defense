@@ -17,8 +17,9 @@ local TURRET_COVERAGE_COLOUR = { r = 1, g = 0.7372549, b = 0, a = 1 }
 local REPAIR_COVERAGE_COLOUR = { r = 1, g = 0.7372549, b = 0, a = 1 }
 local POWER_LINK_COLOUR = { r = 0, g = 1, b = 1, a = 1 }
 local UNIT_RING_COLOUR = { r = 0, g = 1, b = 1, a = 1 }
-local VALID_PLACEMENT_COLOUR = { r = 0, g = 1, b = 0, a = 1 }
-local INVALID_PLACEMENT_COLOUR = { r = 1, g = 0, b = 0, a = 1 }
+-- O3 预览圆颜色（与 steps_support 命名色板一致）：合法绿 / 非法红。
+local VALID_PLACEMENT_COLOUR = { r = 0.2, g = 0.8, b = 0.2, a = 1 }
+local INVALID_PLACEMENT_COLOUR = { r = 1, g = 0.25, b = 0.25, a = 1 }
 
 local BoardDisplay = {}
 
@@ -168,11 +169,10 @@ function BoardDisplay.mount(s, opts)
       draw_coverage_zone(s3, "BoardInteractions.placement_coverage", "board/placement_coverage", zone, filter, item.coverage)
     end
 
+    -- 预览圆随落点移动；未拖动时默认棋盘中心（16 I4，rewrite presenter
+    -- preview_point 同语义）。
     local footprint = s3:memo(function(m)
-      local p = m:d(view.mouse_point)
-      if p == nil then
-        return nil
-      end
+      local p = m:d(view.mouse_point) or { x = 0, z = 0 }
       return {
         center = { x = p.x, y = 0, z = p.z },
         radius = item.radius or 0.6,

@@ -57,51 +57,26 @@ local BuildPanel = require("server.adapter.build_panel")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
 -- 棋盘 40×40、Core 置世界原点、单位 1:1（#8 D2 假设）。
+-- 规则与数值真源：docs/gdd/（世界常量在 server/game/world.lua）。
 local STEP = 1 / 30        -- 对齐宿主 30fps 逻辑帧（#7-A2，#10 实测通过）
 local MAX_CATCHUP = 4      -- 积累上限 4 步/帧，超限丢弃（#7-A1，#10 实测通过）
-local AUTO_START_AT = 3    -- 试玩开局 3s 后自动进入 Playing（Pregame 可观察 HUD）
 
--- 波次阶梯（#26）：业务 WaveDirector 按 `waves[number]` 取每波配置、缺项回退
--- 全局；这里不写死有限几波，而是按波号生成，任意波号都有定义（无限递增）。
--- 三档敌人：1-2 波 enemy（小快）、3-5 波 enemy_heavy（中厚）、6+ 波 enemy_boss
--- （大慢重击）；同档内数量递增、间隔递减。数值只求「肉眼可见的递增」，
--- 不做平衡（打磨阶段）。
-local ENEMY_TIERS = {
-  { prefab = "enemy",       max_hp = 10, move_speed = 3,   stop_distance = 1.5, fire_rate = 1, damage = 5,  radius = 0.5 },
-  { prefab = "enemy_heavy", max_hp = 30, move_speed = 2,   stop_distance = 1.8, fire_rate = 1, damage = 12, radius = 0.7 },
-  { prefab = "enemy_boss",  max_hp = 80, move_speed = 1.5, stop_distance = 2.2, fire_rate = 1, damage = 25, radius = 1.0 },
-}
-local function wave_config(n)
-  local tier, count
-  if n <= 2 then
-    tier, count = 1, 4 + n            -- 5, 6
-  elseif n <= 5 then
-    tier, count = 2, 1 + n            -- 4, 5, 6
-  else
-    tier, count = 3, math.min(2 + (n - 5), 8) -- 3, 4, … 封顶 8
-  end
-  return {
-    enemy_count = count,
-    spawn_interval = math.max(0.5, 1.1 - 0.1 * n), -- 1.0, 0.9, … 下限 0.5
-    enemy = ENEMY_TIERS[tier],
+-- 波次节奏（GDD 07：预算/层级/间隔/方向）在 server/game/wave_cycle.lua；
+-- 敌人三层级（血量/足迹/成本）在 world.enemy_tiers。
+local WorldData = require("server.game.world")
+
+-- 矿点布局（GDD 00）：27 个预置矿点，每个剩余量 300、足迹 0.5、收电圈 0.5、
+-- 采集节奏 0.8 秒 1 单位；开局恰好 3 个接入 Core 供电圈，其余 24 个需 Relay 外扩。
+local RESOURCES = {}
+for _, site in ipairs(WorldData.sites) do
+  RESOURCES[#RESOURCES + 1] = {
+    position = { x = site.x, y = 0, z = site.z },
+    start_resources = WorldData.site_remaining,
+    radius = WorldData.specs.Site.footprint,
+    receive_range = WorldData.specs.Site.receive,
+    collect_time = WorldData.harvest_interval,
   }
 end
--- 惰性表：业务读 waves[n] 时经 __index 生成（表本身空，业务零改动）。
-local WAVE_LADDER = setmetatable({}, { __index = function(_, n)
-  if type(n) == "number" then return wave_config(n) end
-end })
-
--- 矿点布局（#26）：4 个内圈矿点在 Core 供电范围内（默认位置，开局即采）；
--- 2 个外圈矿点距 Core 7（> provide_range 4），必须放 relay 外扩才通电，
--- 让「电网扩张 → 经济增长」在真机可见。全采空 = Victory（后续片挂 banner）。
-local RESOURCES = {
-  { position = { x = -2.5, y = 0, z = 2.5 },  start_resources = 20 },
-  { position = { x = 2.5,  y = 0, z = 2.5 },  start_resources = 20 },
-  { position = { x = -2.5, y = 0, z = -2.5 }, start_resources = 20 },
-  { position = { x = 2.5,  y = 0, z = -2.5 }, start_resources = 20 },
-  { position = { x = 7,    y = 0, z = 0 },    start_resources = 30 },
-  { position = { x = -7,   y = 0, z = 0 },    start_resources = 30 },
-}
 
 local tick = GameTick.new(STEP)
 
@@ -112,17 +87,12 @@ local GAME_CONFIG = {
   game_state = {
     core_position = { x = 0, y = 0, z = 0 },
     dimensions = { x = 40, z = 40 },
-    start_money = 100,
-    core_max_hp = 50,
+    start_money = WorldData.starting_money,
+    core_max_hp = WorldData.specs.Core.health,
   },
-  wave_director = {
-    lull_duration = 30,  -- #21：每波前 30s 放置/采集窗口（原 8）
-    front_reveal_time = 3,
-    spawn_interval = 1,
-    enemy_count = 5,
-    waves = WAVE_LADDER,
-  },
-  enemy = ENEMY_TIERS[1], -- 全局兜底（阶梯每波都给全量 enemy 表，实际不会回退到这里）
+  core = { radius = WorldData.specs.Core.footprint },
+  wave_director = {},
+  enemy = {},
   resources = RESOURCES,
 }
 
@@ -134,10 +104,21 @@ log("Auto 树 spawn 完成 fault=%s detached=%s", tostring(tree.fault), tostring
 
 -- 树之外、每局都要随 root 重建的适配层挂件：棋盘边界（#8 D2）+ 放置面板（#21）。
 local panel
+
+-- 初始布局收敛（rewrite power_grid._settle_initial 同义）：树 spawn 后、仍在
+-- Pregame（t=0）时显式采样一次供电圈并令其 flush 收敛，Core 圈内的矿点因此在
+-- 开局瞬间即通电（去抖只约束开局后的通断电变化，GDD 03 R8）。重开后同样收敛。
+local function settle_initial_power(r)
+  if r.game_state.power_zone then
+    r.game_state.power_zone:tick()
+  end
+end
+
 local function mount_adapter(r)
   host.input.set_bounds(r.game_state:level_bounds())
   panel = BuildPanel.create(host, r)
   BuildPanel.update(panel)
+  settle_initial_power(r)
 end
 mount_adapter(root)
 
@@ -158,9 +139,8 @@ local function send_full()
   send("full", { nodes = host.eui.full() })
 end
 
--- 开局计时：uptime 到点自动 start_game；nil = 已开局。重开后重新计时（回 Pregame 可观察 banner）。
+-- GDD 01 R2：只有玩家主动「开始对局」才从 Pregame 进 Playing（无自动开局）。
 local uptime = 0
-local start_at = AUTO_START_AT
 
 -- Restart（#28）：业务 session.lua 三步（dispose → host:reset_scene() → 重建），
 -- 随后适配层重挂、丢弃重建期间攒下的增量、广播 reset 全量（gen 已 +1）。
@@ -171,13 +151,12 @@ local function restart_game(why)
   root = session.root
   tree = session.tree
   mount_adapter(root)
-  start_at = uptime + AUTO_START_AT
   if _G.bd then _G.bd.root = root end
   host.eui.drain()
   send("reset", { nodes = host.eui.full() })
-  log("RESTART(%s) gen %d → %d：树重建 fault=%s，entities=%d nodes=%d，%ds 后自动开局",
+  log("RESTART(%s) gen %d → %d：树重建 fault=%s，entities=%d nodes=%d，回 Pregame 等待开始对局",
     tostring(why), old_gen, host.eui.generation, tostring(tree.fault),
-    #host.entity.all(), #host.eui.order, AUTO_START_AT)
+    #host.entity.all(), #host.eui.order)
 end
 
 re.OnServerEvent:Connect(function(player, args)
@@ -189,7 +168,13 @@ re.OnServerEvent:Connect(function(player, args)
     send_full()
   elseif kind == "input" then
     local itype = args.itype
-    if itype == "tap" or itype == "hover" then
+    if itype == "start" then
+      -- GDD 01 R2：玩家主动开始对局（Pregame 外无效，业务侧守卫）
+      if root.game_state.mode:now() == "Pregame" then
+        root.game_state:start_game()
+        log("输入 start → Playing")
+      end
+    elseif itype == "tap" or itype == "hover" then
       local x, z = tonumber(args.x), tonumber(args.z)
       if x and z and math.abs(x) <= 100 and math.abs(z) <= 100 then
         if itype == "tap" then
@@ -228,12 +213,6 @@ local ticks_total = 0
 RunService.Heartbeat:Connect(function(deltaTime)
   uptime = uptime + deltaTime
 
-  if start_at and uptime >= start_at then
-    start_at = nil
-    root.game_state:start_game()
-    log("自动 start_game @%.1fs → Playing", uptime)
-  end
-
   acc = acc + deltaTime
   SpokeRuntime.batch(function()
     local steps = 0
@@ -261,6 +240,40 @@ RunService.Heartbeat:Connect(function(deltaTime)
 end)
 
 -- ── GM 面（$CLI exec --platform server 驱动；自动化验证优先 #1 偏好 2）──
+
+-- 按坐标找矿点（验收编排用；EPS 容差）。
+local function find_site(x, z)
+  for _, r in ipairs(root.resources) do
+    local p = r.entity.position
+    if math.abs(p.x - x) < 1e-6 and math.abs(p.z - z) < 1e-6 then return r end
+  end
+  return nil
+end
+
+-- 按类型 + 坐标找 live 建筑（pool 记录；Core 单独看 game_state.core）。
+local function find_building(kind, x, z)
+  kind = tostring(kind)
+  if kind == "Core" then
+    local core = root.game_state.core
+    local p = core and core.entity.position
+    if core and p and math.abs(p.x - x) < 1e-6 and math.abs(p.z - z) < 1e-6
+      and core.health.is_alive:now() then
+      return core, nil
+    end
+    return nil
+  end
+  local key = string.lower(kind)
+  for _, rec in pairs(root.pool and root.pool._live_by_entity_id or {}) do
+    if rec.spec and rec.spec.key == key then
+      local p = rec.entity.position
+      if math.abs(p.x - x) < 1e-6 and math.abs(p.z - z) < 1e-6 then
+        return rec.epoch and rec.epoch.building, rec
+      end
+    end
+  end
+  return nil
+end
+
 _G.bd = {
   root = root, -- 无头 harness / 自动化直读（tools/headless/run_server.lua）
   status = function()
@@ -290,10 +303,119 @@ _G.bd = {
     end
     log("GM mine_out → %d 个矿点置空", n)
   end,
-  -- 打死 Core → 业务判 GameOver
+  -- 采空前 n 个未采空矿点（验收编排「采空N个矿点」）
+  mine_n = function(n)
+    n = tonumber(n) or 0
+    local done = 0
+    for _, r in ipairs(root.resources) do
+      if done >= n then break end
+      if r.remaining:now() > 0 then r.remaining:set(0); done = done + 1 end
+    end
+    log("GM mine_n(%d) → %d", n, done)
+  end,
+  -- 设定某坐标矿点剩余量（0 即离场；验收编排）
+  set_site = function(x, z, remaining)
+    local site = find_site(tonumber(x), tonumber(z))
+    if not site then log("GM set_site：(%s,%s) 处没有矿点", tostring(x), tostring(z)); return end
+    site.remaining:set(tonumber(remaining) or 0)
+  end,
+  -- 打死 Core → 碎裂 2 秒离场后业务判 GameOver（GDD 01 R5）
   kill_core = function()
     root.game_state.core.health:damage(99999)
     log("GM kill_core → alive=%s", tostring(root.game_state.core.health.is_alive:now()))
+  end,
+  -- 「X死亡」编排：杀死场上第一个该类型建筑（验收步骤用）
+  kill = function(kind)
+    kind = tostring(kind)
+    if kind == "Core" then return _G.bd.kill_core() end
+    local key = string.lower(kind)
+    for _, rec in pairs(root.pool and root.pool._live_by_entity_id or {}) do
+      local b = rec.epoch and rec.epoch.building
+      if b and rec.spec and rec.spec.key == key and b.health.is_alive:now() then
+        b.health:damage(99999)
+        return
+      end
+    end
+    log("GM kill(%s)：场上没有该类型建筑", kind)
+  end,
+  -- 「一座已建好的 X 位于 (x,z)」编排：直接造好（不扣费、不经放置校验），
+  -- 可选 hp 把血量置为指定值（验收「一座血量为 N 的 X」）。
+  spawn_building = function(kind, x, z, hp)
+    local key = string.lower(tostring(kind))
+    local spec = root.building_specs and root.building_specs[key]
+    if not spec then log("GM spawn_building：未知类型 %s", tostring(kind)); return end
+    local inst = root.pool:spawn(spec, { x = tonumber(x), y = 0, z = tonumber(z) })
+    local b = inst.epoch and inst.epoch.building
+    if b then
+      b.pool_instance = inst
+      if hp then
+        local max_hp = b.health.max_hp:now()
+        b.health:damage(math.max(0, max_hp - tonumber(hp)))
+      end
+    end
+    log("GM spawn_building(%s, %s, %s, %s)", tostring(kind), tostring(x), tostring(z), tostring(hp))
+  end,
+  -- 「位于 (x,z) 的 X 被摧毁」编排：摧毁即离场（不经碎裂、不扣费）。
+  destroy_at = function(kind, x, z)
+    local b, rec = find_building(kind, tonumber(x), tonumber(z))
+    if not b then log("GM destroy_at：(%s,%s) 处没有 %s", tostring(x), tostring(z), tostring(kind)); return end
+    if rec then
+      root.pool:despawn(rec)
+    elseif b.entity and b.entity.destroy then
+      b.entity:destroy()
+    end
+  end,
+  -- 「位于 (x,z) 的 X 受到炸弹伤害 N」编排：直接扣血（死亡走 2 秒碎裂）。
+  bomb_damage = function(kind, x, z, dmg)
+    local b = find_building(kind, tonumber(x), tonumber(z))
+    if not b then log("GM bomb_damage：(%s,%s) 处没有 %s", tostring(x), tostring(z), tostring(kind)); return end
+    b.health:damage(tonumber(dmg) or 0)
+  end,
+  -- 「设定当前波次为 N」编排：波号置 N、倒计时 30、方向未知（重抽）。
+  set_wave = function(n)
+    root.wave_director:set_wave(tonumber(n) or 1)
+  end,
+  -- 「随机源固定为最大值」编排：每次随机抽取都取上界，并重抽未公布的方向。
+  fix_rng_max = function()
+    root.wave_director.rng01 = function() return 1 end
+    root.wave_director:reroll_direction()
+  end,
+  -- 「进入进攻期」编排：直接切换进攻期标志（不生成敌人）。
+  enter_assault = function()
+    root.wave_director:set_assault(true)
+  end,
+  -- 「本波全灭」编排：杀死本波全部敌人并退出进攻期。
+  wave_cleared = function()
+    root.wave_director:kill_all()
+    root.wave_director:set_assault(false)
+  end,
+  -- 「在 (x,z) 生成一个航线朝<方向>的<T>型敌人」编排：计入本波。
+  spawn_enemy_at = function(x, z, dir_name, tier)
+    local dir = WorldData.direction(tostring(dir_name))
+    if not dir then log("GM spawn_enemy_at：未知方向 %s", tostring(dir_name)); return end
+    root.wave_director:spawn({
+      x = tonumber(x), z = tonumber(z),
+      tier = tonumber(tier) or 1,
+      heading = { x = dir.x, z = dir.z },
+    })
+  end,
+  -- 「第 N 个敌人死亡」编排。
+  kill_enemy_nth = function(n)
+    local e = root.enemies[tonumber(n)]
+    if e and e.health then e.health:damage(99999) end
+  end,
+  -- 「位于 (x,z) 的 Turret 枪口朝<方向>」编排：立即设定枪口朝向
+  -- （entity 朝向与 target_direction 同步；验收设定初始朝向用）。
+  aim_turret = function(x, z, dir_name)
+    local dir = WorldData.direction(tostring(dir_name))
+    if not dir then log("GM aim_turret：未知方向 %s", tostring(dir_name)); return end
+    local b, rec = find_building("Turret", tonumber(x), tonumber(z))
+    if not b or not rec then log("GM aim_turret：(%s,%s) 处没有 Turret", tostring(x), tostring(z)); return end
+    local turret = rec.epoch
+    turret.target_direction = { x = dir.x, z = dir.z }
+    turret.muzzle_pinned = true -- 编排设定的朝向保持到首次接敌（见 TurretBehaviour.idle）
+    turret.entity:set_rotation(math.atan(dir.z, dir.x))
+    log("GM aim_turret(%s,%s) → %s", tostring(x), tostring(z), tostring(dir_name))
   end,
   -- 注入一次棋盘点 tap（绕过网络的自动化输入；等价客户端 tap 意图）
   tap = function(x, z)
@@ -349,17 +471,12 @@ _G.bd = {
         tostring(sh.visible), sh.radius and string.format(" r=%.2f", sh.radius) or "")
     end
   end,
-  -- 当前波次一览 + 任意波号的阶梯配置（集成测试对照）
-  wave = function(n)
+  -- 当前波次一览（GDD 07 状态：倒计时/方向/进攻期/预算/生成簿记）
+  wave = function()
     local w = root.wave_director.wave:now()
-    local cfg = root.wave_director:wave_enemy_config()
-    log("WAVE number=%d front=%s starts_in=%d cfg: count=%d interval=%.2f prefab=%s hp=%s",
-      w.number, tostring(w.front), w.starts_in, cfg.enemy_count, cfg.spawn_interval,
-      tostring(cfg.prefab), tostring(cfg.max_hp))
-    if n then
-      local c = wave_config(tonumber(n))
-      log("LADDER[%d] count=%d interval=%.2f prefab=%s hp=%d", tonumber(n), c.enemy_count, c.spawn_interval, c.enemy.prefab, c.enemy.max_hp)
-    end
+    log("WAVE number=%d countdown=%.2f assault=%s front=%s budget_left=%.2f spawned=%d cost_sum=%.2f",
+      w.number, w.countdown, tostring(w.assault), tostring(w.front),
+      w.budget_left, w.spawned, w.cost_sum)
   end,
   -- 存活敌人一览
   enemies = function()
@@ -393,11 +510,6 @@ _G.bd = {
     end
     log("RESOURCES remaining_sites=%d money=%s rate=%.2f", root.game_state.resources_remaining:now(),
       tostring(root.game_state.money:now()), root.game_state.collect_rate:now())
-  end,
-  -- 改「下一次」平静期时长（当前倒计时不受影响；集成测试缩短等待用）
-  lull = function(sec)
-    root.wave_director._config.lull_duration = tonumber(sec) or 30
-    log("GM lull_duration=%s（下一波起生效）", tostring(root.wave_director._config.lull_duration))
   end,
   dump_entities = function()
     for _, e in ipairs(host.entity.all()) do
