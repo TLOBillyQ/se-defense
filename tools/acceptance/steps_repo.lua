@@ -52,6 +52,25 @@ local function workspace(w)
   return w.workspace
 end
 
+-- Lazy arch_view model + config for the dependency-constraints feature.
+-- Loaded once per feature process (dependencies.feature never mutates the
+-- source tree between scenarios). `arch_view.analyze` scans source_roots and
+-- produces the module/graph/check model; the raw config supplies the forbidden
+-- dependency rules and component/layer declarations that `repo` predicates
+-- read. package.path is extended by tools.arch_bootstrap.ensure().
+local _arch = nil
+local function arch_dep()
+  if _arch then return _arch end
+  require("tools.arch_bootstrap").ensure()
+  local arch = require("arch_view")
+  local opts = { project_root = ".", config_path = "arch_view.config.json" }
+  _arch = {
+    model = arch.analyze(opts),
+    config = arch.load_config("arch_view.config.json"),
+  }
+  return _arch
+end
+
 M.patterns = {
   -- ── 源码树布局（source-layout.feature，不启动对局）──
   { "^仓库根目录(%S+)是否存在为(%S+)$", function(w, dir, expect)
@@ -115,6 +134,26 @@ M.patterns = {
       local bad = repo.non_server_requires(body)
       if #bad == 0 then return true end
       return nil, file .. " 引用非 server. 前缀模块: " .. table.concat(bad, ",") end },
+  -- ── 依赖关系约束（dependencies.feature，不启动对局）──
+  { "^架构门禁检查通过$", function(w)
+      local check = arch_dep().model.check
+      if check.ok then return true end
+      return nil, "架构门禁未通过（" .. #check.violations .. " 处违规）" end },
+  { "^模块(.+)依赖模块(.+)$", function(w, a, b)
+      if repo.arch_edge_exists(arch_dep().model.graph, a, b) then return true end
+      return nil, string.format("%s 不依赖 %s", a, b) end },
+  { "^架构门禁禁止模块(.+)依赖模块(.+)$", function(w, a, b)
+      local d = arch_dep()
+      if repo.arch_edge_forbidden(d.config, d.model.modules, a, b) then return true end
+      return nil, string.format("门禁未禁止 %s 依赖 %s", a, b) end },
+  { "^组件(.+)的层级为(.+)$", function(w, comp, layer)
+      local actual = repo.arch_component_layer(arch_dep().config, comp)
+      if tostring(actual) == layer then return true end
+      return nil, string.format("%s 层级实际为 %s", comp, tostring(actual)) end },
+  { "^未豁免的依赖环数量为(%d+)$", function(w, n)
+      local actual = repo.arch_unwaived_cycle_count(arch_dep().model.check)
+      if actual == tonumber(n) then return true end
+      return nil, string.format("未豁免依赖环实际为 %d", actual) end },
   -- ── 部署镜像（deploy-mirror.feature，临时工作区在 ./tmp 下）──
   { "^一个空的临时工作区$", function(w)
       w.workspace = "tmp/deploy-mirror-workspace"
