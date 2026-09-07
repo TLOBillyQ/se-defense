@@ -1,53 +1,40 @@
 # language: zh-CN
-# mutation-stamp: sha256=e570016e3391bcf03fd957cd5c322a95ffc47be0f04cae65d975ef09a7d6006a
+# mutation-stamp: sha256=81a068fed2810a3403521c7a80d5284db5d2d1af0c53dd5183c65e8084a70cd6
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "dec0798057c6072fd5bc9200831a8be7a95e38764b4ffc6a47a3a2c4b300e951",
 #   "feature_name": "部署镜像",
-#   "feature_path": "features/deploy-mirror.feature",
-#   "implementation_hash": "sha256:9487480e8ec263ad18097b43813c8244979683200e416f664eb90fc8e4d49214",
+#   "feature_path": "features/engineering/deploy-mirror.feature",
+#   "implementation_hash": "sha256:8df78393beb408100614886392b5fd73ad54c1742e1f06627ab69998fae6e74d",
 #   "scenarios": [
 #     {
 #       "index": 0,
 #       "mutation_count": 6,
-#       "name": "部署镜像 1: 部署把 src 各端镜像到工作区根",
+#       "name": "部署镜像 1: 部署把仓库根各端镜像到工作区根",
 #       "result": {
 #         "Errors": 0,
 #         "Killed": 6,
 #         "Survived": 0,
 #         "Total": 6
 #       },
-#       "scenario_hash": "7200c11169938668e779f4de02d687f9ad576c365e6a56d2370afe3c894affca",
-#       "tested_at": "2026-09-05T14:19:32Z"
+#       "scenario_hash": "07e6b41139c7eb219c11e2630ef080ee52c36b76bbf6b2872afe3c2d17d5c041",
+#       "tested_at": "2026-09-07T11:09:32Z"
 #     },
 #     {
 #       "index": 1,
-#       "mutation_count": 0,
-#       "name": "部署镜像 2: 部署后工作区根不再有 src 目录",
-#       "result": {
-#         "Errors": 0,
-#         "Killed": 0,
-#         "Survived": 0,
-#         "Total": 0
-#       },
-#       "scenario_hash": "24b6b5c362fc846d460f3bceaa745fa91fe5600ad7cd1eab217546bdefd0dd8c",
-#       "tested_at": "2026-09-05T14:19:32Z"
-#     },
-#     {
-#       "index": 2,
-#       "mutation_count": 3,
+#       "mutation_count": 6,
 #       "name": "部署镜像 2: 部署不触碰工作区中不归本仓库的文件",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 3,
+#         "Killed": 6,
 #         "Survived": 0,
-#         "Total": 3
+#         "Total": 6
 #       },
-#       "scenario_hash": "f870fd96c7984e05155e34e610b2e6d59c660c4e4ac79d20f72d546ebb6004f9",
-#       "tested_at": "2026-09-05T14:19:35Z"
+#       "scenario_hash": "eca313dd649f59abec1450f1f162d5d9ab8bb17cecd8ca43cdc6b91ad3c9e511",
+#       "tested_at": "2026-09-07T11:09:40Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-05T14:19:35Z",
+#   "tested_at": "2026-09-07T11:09:40Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end
