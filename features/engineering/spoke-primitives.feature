@@ -1,4 +1,69 @@
 # language: zh-CN
+# mutation-stamp: sha256=9eb7bedffe1308742db7d9337c9cfe9c0ca8c07da9add4d01c8d441d18bfe560
+# acceptance-mutation-manifest-begin
+# {
+#   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+#   "feature_name": "spoke 原语约束",
+#   "feature_path": "features/engineering/spoke-primitives.feature",
+#   "implementation_hash": "sha256:8a08971c57d419b1dfc2ed6c9a0946c1b23a890c8d330200d8431fcb196529f0",
+#   "scenarios": [
+#     {
+#       "index": 0,
+#       "mutation_count": 19,
+#       "name": "spoke 原语约束 1: 业务模块引用 common.spoke 下的模块",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 19,
+#         "Survived": 0,
+#         "Total": 19
+#       },
+#       "scenario_hash": "e8a013ccde9bef494c902ca54b684e6023994773c92c18b998a7adadb87ece49",
+#       "tested_at": "2026-09-07T11:26:02Z"
+#     },
+#     {
+#       "index": 1,
+#       "mutation_count": 18,
+#       "name": "spoke 原语约束 2: 业务模块实际调用 spoke 原语",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 18,
+#         "Survived": 0,
+#         "Total": 18
+#       },
+#       "scenario_hash": "687b53aff010b656637c25f16a488b5afc94e83b57415b4906bf7cc8496596ed",
+#       "tested_at": "2026-09-07T11:26:02Z"
+#     },
+#     {
+#       "index": 2,
+#       "mutation_count": 0,
+#       "name": "spoke 原语约束 3: 不引用 common.spoke 的业务模块只允许豁免清单内的纯辅助模块",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "753045f86c50d32e4c8294c2936358eabe5b4dd7258c7028707717455ca2c85f",
+#       "tested_at": "2026-09-07T11:26:02Z"
+#     },
+#     {
+#       "index": 3,
+#       "mutation_count": 12,
+#       "name": "spoke 原语约束 4: 豁免模块只组合 server. 前缀的模块",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 12,
+#         "Survived": 0,
+#         "Total": 12
+#       },
+#       "scenario_hash": "c00d4516a26b4d63994af644e28f5d57c0508a3bbc14a46c838b20a83e109ed6",
+#       "tested_at": "2026-09-07T11:26:03Z"
+#     }
+#   ],
+#   "tested_at": "2026-09-07T11:26:03Z",
+#   "version": 1
+# }
+# acceptance-mutation-manifest-end
 # 场景清单：
 #   spoke 原语约束 1: 业务模块引用 common.spoke 下的模块
 #   spoke 原语约束 2: 业务模块实际调用 spoke 原语

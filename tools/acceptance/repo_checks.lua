@@ -1,9 +1,9 @@
 -- tools/acceptance/repo_checks.lua — pure predicates that back the
 -- features/engineering/spoke-primitives.feature repository inspections.
 --
--- These are pure string/path checks (no game boot, no side effects) so they
--- stay testable by unit tests and reusable by the step handlers in
--- steps_repo.lua. The rule truth source is CONTEXT.md「spoke 原语约束」and the
+-- These are pure string checks (no game boot, no filesystem, no side effects)
+-- so they stay testable by unit tests and reusable by the step handlers in
+-- steps_repo.lua, which owns the file reading. The rule truth source is CONTEXT.md「spoke 原语约束」and the
 -- feature's header comment.
 local M = {}
 
@@ -65,24 +65,6 @@ function M.non_spoke_modules(specs)
   end
   table.sort(names)
   return names
-end
-
--- Read every server/game/*.lua into {name, body} specs for the allowlist check.
-function M.server_game_files()
-  local specs = {}
-  local pipe = io.popen("find server/game -maxdepth 1 -name '*.lua'")
-  for f in pipe:lines() do
-    local base = f:match("^server/game/(.+)%.lua$")
-    if base then
-      local h = io.open(f, "r")
-      if h then
-        specs[#specs + 1] = { name = base, body = h:read("*a") }
-        h:close()
-      end
-    end
-  end
-  pipe:close()
-  return specs
 end
 
 -- True if `prefix` is followed by a non-identifier char (or end of text) in
