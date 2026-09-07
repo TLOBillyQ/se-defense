@@ -15,11 +15,11 @@
 set -uo pipefail
 
 CLI=${CLI:-/mnt/c/Users/Lzx_8/.eggitor/cli/editor-cli.exe}
-WORKSPACE=${EGGY_WORKSPACE:-/mnt/c/Users/Lzx_8/Desktop/dev/eggy/LuaSource_BaseDefence}
+REPO=$(cd "$(dirname "$0")/../.." && pwd)
+WORKSPACE=${EGGY_WORKSPACE:-$(cd "$REPO" && lua5.4 -e 'package.path="./?.lua;"..package.path; print(require("tools.eggy_workspace").resolve())')}  # 默认值真源：tools/eggy_workspace.lua
 # 注入文件必须在 Windows 侧（CLI 是 Windows 进程）：放工作区旁的 staging 目录，不进工作区（避免被同步进编辑器）
 STAGE=$(dirname "$WORKSPACE")/se-defense-it
 STAGE_WIN=$(wslpath -w "$(dirname "$WORKSPACE")")\\se-defense-it
-REPO=$(cd "$(dirname "$0")/../.." && pwd)
 OUT_DIR=$REPO/docs/acceptance
 SHOT_RECT=${SHOT_RECT:-818,165,1100,841}
 

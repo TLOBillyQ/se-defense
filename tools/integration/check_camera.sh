@@ -10,9 +10,9 @@
 # 前提：编辑器窗口在桌面可见、视窗区不被遮挡（同 run_full.sh）。裁切区 SHOT_RECT="x,y,w,h" 可覆盖。
 set -uo pipefail
 CLI=${CLI:-/mnt/c/Users/Lzx_8/.eggitor/cli/editor-cli.exe}
-WORKSPACE=${EGGY_WORKSPACE:-/mnt/c/Users/Lzx_8/Desktop/dev/eggy/LuaSource_BaseDefence}
-STAGE=$(dirname "$WORKSPACE")/se-defense-it; STAGE_WIN=$(wslpath -w "$(dirname "$WORKSPACE")")\\se-defense-it
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
+WORKSPACE=${EGGY_WORKSPACE:-$(cd "$REPO" && lua5.4 -e 'package.path="./?.lua;"..package.path; print(require("tools.eggy_workspace").resolve())')}  # 默认值真源：tools/eggy_workspace.lua
+STAGE=$(dirname "$WORKSPACE")/se-defense-it; STAGE_WIN=$(wslpath -w "$(dirname "$WORKSPACE")")\\se-defense-it
 SHOT_RECT=${SHOT_RECT:-818,165,1100,841}
 DEPLOY=1; N=8
 for a in "$@"; do case "$a" in --no-deploy) DEPLOY=0 ;; *) N=$a ;; esac; done
