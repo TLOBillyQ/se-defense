@@ -5,7 +5,9 @@ local M = {}
 
 M.tree = os.getenv("SE_DEFENSE_LUA_TOOLS") or ".toolcache/luarocks"
 M.src_dir = ".toolcache/src/acceptance4lua"
-M.lock_file = "tools/tools.lock"
+-- Follows upstream main: bootstrap clones HEAD (no version pin) and runs
+-- `luarocks make`. Delete .toolcache/ to reinstall.
+M.repo_url = "http://lzxsvn:3000/eggy/acceptance4lua"
 
 local function quote(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
 
@@ -17,17 +19,6 @@ end
 local function run(cmd)
   local ok = os.execute(cmd)
   return ok == true or ok == 0
-end
-
-local function repo_url()
-  local f = io.open(M.lock_file, "r")
-  if not f then return nil, "missing " .. M.lock_file end
-  for line in f:lines() do
-    local name, url = line:match("^(%S+)%s+(%S+)")
-    if name == "acceptance4lua" then f:close() return url end
-  end
-  f:close()
-  return nil, "acceptance4lua is not listed in " .. M.lock_file
 end
 
 -- LUA_PATH for subprocesses (generated specs, runner worker): tool tree first,
@@ -45,8 +36,7 @@ function M.lua_path()
 end
 
 function M.install()
-  local url, err = repo_url()
-  if not url then return nil, err end
+  local url = M.repo_url
   io.stderr:write("[acceptance] installing acceptance4lua from " .. url .. " into " .. M.tree .. "\n")
   if not exists(M.src_dir .. "/.git") then
     if not run("git clone --depth 1 " .. quote(url) .. " " .. quote(M.src_dir)) then

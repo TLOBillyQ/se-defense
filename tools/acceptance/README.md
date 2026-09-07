@@ -1,8 +1,8 @@
 # se-defense acceptance pipeline
 
 APS (Acceptance Pipeline Specification) Gherkin acceptance for the headless
-game, in Lua 5.4 on top of the Gitea `acceptance4lua` rock (see
-`tools/tools.lock`). Features are written in Chinese (`# language: zh-CN`,
+game, in Lua 5.4 on top of the Gitea `acceptance4lua` rock (repo URL in
+`tools/acceptance/bootstrap.lua`, follows upstream HEAD). Features are written in Chinese (`# language: zh-CN`,
 mandatory for files under `features/`).
 
 ## Layout

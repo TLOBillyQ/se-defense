@@ -1,4 +1,0 @@
-# Lua tools follow upstream master: bootstrap clones HEAD and runs `luarocks make`
-# into .toolcache/luarocks (the only load tree). Delete .toolcache/ to reinstall.
-# Format: <name> <gitea-repo-url>
-acceptance4lua http://lzxsvn:3000/eggy/acceptance4lua
