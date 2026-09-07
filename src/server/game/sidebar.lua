@@ -11,7 +11,7 @@
 --
 -- Gameplay 子面板的节点与文本 effect 在 server.game.sidebar_gameplay。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
 

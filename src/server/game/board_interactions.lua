@@ -15,12 +15,12 @@
 --   传感器仍能在首次 zone:tick() 就参与计算；hovering/placement_valid/点击响应
 --   放在 Phase(is_playing) 内，只在 Playing 且鼠标在 bounds 内时生效。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Effect = spoke.Effect
-local Phase = require("vendor.spoke.reactive.phase")
-local Memo = require("vendor.spoke.reactive.memo")
+local Phase = require("common.spoke.reactive.phase")
+local Memo = require("common.spoke.reactive.memo")
 
 local BoardDisplay = require("server.game.board_display")
 local BoardSensors = require("server.game.board_sensors")

@@ -10,7 +10,7 @@
 -- 集成范式：Auto-first（ADR 0004）。宿主/测试按需要选择 SpokeTree.spawn（Auto）
 -- 或 spawn_manual（Manual）。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
 local Dock = spoke.Dock

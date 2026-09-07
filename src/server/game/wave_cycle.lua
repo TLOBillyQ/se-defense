@@ -10,8 +10,8 @@
 -- 进攻。lull 结束发布的 front 对齐上游 wave.Now.Front 语义（lull 短于
 -- front_reveal_time 时保持 "None"）。
 
-local State = require("vendor.spoke.reactive.state")
-local Effect = require("vendor.spoke.reactive.effect")
+local State = require("common.spoke.reactive.state")
+local Effect = require("common.spoke.reactive.effect")
 
 local WaveCycle = {}
 

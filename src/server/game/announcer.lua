@@ -7,7 +7,7 @@
 -- 宿主等价物：uGUI Text → EUI 文本节点；边缘警告条 → 四个 EUI 节点
 -- set_visible 闪烁。定时依赖 game_tick（s:coroutine + wait_seconds）。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
 

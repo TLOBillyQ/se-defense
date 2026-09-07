@@ -9,11 +9,11 @@
 --   - 碟形天线 → host.entity.spawn('RadarDish', ...) 独立实体；
 --   - 不自建 GameObject 中间层。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Memo = spoke.Memo
-local Phase = require("vendor.spoke.reactive.phase")
+local Phase = require("common.spoke.reactive.phase")
 local Building = require("server.game.building")
 local PowerNode = require("server.game.power_node")
 

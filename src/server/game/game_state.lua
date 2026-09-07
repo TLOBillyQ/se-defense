@@ -9,7 +9,7 @@
 --     GameState.cs 的 powerZone/groundZone/radarZone/turretZone/repairZone/enemyZone）；
 --   - config.core == "external"：跳过本模块内建 Core 实体，由组合方后赋值。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Memo = spoke.Memo

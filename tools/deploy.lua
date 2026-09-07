@@ -3,8 +3,8 @@
 -- 先例：monopoly tools/packages/ops/deploy.lua（镜像部署 + WSL→Windows 接缝）。
 --
 -- 部署树（CONTEXT.md「部署树」词条；计划本身在 tools/deploy_plan.lua）：
---   vendor/spoke/          → 工作区 vendor/spoke/   （spoke 运行时，整子树重置）
---   src/<端>/<child>/...   → 工作区 <端>/<child>/...（端 = client/common/data/server）
+--   src/<端>/<child>/...   → 工作区 <端>/<child>/...（端 = client/common/data/server；
+--                            spoke 运行时即 src/common/spoke/，与业务同规则镜像）
 --
 -- 镜像纪律：先重置目标子树再拷贝，不留幽灵文件（spoke-lua 接入指南）。
 -- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
@@ -81,7 +81,7 @@ local function require_dir(path, msg)
   end
 end
 
-require_dir("vendor/spoke", "本仓库缺 vendor/spoke（spoke 运行时）")
+require_dir("src/common/spoke", "本仓库缺 src/common/spoke（spoke 运行时）")
 require_dir("src", "本仓库缺 src（源码树）")
 require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 

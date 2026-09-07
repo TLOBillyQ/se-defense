@@ -14,7 +14,7 @@
 -- 组合根可选：默认 GameRoot（垂直切片）；传 root_class 可换成 GameRootFull
 -- 等任何 `.new(config)` 返回 Epoch 的组合根（se-defense 真机重开走这里）。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local SpokeTree = spoke.SpokeTree
 local GameRoot = require("server.game.game_root")
 

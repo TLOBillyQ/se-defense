@@ -3,7 +3,7 @@
 -- query surface the step handlers need. Same boot sequence as
 -- tools/headless/run_server.lua.
 --
--- Fresh game per scenario: every module under server./client./common./vendor.
+-- Fresh game per scenario: every module under server./client./common. (spoke included)
 -- and the SE stub are dropped from package.loaded and required again, so
 -- module-level state (adapter registries, stub signal lists, _G.bd) starts
 -- from scratch.
@@ -20,7 +20,6 @@ end
 local function reset_modules()
   for name in pairs(package.loaded) do
     if name:match("^server%.") or name:match("^client%.") or name:match("^common%.")
-      or name:match("^vendor%.")
       or name == "tools.headless.se_stub" then
       package.loaded[name] = nil
     end

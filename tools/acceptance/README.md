@@ -16,7 +16,7 @@ mandatory for files under `features/`).
   (`source-layout.feature`, `deploy-mirror.feature`); no game is booted. Its
   `patterns` are appended to the `steps.lua` dispatch table.
 - `tools/acceptance/headless.lua` — boots a fresh game inside the current
-  process for every scenario execution (drops `server.*`, `client.*`, `common.*`, `vendor.*` and the SE stub from `package.loaded`, re-runs the boot
+  process for every scenario execution (drops `server.*`, `client.*`, `common.*` and the SE stub from `package.loaded`, re-runs the boot
   sequence of `tools/headless/run_server.lua`) and exposes the query surface.
 - `tools/acceptance/bootstrap.lua` — installs `acceptance4lua` into
   `.toolcache/luarocks` on first use (`git clone` + `luarocks make`) and puts

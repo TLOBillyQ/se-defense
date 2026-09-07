@@ -7,7 +7,7 @@
 -- 裁剪：本示例当前只需鼠标，因此未实现通用 key_down 字典；若后续 ticket 需要
 -- 键盘输入，可仿照上游在此添加 KeyDown(key) 惰性 Trigger 机制。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Trigger = spoke.Trigger

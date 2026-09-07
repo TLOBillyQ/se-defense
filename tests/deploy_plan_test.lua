@@ -1,6 +1,6 @@
 -- Unit tests for tools/deploy_plan.lua: the pure mirror plan behind
--- tools/deploy.lua. The plan maps src/<端>/<child> onto the workspace root,
--- mirrors vendor/spoke as a whole subtree, and removes legacy trees.
+-- tools/deploy.lua. The plan maps src/<端>/<child> onto the workspace root
+-- (spoke lives at src/common/spoke, no special case) and removes legacy trees.
 local lu = require("luaunit")
 local plan = require("tools.deploy_plan")
 
@@ -13,7 +13,8 @@ end
 -- Fake directory tree shaped like the post-restructure src/.
 local function fake_entries()
   local tree = {
-    ["src"] = { entry("client", true), entry("server", true), entry("notes.txt") },
+    ["src"] = { entry("client", true), entry("common", true), entry("server", true), entry("notes.txt") },
+    ["src/common"] = { entry("spoke", true) },
     ["src/client"] = { entry("main.lua"), entry("eui_render.lua") },
     ["src/server"] = { entry("main.lua"), entry("adapter", true), entry("game", true) },
   }
@@ -50,18 +51,19 @@ function TestDeployPlan.test_skips_plain_files_at_src_top_level()
   lu.assertNil(m["src/notes.txt"])
 end
 
-function TestDeployPlan.test_vendor_spoke_mirrored_as_whole_subtree()
+function TestDeployPlan.test_spoke_mirrored_like_any_realm_child()
   local m = mirrors(plan.build(fake_entries()))
-  lu.assertEquals(m["vendor/spoke"], "vendor/spoke")
+  lu.assertEquals(m["src/common/spoke"], "common/spoke")
+  lu.assertNil(m["vendor/spoke"])
 end
 
 function TestDeployPlan.test_removes_legacy_layout_trees()
   local r = removals(plan.build(fake_entries()))
-  lu.assertEquals(r, { "src", "examples" })
+  lu.assertEquals(r, { "src", "examples", "vendor/spoke" })
 end
 
 function TestDeployPlan.test_empty_src_still_cleans_legacy_trees()
   local ops = plan.build(function() return {} end)
-  lu.assertEquals(removals(ops), { "src", "examples" })
-  lu.assertEquals(mirrors(ops), { ["vendor/spoke"] = "vendor/spoke" })
+  lu.assertEquals(removals(ops), { "src", "examples", "vendor/spoke" })
+  lu.assertEquals(mirrors(ops), {})
 end

@@ -10,12 +10,12 @@
 --   - 覆盖圈注册到 repair_zone，由外部按需渲染；
 --   - 不自建 GameObject 中间层。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Effect = spoke.Effect
 local Memo = spoke.Memo
-local Phase = require("vendor.spoke.reactive.phase")
+local Phase = require("common.spoke.reactive.phase")
 local Building = require("server.game.building")
 local PowerNode = require("server.game.power_node")
 

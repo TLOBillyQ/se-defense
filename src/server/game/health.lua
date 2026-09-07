@@ -8,10 +8,10 @@
 --   local h = Health.attach(s, { max_hp = 10 })
 -- 然后 h:damage(amount) / h:repair(amount)。
 
-local State = require("vendor.spoke.reactive.state")
-local Trigger = require("vendor.spoke.reactive.trigger")
-local Memo = require("vendor.spoke.reactive.memo")
-local Effect = require("vendor.spoke.reactive.effect")
+local State = require("common.spoke.reactive.state")
+local Trigger = require("common.spoke.reactive.trigger")
+local Memo = require("common.spoke.reactive.memo")
+local Effect = require("common.spoke.reactive.effect")
 
 local Health = {}
 Health.__index = Health

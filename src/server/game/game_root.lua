@@ -10,7 +10,7 @@
 -- 宿主事件回调里改状态 → SpokeRuntime 同步排空 → 渲染在回调返回前完成。
 -- 无头测试使用 Manual 树 + game_tick:advance(...) 进行确定性步进。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
 local Dock = spoke.Dock

@@ -19,7 +19,7 @@
 -- 自己的 frame handle 存活时通过 on_pop_self 延迟 detach 到当前帧结束，因此
 -- 在 effect / tick 内调用是安全的，无需额外批处理。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Dock = spoke.Dock
 

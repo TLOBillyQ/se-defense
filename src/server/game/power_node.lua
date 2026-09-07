@@ -16,7 +16,7 @@
 --   - chain 遍历加了 visited 防死循环保险（正常拓扑不触发；上游靠窃取守卫
 --     保证无环，Lua 侧无限循环不可恢复，故留保险）。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Phase = spoke.Phase

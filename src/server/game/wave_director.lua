@@ -14,10 +14,10 @@
 -- mode 路由的 root effect）；平静/来袭 phase 内的行为见
 -- server.game.wave_cycle。
 
-local Epoch = require("vendor.spoke.runtime.epoch")
-local State = require("vendor.spoke.reactive.state")
-local Trigger = require("vendor.spoke.reactive.trigger")
-local Effect = require("vendor.spoke.reactive.effect")
+local Epoch = require("common.spoke.runtime.epoch")
+local State = require("common.spoke.reactive.state")
+local Trigger = require("common.spoke.reactive.trigger")
+local Effect = require("common.spoke.reactive.effect")
 
 local WaveCycle = require("server.game.wave_cycle")
 

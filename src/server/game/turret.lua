@@ -12,12 +12,12 @@
 -- 转向/闲逛/攻击行为在 server.game.turret_behaviour，本组件只负责
 -- 选择目标并按 is_running 挂载行为。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Effect = spoke.Effect
 local Memo = spoke.Memo
-local Phase = require("vendor.spoke.reactive.phase")
+local Phase = require("common.spoke.reactive.phase")
 local Building = require("server.game.building")
 local PowerNode = require("server.game.power_node")
 local TurretBehaviour = require("server.game.turret_behaviour")

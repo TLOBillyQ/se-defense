@@ -13,9 +13,9 @@
 --   - 不做 separation、bob 等表现/寻路细节；
 --   - RadarTrack 的 showOnTracked 表现层已裁剪，仅暴露 is_tracked State。
 
-local Epoch = require("vendor.spoke.runtime.epoch")
-local Phase = require("vendor.spoke.reactive.phase")
-local Memo = require("vendor.spoke.reactive.memo")
+local Epoch = require("common.spoke.runtime.epoch")
+local Phase = require("common.spoke.reactive.phase")
+local Memo = require("common.spoke.reactive.memo")
 local Health = require("server.game.health")
 local HealthBar = require("server.game.health_bar")
 require("server.game.coroutine")
@@ -39,7 +39,7 @@ local Enemy = Epoch.extend("Enemy", {
     self.health = nil
 
     -- 上游 tracked 默认 false；无雷达区时保持旧行为（恒 true）以兼容旧测试。
-    local State = require("vendor.spoke.reactive.state")
+    local State = require("common.spoke.reactive.state")
     self.is_tracked = State.new("Enemy.is_tracked", not self.radar_zone)
   end,
 

@@ -9,7 +9,7 @@
 --   - 覆盖圈 / 电力线等表现由外部 BoardInteractions 根据 hover_info 绘制；
 --   - 不自建 GameObject 中间层，entity 由外部注入。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Building = require("server.game.building")

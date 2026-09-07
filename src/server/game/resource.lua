@@ -11,7 +11,7 @@
 --
 -- 实体由外部注入（pool 或组合方拥有生命周期），本组件不自行 spawn 实体。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local State = spoke.State
 local Effect = spoke.Effect

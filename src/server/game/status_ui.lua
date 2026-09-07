@@ -4,8 +4,8 @@
 -- 与 game_state / wave_director 的信号保持同步；在 epoch 卸载时销毁节点。
 -- 对应上游 SideBar.Gameplay 中的文本显示部分，仅保留表现层，不做面板路由。
 
-local Epoch = require("vendor.spoke.runtime.epoch")
-local Effect = require("vendor.spoke.reactive.effect")
+local Epoch = require("common.spoke.runtime.epoch")
+local Effect = require("common.spoke.reactive.effect")
 
 local StatusUI = Epoch.extend("StatusUI", {
   constructor = function(self, config)

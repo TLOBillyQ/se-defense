@@ -79,8 +79,8 @@ headless 验证与单局重开的薄壳。
 
 ## 真机部署要点
 
-1. 物理落位：`tools/deploy.lua` 把 `vendor/spoke/`、`src/server/game/`、
-   `src/server/adapter/` 镜像进宿主脚本根（宿主沙盒没有 `package.path`，
+1. 物理落位：`tools/deploy.lua` 把 `src/` 下各端子树（`common/spoke/`、`server/game/`、
+   `server/adapter/` 等）镜像进宿主脚本根（宿主沙盒没有 `package.path`，
    require 只能按 script 目录解析）。
 2. 宿主接缝见上表；业务模块只依赖这些接口。
 3. 游戏节拍：真机用 `EVENT.REPEAT_TIMEOUT` 驱动 `GameTick`。

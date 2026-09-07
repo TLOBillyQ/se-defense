@@ -1,16 +1,18 @@
--- Test runner for project unit tests (se-defense repo, not vendor/).
+-- Test runner for all unit tests: project tests plus the inlined spoke runtime
+-- suite under tests/spoke/ (upstream sync: see docs/spoke-upstream.md).
 -- Run from the repo root:
 --   lua5.4 tests/run.lua
 --
--- Discovers tests/**/*_test.lua, sorted for deterministic order. LuaUnit is
--- the vendored copy under vendor/tests/vendor (same as vendor/tests/run.lua).
+-- Discovers tests/**/*_test.lua, sorted for deterministic order. Property tests
+-- have their own runner: tests/spoke/property/run.lua. LuaUnit lives
+-- at tests/lib/luaunit.lua.
 
 package.path = table.concat({
   "./?.lua",
   "./?/init.lua",
   "./src/?.lua",
   "./src/?/init.lua",
-  "./vendor/tests/vendor/?.lua",
+  "./tests/lib/?.lua",
   package.path,
 }, ";")
 

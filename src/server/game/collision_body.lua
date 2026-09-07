@@ -10,7 +10,7 @@
 --
 -- CollisionWorld（server.game.collision）只保留空间哈希部分。
 
-local State = require("vendor.spoke.reactive.state")
+local State = require("common.spoke.reactive.state")
 
 local CollisionBody = {}
 

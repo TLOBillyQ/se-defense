@@ -18,7 +18,7 @@
 --   }))
 --   bar.node / bar.fraction 可在测试中读取。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
 

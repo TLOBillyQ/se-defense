@@ -8,7 +8,7 @@
 -- 注册 s:coroutine() 扩展（采集协程）。
 require("server.game.coroutine")
 
-local Phase = require("vendor.spoke.reactive.phase")
+local Phase = require("common.spoke.reactive.phase")
 
 local ResourceHarvest = {}
 

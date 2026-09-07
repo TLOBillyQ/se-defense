@@ -20,7 +20,7 @@
 -- Body（每圆的快照/Poll/overlaps 发布）与 circle 值类型语义在
 -- server.game.collision_body。
 
-local SpokeRuntime = require("vendor.spoke.runtime.spoke_runtime")
+local SpokeRuntime = require("common.spoke.runtime.spoke_runtime")
 
 local CollisionBody = require("server.game.collision_body")
 local circles_overlap = CollisionBody.circles_overlap

@@ -15,7 +15,7 @@
 --
 -- 也支持直接传入 coroutine.create 得到的线程作为第二个参数。
 
-local EffectBuilder = require("vendor.spoke.reactive.effect_builder")
+local EffectBuilder = require("common.spoke.reactive.effect_builder")
 
 -- 把 Lua thread 或 function 统一成 thread。
 local function ensure_thread(body)

@@ -10,12 +10,12 @@
 --
 -- 建筑实体由外部注入（pool 或组合方拥有生命周期），本组件不自行 spawn 实体。
 
-local spoke = require("vendor.spoke")
+local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
-local Phase = require("vendor.spoke.reactive.phase")
-local Memo = require("vendor.spoke.reactive.memo")
-local Reaction = require("vendor.spoke.reactive.reaction")
+local Phase = require("common.spoke.reactive.phase")
+local Memo = require("common.spoke.reactive.memo")
+local Reaction = require("common.spoke.reactive.reaction")
 local Health = require("server.game.health")
 local HealthBar = require("server.game.health_bar")
 
