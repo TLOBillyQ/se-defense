@@ -61,7 +61,7 @@
   | server/game/wave_director.lua  | Effect  |
 
 场景: spoke 原语约束 3: 不引用 common.spoke 的业务模块只允许豁免清单内的纯辅助模块
-  那么 server/game下不引用common.spoke的模块都属于board_display board_sensors building_specs coverage_display game_tick link_display render_util sidebar_gameplay turret_behaviour wave_cycle world
+  那么 server/game下不引用common.spoke的模块都属于board_display board_sensors building_specs coverage_display game_tick link_display render_util roster sidebar_gameplay turret_behaviour wave_cycle world
 
 场景大纲: spoke 原语约束 4: 豁免模块只组合 server. 前缀的模块
   那么 源码文件<文件>只引用前缀为server.的模块
@@ -75,5 +75,8 @@
   | server/game/game_tick.lua        |
   | server/game/link_display.lua     |
   | server/game/render_util.lua      |
+  | server/game/roster.lua           |
   | server/game/sidebar_gameplay.lua |
   | server/game/turret_behaviour.lua |
+  | server/game/wave_cycle.lua       |
+  | server/game/world.lua            |

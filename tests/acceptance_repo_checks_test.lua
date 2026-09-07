@@ -96,5 +96,3 @@ function TestNonSpokeModules.test_filters_specs_by_reference()
   }
   lu.assertEquals(repo.non_spoke_modules(specs), { "plain", "server_only" })
 end
-
-os.exit(lu.LuaUnit.run())
