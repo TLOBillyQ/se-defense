@@ -13,6 +13,7 @@
 #     （docs/ tools/ tests/ features/ data/ 等）不部署。
 #   - 只被服务端引用的模块放 server/，只被客户端引用的放 client/，双端共用的才放 common/。
 #     业务模块在 server/game/，服务端宿主适配层在 server/adapter/，客户端渲染器直接在 client/。
+#     GM 面 server/gm.lua 与 main.lua 同级：它编排业务与适配层，适配层自身不得 require server.game。
 #   - require 名以仓库根为根（即工作区根），例如 server.game.core、server.adapter.host、
 #     client.eui_render；仓库内不再出现 src. 前缀的模块名。spoke 运行时内联在 common/spoke/，
 #     require 前缀 common.spoke（SE 文档只认 client/common/data/server 四个根目录，vendor/ 不在其中）。
@@ -44,6 +45,7 @@
   | server/game/core.lua           |
   | server/adapter/host.lua        |
   | server/adapter/build_panel.lua |
+  | server/gm.lua                  |
   | client/main.lua                |
   | client/eui_render.lua          |
   | common/spoke/init.lua          |

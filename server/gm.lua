@@ -1,4 +1,7 @@
--- server/adapter/gm.lua — GM 面（`$CLI exec --platform server` / 无头 harness 驱动）。
+-- server/gm.lua — GM 面（`$CLI exec --platform server` / 无头 harness 驱动）。
+--
+-- 位置：不属于业务（server/game/）也不属于宿主适配层（server/adapter/），它站在
+-- 两者之上做编排与读回，因此与 main.lua 同级；适配层不得反向依赖业务模块。
 --
 -- 职责：把编排与读回动作翻译成对业务的调用并打日志。领域问题（谁在场、按
 -- 坐标找建筑）一律问 server/game/roster.lua，这里只做转发与格式化，不重做规则。

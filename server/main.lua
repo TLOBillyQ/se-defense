@@ -25,7 +25,7 @@
 --   广播 "reset" 全量快照（gen+1，客户端整树替换）；Restart 按钮归适配层
 --   （panel/restart，终局可见）。GM 新增 restart/mine_out/kill_core。
 --
--- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。GM 面在 server/adapter/gm.lua（挂 _G.bd）。
+-- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。GM 面在 server/gm.lua（挂 _G.bd）。
 
 local World = game:GetService("World")
 local RunService = game:GetService("RunService")
@@ -54,7 +54,7 @@ local GameTick = require("server.game.game_tick")
 local GameRootFull = require("server.game.game_root_full")
 local Session = require("server.game.session")
 local BuildPanel = require("server.adapter.build_panel")
-local GM = require("server.adapter.gm")
+local GM = require("server.gm")
 
 -- ── 切片配置 ────────────────────────────────────────────────────────
 -- 棋盘 40×40、Core 置世界原点、单位 1:1（#8 D2 假设）。
@@ -232,7 +232,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
 end)
 
 -- ── GM 面（$CLI exec --platform server 驱动；自动化验证优先 #1 偏好 2）──
--- 动作与读回都在 server/adapter/gm.lua；这里只交出访问器（root/panel 每次重开换对象）。
+-- 动作与读回都在 server/gm.lua；这里只交出访问器（root/panel 每次重开换对象）。
 _G.bd = GM.create({
   host = host,
   root = function() return root end,
