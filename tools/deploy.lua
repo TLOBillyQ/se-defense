@@ -16,7 +16,11 @@
 -- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
 -- 工作区根的杂物（deploy_plan.JUNK）随部署清除；其余内容（eggy.json、server/_trigger、
 -- data、.vscode、log.txt 等）不碰。
--- 编辑器 syncEnabled=true：落盘即进编辑器内存，无需 code push（#5 实测）。
+-- 编辑器 syncEnabled=true：落盘即进编辑器内存，通常无需 code push（#5 实测）。
+-- 但「通常」不是「一定」：镜像完成后 deploy 自己再跑 Windows 侧 editor-cli 做收尾
+-- （code validate → code diff → 有差异才 code push → 复核），一步到位，不留下一步。
+-- editor-cli 必须用 Windows 侧的 exe 经 cmd.exe 从工作区 cwd 执行：WSL 侧二进制
+-- 解析不了 eggy.json 里的 C:\ 地图目录（实测 MAP_NOT_FOUND）。
 
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -74,9 +78,32 @@ end
 -- robocopy 必须经 cmd.exe：system32 里是 Robocopy.exe，Linux PATH 大小写敏感。
 -- 单个 robocopy 退出码 0-7 均为成功，>= 8 失败；任一失败整批返回 false，
 -- 由调用方整批回落 rm + cp。
+-- 把若干行 cmd 命令写成临时 .cmd，cmd.exe 执行一次；返回 ok, exit_code, stdout。
+-- 见上文：不能把带引号的路径直接放在 cmd.exe 参数里，交给批处理自己解析。
+local function cmd_batch(lines)
+  local batch = os.tmpname() .. ".cmd"
+  local f = io.open(batch, "wb")
+  if not f then return false, nil, "" end
+  f:write("@echo off\r\n", table.concat(lines, "\r\n"), "\r\n")
+  f:close()
+  local wbatch = win_path(batch)
+  local ok, code, out = false, nil, ""
+  if wbatch then
+    local h = io.popen("cmd.exe /c " .. q(wbatch) .. " 2>/dev/null; echo \"__rc=$?\"")
+    out = h:read("*a") or ""
+    h:close()
+    code = tonumber(out:match("__rc=(%d+)%s*$"))
+    out = out:gsub("__rc=%d+%s*$", "")
+    ok = code == 0
+  end
+  os.remove(batch)
+  os.remove(batch:sub(1, -5))
+  return ok, code, out
+end
+
 local function robocopy_mirror_all(pairs_)
   if #pairs_ == 0 then return true end
-  local lines = { "@echo off" }
+  local lines = {}
   for _, pr in ipairs(pairs_) do
     local ws, wd = win_path(pr.src), win_path(pr.dst)
     if not ws or not wd then return false end
@@ -84,20 +111,8 @@ local function robocopy_mirror_all(pairs_)
     lines[#lines + 1] = "if errorlevel 8 exit /b 8"
   end
   lines[#lines + 1] = "exit /b 0"
-
-  local batch = os.tmpname() .. ".cmd"
-  local f = io.open(batch, "wb")
-  if not f then return false end
-  f:write(table.concat(lines, "\r\n"), "\r\n")
-  f:close()
-  local wbatch = win_path(batch)
-  local ok, _, code = false, nil, nil
-  if wbatch then
-    ok, _, code = os.execute("cmd.exe /c " .. q(wbatch) .. " 2>/dev/null")
-  end
-  os.remove(batch)
-  os.remove(batch:sub(1, -5))
-  return ok == true and code == 0
+  local ok = cmd_batch(lines)
+  return ok
 end
 
 local function is_dir(path)
@@ -126,6 +141,79 @@ local function entries(dir)
   return out
 end
 
+-- ── 编辑器收尾（Windows 侧 editor-cli） ────────────────────────────────────
+
+-- 从工作区 cwd 跑一条 editor-cli 子命令，返回 ok, stdout。exe 不存在时返回 nil。
+local function editor_cli(ws, argline)
+  local wws = win_path(ws)
+  if not wws then return nil, "wslpath 失败" end
+  local ok, code, out = cmd_batch({
+    'if not exist "%USERPROFILE%\\.eggitor\\cli\\editor-cli.exe" exit /b 127',
+    'cd /d "' .. wws .. '"',
+    '"%USERPROFILE%\\.eggitor\\cli\\editor-cli.exe" ' .. argline,
+  })
+  if code == 127 then return nil, "未找到 %USERPROFILE%\\.eggitor\\cli\\editor-cli.exe" end
+  return ok, out
+end
+
+local function project_name(ws)
+  local f = io.open(ws .. "/eggy.json", "rb")
+  if not f then return nil end
+  local body = f:read("*a") or ""
+  f:close()
+  return body:match('"projectName"%s*:%s*"([^"]+)"')
+end
+
+-- 解析 `code diff` 纯文本第三行：changelist: only-local=N differs=N only-on-map=N unchanged=N
+local function parse_changelist(out)
+  local line = out:match("changelist:[^\r\n]*")
+  if not line then return nil end
+  local cl = {}
+  for k, v in line:gmatch("([%w%-]+)=(%d+)") do cl[k] = tonumber(v) end
+  return cl
+end
+
+local function verify_editor(ws)
+  local ok, out = editor_cli(ws, "code validate")
+  if ok == nil then
+    print("编辑器收尾跳过: " .. tostring(out))
+    return
+  end
+  if not ok or not out:find("validate: OK", 1, true) then
+    fail("code validate 未通过:\n" .. out)
+  end
+  print("validate: OK")
+
+  local inst = project_name(ws)
+  local inst_arg = inst and ('--editor-instance "' .. inst .. '" ') or ""
+  local function diff()
+    local dok, dout = editor_cli(ws, inst_arg .. "code diff")
+    return dok and parse_changelist(dout) or nil, dout
+  end
+
+  local cl, raw = diff()
+  if not cl then
+    print("编辑器未打开该地图，未校验编辑器内代码（磁盘已是最新，打开地图后自动同步）")
+    print((raw or ""):match("^[^\r\n]*") or "")
+    return
+  end
+  local dirty = (cl["only-local"] or 0) + (cl["differs"] or 0)
+  if dirty > 0 then
+    print("编辑器落后 " .. dirty .. " 个文件，code push …")
+    local pok, pout = editor_cli(ws, inst_arg .. "code push")
+    if not pok then fail("code push 失败:\n" .. tostring(pout)) end
+    cl = diff()
+    dirty = cl and ((cl["only-local"] or 0) + (cl["differs"] or 0)) or -1
+    if dirty ~= 0 then fail("push 后复核仍有差异（" .. dirty .. "），请手动 code diff") end
+  end
+  print("编辑器: 已同步（unchanged=" .. (cl["unchanged"] or 0) .. "）")
+  local ghosts = cl["only-on-map"] or 0
+  if ghosts > 0 then
+    print("注意: 地图侧多出 " .. ghosts .. " 个本地没有的文件（deploy 不删）；"
+      .. "清理需在工作区跑 editor-cli code push --delete --yes")
+  end
+end
+
 -- ── 前置检查 ──────────────────────────────────────────────────────────────
 
 local function require_dir(path, msg)
@@ -142,6 +230,8 @@ function M.usage()
     "把仓库根 <端>/<child> byte 镜像进 SE 工作区 <端>/<child>（先重置目标子树）。",
     "端为白名单 " .. table.concat(plan.REALMS, "/") .. "（官方强制的工作区根，仓库根直接对齐）；",
     "仓库根其他内容不部署。工作区根杂物 " .. table.concat(plan.JUNK, " ") .. " 随部署清除。",
+    "镜像后自动经 Windows 侧 editor-cli 收尾：code validate → code diff → 有差异才 push；",
+    "编辑器没开该地图则跳过收尾（磁盘已最新）。地图侧多出的文件只提示，不删。",
     "工作区默认 " .. workspace.DEFAULT .. "，环境变量 EGGY_WORKSPACE 可覆盖。",
     "",
     "选项：",
@@ -195,7 +285,7 @@ local function run_deploy(clean_only)
   end
 
   print("deploy ok → " .. WORKSPACE)
-  print("下一步: $CLI code validate && $CLI code diff（经 cmd.exe 从工作区 cwd 执行）")
+  verify_editor(WORKSPACE)
 end
 
 -- 退出码：0 成功 / 1 业务失败 / 2 用法错误。
