@@ -1,5 +1,6 @@
 -- 部署脚本：把部署树 byte 镜像进 SE 工作区（票 #6；src/目录层级调整）。
--- 运行：在仓库根执行 `lua5.4 tools/deploy.lua`（WSL；经 /mnt/c 直接操作 Windows 侧）。
+-- 运行：在仓库根执行 `lua5.4 tools/cli.lua deploy`（WSL；经 /mnt/c 直接操作 Windows 侧）；
+-- 直接 `lua5.4 tools/deploy.lua` 亦可。反方向回同步见 tools/sync.lua。
 -- 先例：monopoly tools/packages/ops/deploy.lua（镜像部署 + WSL→Windows 接缝）。
 --
 -- 部署树（CONTEXT.md「部署树」词条；计划本身在 tools/deploy_plan.lua）：
@@ -8,7 +9,10 @@
 --                        spoke 运行时即 common/spoke/，与业务同规则镜像）
 -- 仓库根白名单之外的内容（docs/、tools/、tests/、data/ 等）不部署。
 --
--- 镜像纪律：先重置目标子树再拷贝，不留幽灵文件（spoke-lua 接入指南）。
+-- 镜像纪律：目标子树与源完全一致，不留幽灵文件（spoke-lua 接入指南）。
+-- 目录镜像优先让 Windows 侧 robocopy /MIR 做增量（先例 monopoly deploy.lua）：
+-- WSL 经 9P 逐文件 rm/cp 每个文件都是一次跨系统调用，树一大就是几十秒；
+-- robocopy 只传变化文件。robocopy 不可用或退出码 >= 8 时回落 rm + cp。
 -- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
 -- 工作区根的杂物（deploy_plan.JUNK）随部署清除；其余内容（eggy.json、server/_trigger、
 -- data、.vscode、log.txt 等）不碰。
@@ -17,13 +21,13 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local plan = require("tools.deploy_plan")
+local workspace = require("tools.eggy_workspace")
 
-local WORKSPACE = os.getenv("EGGY_WORKSPACE")
-  or "/mnt/c/Users/Lzx_8/Desktop/dev/eggy/LuaSource_BaseDefence"
+local M = {}
 
+-- 业务失败统一 error 出去，由 main 收成 stderr + 退出码 1。
 local function fail(msg)
-  io.stderr:write("deploy: " .. msg .. "\n")
-  os.exit(1)
+  error("deploy: " .. msg, 0)
 end
 
 local function run(cmd)
@@ -51,6 +55,54 @@ local function cp_entry(src, dst)
     run("mkdir -p " .. q(dst:match("^(.*)/[^/]+$") or "."))
     run("cp " .. q(src) .. " " .. q(dst))
   end
+end
+
+-- wslpath -w 转 Windows 路径；失败返回 nil（由调用方回落）。
+local function win_path(path)
+  local h = io.popen("wslpath -w " .. q(path) .. " 2>/dev/null")
+  local out = (h:read("*a") or ""):match("^[^\r\n]*")
+  h:close()
+  if out == nil or out == "" then return nil end
+  return out
+end
+
+-- 目录增量镜像：把全部目录写进一个临时 .cmd 批处理，cmd.exe 执行一次（每次启动约
+-- 0.25s，所以只启一次）。不能把带引号的路径直接放在 cmd.exe 参数里：WSL 互操作转
+-- Windows 命令行时 `\"` 与 UNC 前导 `\\` 互相干扰，引号会被当成路径的一部分。
+-- 批处理由 cmd 自己解析，没有这层转义。批处理放 WSL 侧 /tmp，cmd.exe 经
+-- \\wsl.localhost UNC 路径执行（仅工作目录不支持 UNC，运行脚本没问题）。
+-- robocopy 必须经 cmd.exe：system32 里是 Robocopy.exe，Linux PATH 大小写敏感。
+-- 单个 robocopy 退出码 0-7 均为成功，>= 8 失败；任一失败整批返回 false，
+-- 由调用方整批回落 rm + cp。
+local function robocopy_mirror_all(pairs_)
+  if #pairs_ == 0 then return true end
+  local lines = { "@echo off" }
+  for _, pr in ipairs(pairs_) do
+    local ws, wd = win_path(pr.src), win_path(pr.dst)
+    if not ws or not wd then return false end
+    lines[#lines + 1] = 'robocopy "' .. ws .. '" "' .. wd .. '" /MIR /NFL /NDL /NJH /NJS /NP /R:2 /W:1 >nul 2>&1'
+    lines[#lines + 1] = "if errorlevel 8 exit /b 8"
+  end
+  lines[#lines + 1] = "exit /b 0"
+
+  local batch = os.tmpname() .. ".cmd"
+  local f = io.open(batch, "wb")
+  if not f then return false end
+  f:write(table.concat(lines, "\r\n"), "\r\n")
+  f:close()
+  local wbatch = win_path(batch)
+  local ok, _, code = false, nil, nil
+  if wbatch then
+    ok, _, code = os.execute("cmd.exe /c " .. q(wbatch) .. " 2>/dev/null")
+  end
+  os.remove(batch)
+  os.remove(batch:sub(1, -5))
+  return ok == true and code == 0
+end
+
+local function is_dir(path)
+  local ok, _, code = os.execute("test -d " .. q(path))
+  return ok == true and code == 0
 end
 
 local function file_count(path)
@@ -83,21 +135,94 @@ local function require_dir(path, msg)
   end
 end
 
-for _, realm in ipairs(plan.REALMS) do
-  require_dir(realm, "本仓库缺部署根 " .. realm)
+function M.usage()
+  return table.concat({
+    "用法: lua5.4 tools/cli.lua deploy",
+    "",
+    "把仓库根 <端>/<child> byte 镜像进 SE 工作区 <端>/<child>（先重置目标子树）。",
+    "端为白名单 " .. table.concat(plan.REALMS, "/") .. "（官方强制的工作区根，仓库根直接对齐）；",
+    "仓库根其他内容不部署。工作区根杂物 " .. table.concat(plan.JUNK, " ") .. " 随部署清除。",
+    "工作区默认 " .. workspace.DEFAULT .. "，环境变量 EGGY_WORKSPACE 可覆盖。",
+    "",
+    "选项：",
+    "  --clean   只清不装：删掉工作区里本仓库拥有的全部子树与杂物，不拷贝。",
+    "            工作区其余内容（eggy.json、server/_trigger、data/ 等）不碰。",
+    "",
+    "镜像/清理计划见 tools/deploy_plan.lua。",
+    "",
+  }, "\n") .. "\n"
 end
-require_dir("common/spoke", "本仓库缺 common/spoke（spoke 运行时）")
-require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 
--- ── 执行镜像计划 ──────────────────────────────────────────────────────────
-
-for _, op in ipairs(plan.build(entries)) do
-  rm_rf(WORKSPACE .. "/" .. op.dst)
-  if op.kind == "mirror" then
-    cp_entry(op.src, WORKSPACE .. "/" .. op.dst)
-    print(op.dst .. ": " .. file_count(WORKSPACE .. "/" .. op.dst) .. " 文件")
+local function run_deploy(clean_only)
+  local WORKSPACE = workspace.resolve()
+  for _, realm in ipairs(plan.REALMS) do
+    require_dir(realm, "本仓库缺部署根 " .. realm)
   end
+  require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
+
+  if clean_only then
+    for _, op in ipairs(plan.clean(entries)) do
+      rm_rf(WORKSPACE .. "/" .. op.dst)
+      print("removed " .. op.dst)
+    end
+    print("deploy --clean ok → " .. WORKSPACE)
+    return
+  end
+
+  require_dir("common/spoke", "本仓库缺 common/spoke（spoke 运行时）")
+  local ops = plan.build(entries)
+  local dir_pairs = {}
+  for _, op in ipairs(ops) do
+    if op.kind == "mirror" and is_dir(op.src) then
+      dir_pairs[#dir_pairs + 1] = { src = op.src, dst = WORKSPACE .. "/" .. op.dst }
+    end
+  end
+  local via_robocopy = robocopy_mirror_all(dir_pairs)
+  local how = via_robocopy and "robocopy" or "cp"
+
+  for _, op in ipairs(ops) do
+    local dst = WORKSPACE .. "/" .. op.dst
+    if op.kind ~= "mirror" then
+      rm_rf(dst)
+      print("removed " .. op.dst)
+    elseif via_robocopy and is_dir(op.src) then
+      print(op.dst .. ": " .. file_count(dst) .. " 文件 (robocopy)")
+    else
+      rm_rf(dst)
+      cp_entry(op.src, dst)
+      print(op.dst .. ": " .. file_count(dst) .. " 文件 (" .. (is_dir(op.src) and how or "cp") .. ")")
+    end
+  end
+
+  print("deploy ok → " .. WORKSPACE)
+  print("下一步: $CLI code validate && $CLI code diff（经 cmd.exe 从工作区 cwd 执行）")
 end
 
-print("deploy ok → " .. WORKSPACE)
-print("下一步: $CLI code validate && $CLI code diff（经 cmd.exe 从工作区 cwd 执行）")
+-- 退出码：0 成功 / 1 业务失败 / 2 用法错误。
+function M.main(args)
+  args = args or {}
+  local clean_only = false
+  for _, a in ipairs(args) do
+    if a == "--help" or a == "-h" then
+      io.write(M.usage())
+      return 0
+    elseif a == "--clean" then
+      clean_only = true
+    else
+      io.stderr:write("deploy: 未知参数: " .. a .. "\n")
+      return 2
+    end
+  end
+  local ok, err = pcall(run_deploy, clean_only)
+  if not ok then
+    io.stderr:write(tostring(err) .. "\n")
+    return 1
+  end
+  return 0
+end
+
+if ... == "tools.deploy" then
+  return M
+end
+
+os.exit(M.main(arg))
