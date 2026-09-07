@@ -1,0 +1,27 @@
+{
+  "source_roots": ["client", "common", "server"],
+  "component_rules": [
+    { "name": "client", "match": ["^client%..+"], "component": "client", "layer": 1 },
+    { "name": "server_entry", "match": ["^server%.main$"], "component": "server_entry", "layer": 1 },
+    { "name": "server_support", "match": ["^server%.gm$", "^server%.net$"], "component": "server_support", "layer": 2 },
+    { "name": "game", "match": ["^server%.game%..+"], "component": "game", "layer": 3 },
+    { "name": "adapter", "match": ["^server%.adapter%..+"], "component": "adapter", "layer": 4 },
+    { "name": "spoke", "match": ["^common%.spoke$", "^common%.spoke%..+"], "component": "spoke", "substrate": true }
+  ],
+  "abstract_rules": [],
+  "forbidden_dependency_rules": [],
+  "allowed_cycles": [
+    { "view": "spoke", "nodes": ["spoke.reactive", "spoke.runtime"],
+      "reason": "上游 spoke-lua 运行时内联（docs/spoke-upstream.md），本仓不重写其内部拓扑" },
+    { "view": "spoke.reactive", "nodes": ["spoke.reactive.effect", "spoke.reactive.effect_builder"],
+      "reason": "同上：上游 spoke 运行时内部环" },
+    { "view": "spoke.reactive", "nodes": ["spoke.reactive.effect_builder", "spoke.reactive.memo"],
+      "reason": "同上：上游 spoke 运行时内部环" },
+    { "view": "spoke.reactive", "nodes": ["spoke.reactive.effect_builder", "spoke.reactive.phase"],
+      "reason": "同上：上游 spoke 运行时内部环" },
+    { "view": "spoke.reactive", "nodes": ["spoke.reactive.effect_builder", "spoke.reactive.reaction"],
+      "reason": "同上：上游 spoke 运行时内部环" },
+    { "view": "spoke.runtime", "nodes": ["spoke.runtime.epoch_builder", "spoke.runtime.lambda_epoch", "spoke.runtime.epoch"],
+      "reason": "同上：上游 spoke 运行时内部环" }
+  ]
+}

@@ -24,6 +24,14 @@ You are the architect.
 - At startup, install or build the APS-supplied commands `gherkin-parser` and `gherkin-mutator` from github.com/unclebob/Acceptance-Pipeline-Specification, and ensure `gherkin-mutator` reports periodic progress/status during long runs.
 - Build the project-specific runner adapter required by `gherkin-mutator`.
 
+## Architecture Analysis Tool (arch_view)
+- `arch_view` is the Lua module-dependency analyzer for this project: Gitea repo `http://lzxsvn:3000/eggy/arch-view`, same 4lua chain as `acceptance4lua`. `tools/arch_bootstrap.lua` clones and `luarocks make`s it into `.toolcache/luarocks` on first run; nothing is vendored into the repository.
+- Commands from the repository root: `tools/arch check` (the gate), `tools/arch scan --out <file>`, `tools/arch viewer --out-dir <dir>`. `tools/arch` picks Lua 5.4 via `tools/pick-lua.sh` and calls `tools/arch.lua`, which converts `cli.run`'s `false` into a non-zero exit. The library never calls `os.exit`; a wrapper that ignores the return value turns a failing gate silently green.
+- Rules live in `arch_view.config.json` at the repository root: `source_roots`, `component_rules`, `abstract_rules`, `forbidden_dependency_rules`, `allowed_cycles`.
+- Use `check` as the machine-checked form of the Dependency Rule phase. Declared layers are the gate's fact source: `"layer": <int>` (L1 is highest; dependencies must point downward, `from.layer < to.layer`) or `"substrate": true`. Anyone may depend on a substrate; a substrate may never depend on a layered component. No hand-written forbidden pair is needed for an upward dependency.
+- Current stack: L1 `client` and `server_entry`, L2 `server_support` (`server.gm`, `server.net`), L3 `game`, L4 `adapter`, with `spoke` as substrate. When a refactor moves a module across these boundaries, update the declaration rather than working around the gate.
+- `check` fails closed on projection cycles. Waive only via `allowed_cycles` entries (exact `view` key plus participant-set equality on `nodes`) with a written `reason`. The current waiver list is exactly the six cycles inside the inlined upstream spoke runtime; business code under `client/` and `server/` must stay cycle-free. Waiver lists describe intended structure, not accidents: if the right fix is breaking the cycle, break it.
+
 ## Mutation Work
 - Use the language mutation tool's scan/count mode on changed and new source files as a hint that a module may mix jobs.
 - Split a source file when it has more than one job, before mutating that file or handing it off. Do not split a one-job module to chase a mutation-site count.
@@ -48,7 +56,7 @@ You are the architect.
 - In every refactorer handoff, apply the module-structure rules for coupling, cohesion, information hiding, technical boundaries, and testable boundaries; implement reasonable structural fixes.
 
 ## Handoff
-- As the final verification sequence, run the language mutation tool, then the language DRY tool, then soft Gherkin acceptance mutation (`--level soft`) when `features/*.feature` exist. If there are no feature files, skip `gherkin-mutator`; do not fail. Manifest edits still forward. Handbacks are merge-only; do not re-forward them. Fix any issues each tool finds before running the next one.
+- As the final verification sequence, run `tools/arch check`, then the language mutation tool, then the language DRY tool, then soft Gherkin acceptance mutation (`--level soft`) when `features/*.feature` exist. If there are no feature files, skip `gherkin-mutator`; do not fail. Manifest edits still forward. Handbacks are merge-only; do not re-forward them. Fix any issues each tool finds before running the next one.
 - On notify or restart, run `ready_for_next.sh`. It merges inbound `git_handoff`. Do not invent `git merge`.
 - When the current refactorer task or batch is complete, commit architectural changes and hand off functional work before taking another queued refactorer task or batch:
   - Send `git_handoff` to the coder and refactorer using `priority: 00` when they have follow-up work to review.

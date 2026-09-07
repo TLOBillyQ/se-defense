@@ -7,6 +7,7 @@
 ## Command Mapping
 - Unit/headless checks: `lua5.4 tools/headless/run_server.lua` (see CONTEXT.md for the rest of the verification surface).
 - Acceptance suite: `tools/acceptance/run_acceptance.sh`; Gherkin mutation: `tools/acceptance/run_mutation.sh`.
+- Architecture gate: `tools/arch check` (forbidden deps, layer violations, projection cycles); `tools/arch scan --out <file>` and `tools/arch viewer --out-dir <dir>` for the JSON model and the clickable graph. Served by the Gitea `arch_view` rock (`http://lzxsvn:3000/eggy/arch-view`), installed into `.toolcache/luarocks` by `tools/arch_bootstrap.lua` on first run. `tools/arch.lua` is the host wrapper and must turn `cli.run`'s `false` into a non-zero exit. Rules live in `arch_view.config.json` at the repository root.
 - APS tools (`gherkin-parser`, `ir-dry-checker`, `gherkin-mutator`) are served by the Gitea `acceptance4lua` rock (`tools/tools.lock`), installed into `.toolcache/luarocks` by `tools/acceptance/bootstrap.lua`. Bare names resolve through `.swarmforge/bin` forwarders written by `tools/acceptance/provision.sh`; re-run it if they are missing.
 - Never run `swarm_tool.sh ensure <aps-tool>`: it replaces the forwarders with Babashka wrappers.
 - Files under `features/` must start with `# language: zh-CN`; write features in Chinese.

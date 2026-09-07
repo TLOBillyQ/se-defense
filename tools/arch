@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# arch_view module dependency gate: tools/arch check | scan | viewer
+# Run from anywhere; the script cd's to the repository root and uses Lua 5.4.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+. ./tools/pick-lua.sh
+LUA="$(pick_lua)"
+exec "$LUA" tools/arch.lua "$@"
