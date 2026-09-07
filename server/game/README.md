@@ -16,7 +16,7 @@ GameObject/prefab/粒子等表现层换成宿主 EUI 节点、实体状态与 `p
 | --- | --- |
 | `server.adapter.host_base` | 定时器 / 事件队列 / run 泵 |
 | `server.adapter.host` | 组合根：实体、`reset_scene`，并挂载 `host.eui`、`host.input` |
-| `server.adapter.eui` | EUI 节点树（文本、可见性、颜色、ring、line） |
+| `server.adapter.eui` | 服务端 UI 状态出口：text/fill/color/visible 进快照经 RemoteEvent 下发；ring/line 就地渲成 EffectUnit（双路由） |
 | `server.adapter.input` | 输入信号 |
 
 无头测试不需要 mock：`tools/headless/se_stub.lua` 提供 SE 全局，适配层原样
@@ -33,10 +33,10 @@ GameObject/prefab/粒子等表现层换成宿主 EUI 节点、实体状态与 `p
   `game_state.mode == "Playing"`（上游等价物是 `Time.timeScale = 0`）。
 - 波次清场只推进 `wave.number`，不再直接判胜。
 
-`session.lua` 提供无场景重载的 **Restart**（组合根缺省 `GameRoot`，`Session.spawn(config, mode, root_class)` 可换 `GameRootFull`）：
+`session.lua` 提供无场景重载的 **Restart**（组合根缺省 `GameRootFull`，`Session.spawn(config, mode, root_class)` 可换成无头测试用的组合根）：
 
 ```
-旧树 tree:dispose()  →  host:reset_scene()  →  用同一 config 新建 GameRoot + SpokeTree
+旧树 tree:dispose()  →  host:reset_scene()  →  用同一 config 新建 GameRootFull + SpokeTree
 ```
 
 真机部署时，宿主自己的“退出/重进玩法”流程就是场景重载；`session.lua` 只是
@@ -46,8 +46,8 @@ headless 验证与单局重开的薄壳。
 
 | 上游 C# 文件 | Lua 模块 | 说明 |
 | --- | --- | --- |
-| `BaseDefence.unity` 场景接线 | `game_root.lua` | 组合根：GameState、Core、矿点、WaveDirector、UI 挂同一棵树；`spawn_enemy` 按波挂 Dock |
-| `GameState.cs` | `game_state.lua` | Mode/Money/CollectRate/ResourcesRemaining、六碰撞区、胜负条件、Core（GameRoot 中改由 `core.lua` 完整组件注入） |
+| `BaseDefence.unity` 场景接线 | `game_root_full.lua` | 唯一组合根：GameState、Core、矿点、WaveDirector、Pool、BuildingSpecs、InputSignals、BoardInteractions、UI 挂同一棵树；敌人常驻 Dock |
+| `GameState.cs` | `game_state.lua` | Mode/Money/CollectRate/ResourcesRemaining、六碰撞区、胜负条件、Core（GameRootFull 中改由 `core.lua` 完整组件注入） |
 | `GameState.Restart()`（场景重载） | `session.lua` | 拆树 → 清场景 → 重建树 |
 | `SpokeExtensions.cs` | `coroutine.lua` | `s:coroutine(game_tick, body)`；`yield()` 等一 tick，`wait_seconds(n)` 定时 |
 | `WaveDirector.cs` | `wave_director.lua` | lull 倒计时/揭示 → `wave_started` → 逐个 spawn → 全灭 `wave_defeated` → 下一波；tier/budget 简化为 `enemy_count`/`spawn_interval` |
@@ -57,7 +57,7 @@ headless 验证与单局重开的薄壳。
 | `Spatial/Circle.cs` + `Spatial/CollisionWorld.cs` | `collision.lua` | 2D 圆碰撞，空间哈希（格子分桶 + dirty 增量），对外契约与上游一致 |
 | `Units/Health.cs` | `health.lua` | `Health.attach(s, {max_hp})`；hp memo、damaged trigger、detach 回满血 |
 | `Units/Buildings/Building.cs` | `building.lua` | 组合式基类：Health、血条、footprint、受击变色、断电变暗、死亡回收 |
-| `Units/Buildings/Core.cs` | `core.lua` | 电网根（真 PowerNode）+ Building 组合；GameRoot 中 `game_state.core` 指向它 |
+| `Units/Buildings/Core.cs` | `core.lua` | 电网根（真 PowerNode）+ Building 组合；GameRootFull 中 `game_state.core` 指向它 |
 | `Units/Buildings/PowerNode.cs` | `power_node.lua` | 电网树：root/叶子、parent 窃取 + 防环、0.15s debounce、断电传播 |
 | `Units/Buildings/Resource.cs` | `resource.lua` | 剩余资源/血条/悬浮提示；通电且非空袭时按 collect_time 产钱；采空消失 |
 | `Units/Buildings/Relay.cs` | `relay.lua` | 纯电力中继（PowerNode provider） |
@@ -74,7 +74,7 @@ headless 验证与单局重开的薄壳。
 | `UI/CoverageDisplay.cs` | `coverage_display.lua` | 覆盖圈 → EUI ring |
 | `UI/LinkDisplay.cs` | `link_display.lua` | 电网树/链路 → EUI line |
 | —（#20 最简 HUD） | `status_ui.lua` | `hud/*` 五节点文本，保留垂直切片 e2e 路径；SideBar 是其完整后继 |
-| —（Unity `Time.deltaTime` / LateUpdate 驱动器） | `game_tick.lua` | 累计游戏时间 + 每 tick 监听器派发 dt；真机用 `EVENT.REPEAT_TIMEOUT` 驱动 |
+| —（Unity `Time.deltaTime` / LateUpdate 驱动器） | `game_tick.lua` | 累计游戏时间 + 每 tick 监听器派发 dt；真机由服务端 `RunService.Heartbeat` 固定步长积累驱动（1/30，见 `server/main.lua`） |
 | —（内部辅助） | `render_util.lua` | CoverageDisplay/LinkDisplay 共用：颜色归一化/信号读取、effect 卸载时销毁已建 EUI 节点 |
 
 ## 真机部署要点
@@ -83,9 +83,10 @@ headless 验证与单局重开的薄壳。
    `server/adapter/` 等）镜像进宿主脚本根（宿主沙盒没有 `package.path`，
    require 只能按 script 目录解析）。
 2. 宿主接缝见上表；业务模块只依赖这些接口。
-3. 游戏节拍：真机用 `EVENT.REPEAT_TIMEOUT` 驱动 `GameTick`。
-   Auto 树（推荐）在回调里 `tick:tick(dt)` 后由 SpokeRuntime 同步排空；
-   Manual 树则对每棵树补 `tree:flush()`（见 spoke 上游 `examples/frame_pacing.lua`）。
+3. 游戏节拍：真机由服务端 `RunService.Heartbeat` 驱动，`server/main.lua` 按 1/30
+   固定步长积累（每帧最多追赶 4 步，超出丢弃）调用 `tick:tick(STEP)`，整帧包在
+   `SpokeRuntime.batch` 里合并成一次 flush。SE 文档里不存在 `EVENT.REPEAT_TIMEOUT`
+   这类周期事件（见 CONTEXT.md「GameTick」）。
 4. 重开：`session.lua` 的 dispose → 重建模式可直接搬；若宿主有真正的
    场景/玩法退出流程，则用该流程替代 `host:reset_scene()`。
 5. 对象池与实体生命周期：建筑死亡走 `pool:despawn` 或 `entity:destroy`；
