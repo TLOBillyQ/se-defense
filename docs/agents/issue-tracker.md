@@ -5,10 +5,10 @@ Issues and specs for this repo live in Gitea: `http://lzxsvn:3000/qinyuanj/se-de
 Two surfaces:
 
 - **`tea` CLI** (login `lzxsvn`, user `qinyuanj`): create, list, view, edit labels/assignees/body, close.
-- **Gitea API** at `http://lzxsvn:3000/api/v1`, authenticated with the token from `~/.config/tea/config.yml`:
+- **Gitea API** at `http://lzxsvn:3000/api/v1`, authenticated with the token from `~/Library/Application Support/tea/config.yml`（macOS；Linux 为 `~/.config/tea/config.yml`）:
 
   ```sh
-  TOKEN=$(awk '/token:/{print $2}' ~/.config/tea/config.yml)
+  TOKEN=$(awk '/token:/{print $2}' "$HOME/Library/Application Support/tea/config.yml")
   api() { curl -s -H "Authorization: token $TOKEN" -H "Content-Type: application/json" "$@"; }
   ```
 
