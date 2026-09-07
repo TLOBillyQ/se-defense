@@ -67,15 +67,12 @@ function TestDeployPlan.test_spoke_mirrored_like_any_realm_child()
   lu.assertNil(m["vendor/spoke"])
 end
 
-function TestDeployPlan.test_build_removes_only_workspace_junk()
-  lu.assertEquals(plan.JUNK, { ".gm", "server.TableMgr", "unit_scripts" })
-  lu.assertEquals(removals(plan.build(fake_entries())), plan.JUNK)
+function TestDeployPlan.test_build_never_removes_anything()
+  lu.assertEquals(removals(plan.build(fake_entries())), {})
 end
 
-function TestDeployPlan.test_missing_realms_still_remove_junk()
-  local ops = plan.build(function() return {} end)
-  lu.assertEquals(mirrors(ops), {})
-  lu.assertEquals(removals(ops), plan.JUNK)
+function TestDeployPlan.test_missing_realms_yield_no_ops()
+  lu.assertEquals(plan.build(function() return {} end), {})
 end
 
 function TestDeployPlan.test_clean_removes_every_build_target_and_nothing_else()

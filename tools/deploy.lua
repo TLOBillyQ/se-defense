@@ -14,8 +14,7 @@
 -- WSL 经 9P 逐文件 rm/cp 每个文件都是一次跨系统调用，树一大就是几十秒；
 -- robocopy 只传变化文件。robocopy 不可用或退出码 >= 8 时回落 rm + cp。
 -- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
--- 工作区根的杂物（deploy_plan.JUNK）随部署清除；其余内容（eggy.json、server/_trigger、
--- data、.vscode、log.txt 等）不碰。
+-- 其余内容（eggy.json、server/_trigger、data、.vscode、log.txt、unit_scripts 等）不碰。
 -- 编辑器 syncEnabled=true：落盘即进编辑器内存，通常无需 code push（#5 实测）。
 -- 但「通常」不是「一定」：镜像完成后 deploy 自己再跑 Windows 侧 editor-cli 做收尾
 -- （code validate → code diff → 有差异才 code push → 复核），一步到位，不留下一步。
@@ -229,13 +228,13 @@ function M.usage()
     "",
     "把仓库根 <端>/<child> byte 镜像进 SE 工作区 <端>/<child>（先重置目标子树）。",
     "端为白名单 " .. table.concat(plan.REALMS, "/") .. "（官方强制的工作区根，仓库根直接对齐）；",
-    "仓库根其他内容不部署。工作区根杂物 " .. table.concat(plan.JUNK, " ") .. " 随部署清除。",
+    "仓库根其他内容不部署，工作区其余内容不碰。",
     "镜像后自动经 Windows 侧 editor-cli 收尾：code validate → code diff → 有差异才 push；",
     "编辑器没开该地图则跳过收尾（磁盘已最新）。地图侧多出的文件只提示，不删。",
     "工作区默认 " .. workspace.DEFAULT .. "，环境变量 EGGY_WORKSPACE 可覆盖。",
     "",
     "选项：",
-    "  --clean   只清不装：删掉工作区里本仓库拥有的全部子树与杂物，不拷贝。",
+    "  --clean   只清不装：删掉工作区里本仓库拥有的全部子树，不拷贝。",
     "            工作区其余内容（eggy.json、server/_trigger、data/ 等）不碰。",
     "",
     "镜像/清理计划见 tools/deploy_plan.lua。",
