@@ -1,4 +1,4 @@
-# src/server/game — Base Defence 业务模块
+# server/game — Base Defence 业务模块
 
 Unity 原型：`Examples/05_BaseDefence`（`/Users/billyq/Dev/UnityProjects/Spoke`）。
 目标不是像素级复刻，而是**忠实移植架构与游戏流，替换表现层**：
@@ -10,7 +10,7 @@ GameObject/prefab/粒子等表现层换成宿主 EUI 节点、实体状态与 `p
 
 ## 宿主接缝
 
-业务模块只依赖四个宿主接口，全部由 `src/server/adapter/` 提供：
+业务模块只依赖四个宿主接口，全部由 `server/adapter/` 提供：
 
 | require | 职责 |
 | --- | --- |
@@ -79,7 +79,7 @@ headless 验证与单局重开的薄壳。
 
 ## 真机部署要点
 
-1. 物理落位：`tools/deploy.lua` 把 `src/` 下各端子树（`common/spoke/`、`server/game/`、
+1. 物理落位：`lua5.4 tools/cli.lua deploy`（`tools/deploy.lua`） 把仓库根白名单各端子树（`common/spoke/`、`server/game/`、
    `server/adapter/` 等）镜像进宿主脚本根（宿主沙盒没有 `package.path`，
    require 只能按 script 目录解析）。
 2. 宿主接缝见上表；业务模块只依赖这些接口。

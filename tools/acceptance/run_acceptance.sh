@@ -2,7 +2,7 @@
 # Normal acceptance run for se-defense: parse -> dry-check (advisory) -> generate -> run.
 # Run from anywhere; the script cd's to the repository root.
 # Needs Lua 5.4 (tools/pick-lua.sh) and the acceptance4lua rock (auto-installed
-# into .toolcache/luarocks). Game steps boot src/server/main.lua headlessly via
+# into .toolcache/luarocks). Game steps boot server/main.lua headlessly via
 # tools/acceptance/headless.lua; see tools/acceptance/README.md.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

@@ -1,7 +1,7 @@
 # Local Engineering Rules
 
 ## Project Language
-- Project language: Lua 5.4 (adapter layer over the inlined spoke runtime in `src/common/spoke/`, targeting the SE editor host).
+- Project language: Lua 5.4 (adapter layer over the inlined spoke runtime in `common/spoke/`, targeting the SE editor host).
 - Clojure/Babashka paragraphs in engineering.prompt do not apply to this project. Never run `bb`/`clj` commands here.
 
 ## Command Mapping

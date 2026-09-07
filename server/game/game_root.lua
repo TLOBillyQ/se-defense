@@ -3,7 +3,7 @@
 -- 职责：把 GameState、Core、WaveDirector、Resource 矿点与 UI 挂载到同一棵
 -- SpokeTree 下，并注入 spawn_enemy 把每个 Enemy 挂进树里。胜负条件由
 -- GameState 统一判定：所有矿点采空 → Victory；Core 死亡 → GameOver。
--- Restart（无场景重载的宿主等价物）见 src/server/game/session.lua。
+-- Restart（无场景重载的宿主等价物）见 server/game/session.lua。
 --
 -- 集成范式：Auto-first（ADR 0004）。本文件只提供组合根 Epoch；宿主/测试按
 -- 需要选择 SpokeTree.spawn（Auto）或 spawn_manual（Manual）。生产环境用 Auto：

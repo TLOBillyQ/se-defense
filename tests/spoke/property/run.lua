@@ -9,8 +9,6 @@
 package.path = table.concat({
   "./?.lua",
   "./?/init.lua",
-  "./src/?.lua",
-  "./src/?/init.lua",
   "./tests/lib/?.lua",
   package.path,
 }, ";")

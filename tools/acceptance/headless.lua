@@ -1,5 +1,5 @@
 -- tools/acceptance/headless.lua — boots the headless game (SE stub + real
--- adapters + src/server/main.lua) inside the current process and exposes the
+-- adapters + server/main.lua) inside the current process and exposes the
 -- query surface the step handlers need. Same boot sequence as
 -- tools/headless/run_server.lua.
 --
@@ -13,7 +13,7 @@ local real_print = print
 local verbose = os.getenv("VERBOSE") == "1"
 
 local function add_search_paths()
-  local paths = { "./?.lua", "./?/init.lua", "./src/?.lua", "./src/?/init.lua" }
+  local paths = { "./?.lua", "./?/init.lua" }
   package.path = table.concat(paths, ";") .. ";" .. package.path
 end
 
@@ -33,7 +33,7 @@ function M.boot()
   reset_modules()
   local stub = require("tools.headless.se_stub")
   print = function(...) if verbose then real_print(...) end end
-  local ok, err = pcall(function() assert(loadfile("src/server/main.lua"))() end)
+  local ok, err = pcall(function() assert(loadfile("server/main.lua"))() end)
   print = real_print
   if not ok then error(err, 0) end
   return { stub = stub, host = require("server.adapter.host") }

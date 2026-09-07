@@ -39,38 +39,33 @@ end
 
 M.patterns = {
   -- ── 源码树布局（source-layout.feature，不启动对局）──
-  { "^src的一级目录(%S+)是否存在为(%S+)$", function(w, dir, expect)
+  { "^仓库根目录(%S+)是否存在为(%S+)$", function(w, dir, expect)
       if expect ~= "是" and expect ~= "否" then
         return nil, "存在性期望只能是 是/否，实际 " .. expect
       end
-      local exists = dir_exists("src/" .. dir)
+      local exists = dir_exists(dir)
       if exists == (expect == "是") then return true end
-      return nil, string.format("src/%s 存在性期望 %s，实际 %s",
+      return nil, string.format("%s 存在性期望 %s，实际 %s",
         dir, expect, exists and "是" or "否") end },
-  { "^src的一级目录都属于(.+)$", function(w, list)
-      local allowed = {}
-      for name in list:gmatch("%S+") do allowed[name] = true end
-      local bad = {}
-      local pipe = io.popen("ls -A1 src")
-      for entry in pipe:lines() do
-        if not allowed[entry] then bad[#bad + 1] = entry end
-      end
-      pipe:close()
-      if #bad == 0 then return true end
-      return nil, "src 一级含非工作区根条目: " .. table.concat(bad, ",") end },
+  { "^部署白名单为(.+)$", function(w, list)
+      local want = {}
+      for name in list:gmatch("%S+") do want[#want + 1] = name end
+      local plan = require("tools.deploy_plan")
+      if table.concat(plan.REALMS, " ") == table.concat(want, " ") then return true end
+      return nil, "部署白名单实际为 " .. table.concat(plan.REALMS, " ") end },
   { "^源码树中存在文件(%S+)$", function(w, path)
-      if read_file("src/" .. path) then return true end
-      return nil, "src/" .. path .. " 不存在" end },
+      if read_file(path) then return true end
+      return nil, path .. " 不存在" end },
   { "^源码文件(%S+)引用模块(%S+)$", function(w, file, mod)
-      local body = read_file("src/" .. file)
-      if not body then return nil, "src/" .. file .. " 不存在" end
+      local body = read_file(file)
+      if not body then return nil, file .. " 不存在" end
       if body:find('"' .. mod .. '"', 1, true) or body:find("'" .. mod .. "'", 1, true) then
         return true
       end
-      return nil, string.format("src/%s 未引用模块 %s", file, mod) end },
-  { "^src下没有文件引用以src%.开头的模块$", function(w)
+      return nil, string.format("%s 未引用模块 %s", file, mod) end },
+  { "^部署树下没有文件引用以src%.开头的模块$", function(w)
       local bad = {}
-      local pipe = io.popen("find src -name '*.lua'")
+      local pipe = io.popen("find client common server -name '*.lua'")
       for f in pipe:lines() do
         local body = read_file(f) or ""
         if body:find("require[%s%(]*[\"']src%.")

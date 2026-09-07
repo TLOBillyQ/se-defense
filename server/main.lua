@@ -8,7 +8,7 @@
 --     seq 缺口 resync 走全量（#18 决策 1）；
 --   - 输入反向通道：客户端捕获层 → FireServer 意图 → host.input 队列（#7 决策 2、#8 D5）。
 --
--- #21 建筑与放置：放置/取消按钮归适配层（src/server/adapter/build_panel.lua 投影为
+-- #21 建筑与放置：放置/取消按钮归适配层（server/adapter/build_panel.lua 投影为
 --   快照节点 panel/*，客户端渲成 EUIButton），点击回流 place/cancel 意图；
 --   放置预览由业务 board_display 的 ring 双路由承担。
 -- #23 电网与辅助建筑：业务零改动；覆盖圈 6044 / 连线与光束 4506 的分派、

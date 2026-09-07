@@ -1,5 +1,5 @@
 -- SE 运行时 API 最小桩（无头验证用，#19 一次性版本的可复用化，#21）。
--- 只覆盖 src/server/main.lua + 适配层用到的面：game:GetService / World:CreateUnit /
+-- 只覆盖 server/main.lua + 适配层用到的面：game:GetService / World:CreateUnit /
 -- RunService.Heartbeat / RemoteEvent / Vector3 / Vector2 / Color / Enums。
 -- 桩不模拟渲染，只记录属性写入，供断言读取（units 表按 Name 索引）。
 

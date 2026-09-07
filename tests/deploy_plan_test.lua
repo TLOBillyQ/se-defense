@@ -1,6 +1,7 @@
 -- Unit tests for tools/deploy_plan.lua: the pure mirror plan behind
--- tools/deploy.lua. The plan maps src/<端>/<child> onto the workspace root
--- (spoke lives at src/common/spoke, no special case) and removes legacy trees.
+-- tools/deploy.lua. The repo root is aligned with the SE workspace root, so the
+-- plan mirrors <端>/<child> for the whitelisted realms client/common/server only
+-- (spoke lives at common/spoke, no special case); nothing else in the workspace is touched.
 local lu = require("luaunit")
 local plan = require("tools.deploy_plan")
 
@@ -10,13 +11,14 @@ local function entry(name, dir)
   return { name = name, dir = dir == true }
 end
 
--- Fake directory tree shaped like the post-restructure src/.
+-- Fake repo root: the three realms plus non-deploy content that must be ignored.
 local function fake_entries()
   local tree = {
-    ["src"] = { entry("client", true), entry("common", true), entry("server", true), entry("notes.txt") },
-    ["src/common"] = { entry("spoke", true) },
-    ["src/client"] = { entry("main.lua"), entry("eui_render.lua") },
-    ["src/server"] = { entry("main.lua"), entry("adapter", true), entry("game", true) },
+    ["common"] = { entry("spoke", true) },
+    ["client"] = { entry("main.lua"), entry("eui_render.lua") },
+    ["server"] = { entry("main.lua"), entry("adapter", true), entry("game", true) },
+    ["data"] = { entry("Prefab.lua") },
+    ["tools"] = { entry("deploy.lua") },
   }
   return function(dir) return tree[dir] or {} end
 end
@@ -37,33 +39,52 @@ local function removals(ops)
   return out
 end
 
-function TestDeployPlan.test_mirrors_each_realm_child_to_workspace_root()
-  local m = mirrors(plan.build(fake_entries()))
-  lu.assertEquals(m["src/server/main.lua"], "server/main.lua")
-  lu.assertEquals(m["src/server/game"], "server/game")
-  lu.assertEquals(m["src/server/adapter"], "server/adapter")
-  lu.assertEquals(m["src/client/main.lua"], "client/main.lua")
-  lu.assertEquals(m["src/client/eui_render.lua"], "client/eui_render.lua")
+function TestDeployPlan.test_whitelist_is_the_official_workspace_roots()
+  lu.assertEquals(plan.REALMS, { "client", "common", "server" })
 end
 
-function TestDeployPlan.test_skips_plain_files_at_src_top_level()
+function TestDeployPlan.test_mirrors_each_realm_child_to_same_workspace_path()
   local m = mirrors(plan.build(fake_entries()))
-  lu.assertNil(m["src/notes.txt"])
+  lu.assertEquals(m["server/main.lua"], "server/main.lua")
+  lu.assertEquals(m["server/game"], "server/game")
+  lu.assertEquals(m["server/adapter"], "server/adapter")
+  lu.assertEquals(m["client/main.lua"], "client/main.lua")
+  lu.assertEquals(m["client/eui_render.lua"], "client/eui_render.lua")
+end
+
+function TestDeployPlan.test_ignores_repo_root_content_outside_whitelist()
+  local m = mirrors(plan.build(fake_entries()))
+  lu.assertNil(m["data/Prefab.lua"])
+  lu.assertNil(m["tools/deploy.lua"])
+  for _, dst in pairs(m) do
+    lu.assertNotNil(dst:match("^client/") or dst:match("^common/") or dst:match("^server/"))
+  end
 end
 
 function TestDeployPlan.test_spoke_mirrored_like_any_realm_child()
   local m = mirrors(plan.build(fake_entries()))
-  lu.assertEquals(m["src/common/spoke"], "common/spoke")
+  lu.assertEquals(m["common/spoke"], "common/spoke")
   lu.assertNil(m["vendor/spoke"])
 end
 
-function TestDeployPlan.test_removes_legacy_layout_trees()
-  local r = removals(plan.build(fake_entries()))
-  lu.assertEquals(r, { "src", "examples", "vendor/spoke" })
+function TestDeployPlan.test_build_removes_only_workspace_junk()
+  lu.assertEquals(plan.JUNK, { ".gm", "server.TableMgr", "unit_scripts" })
+  lu.assertEquals(removals(plan.build(fake_entries())), plan.JUNK)
 end
 
-function TestDeployPlan.test_empty_src_still_cleans_legacy_trees()
+function TestDeployPlan.test_missing_realms_still_remove_junk()
   local ops = plan.build(function() return {} end)
-  lu.assertEquals(removals(ops), { "src", "examples", "vendor/spoke" })
   lu.assertEquals(mirrors(ops), {})
+  lu.assertEquals(removals(ops), plan.JUNK)
+end
+
+function TestDeployPlan.test_clean_removes_every_build_target_and_nothing_else()
+  local build_dsts = {}
+  for _, op in ipairs(plan.build(fake_entries())) do build_dsts[#build_dsts + 1] = op.dst end
+  local clean_ops = plan.clean(fake_entries())
+  lu.assertEquals(#clean_ops, #build_dsts)
+  for i, op in ipairs(clean_ops) do
+    lu.assertEquals(op.kind, "remove")
+    lu.assertEquals(op.dst, build_dsts[i])
+  end
 end

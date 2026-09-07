@@ -1,6 +1,6 @@
 -- 无头验证：SE 桩 + 真适配层 + GameRootFull 跑服务端 main.lua，断言 #21 放置流。
 -- 运行（仓库根）：lua5.4 tools/headless/run_server.lua
-package.path = "./?.lua;./?/init.lua;./src/?.lua;./src/?/init.lua;" .. package.path
+package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local stub = require("tools.headless.se_stub")
 local checks, fails = 0, 0
@@ -14,7 +14,7 @@ end
 -- 静音业务/适配层日志（VERBOSE=1 打开）
 local verbose = os.getenv("VERBOSE") == "1"
 print = function(...) if verbose then real_print(...) end end
-assert(loadfile("src/server/main.lua"))()
+assert(loadfile("server/main.lua"))()
 local host = require("server.adapter.host")
 local root = _G.bd.root
 local bi = root.board_interactions

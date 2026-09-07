@@ -1,6 +1,6 @@
 -- 适配层组合根：组装业务模块依赖的 host 表。
 --
--- 业务模块（src/server/game/）直接 require("server.adapter.host")；无头测试用
+-- 业务模块（server/game/）直接 require("server.adapter.host")；无头测试用
 -- tools/headless/se_stub.lua 提供 SE 全局，不再有 mock 替换。
 --
 -- 四域真实现（#19 垂直切片）：

@@ -3,13 +3,15 @@
 -- 先例：monopoly tools/packages/ops/deploy.lua（镜像部署 + WSL→Windows 接缝）。
 --
 -- 部署树（CONTEXT.md「部署树」词条；计划本身在 tools/deploy_plan.lua）：
---   src/<端>/<child>/...   → 工作区 <端>/<child>/...（端 = client/common/data/server；
---                            spoke 运行时即 src/common/spoke/，与业务同规则镜像）
+--   <端>/<child>/...   → 工作区 <端>/<child>/...（端 = 白名单 client/common/server，
+--                        即官方强制的工作区根，仓库根直接对齐，见 deploy_plan.REALMS；
+--                        spoke 运行时即 common/spoke/，与业务同规则镜像）
+-- 仓库根白名单之外的内容（docs/、tools/、tests/、data/ 等）不部署。
 --
 -- 镜像纪律：先重置目标子树再拷贝，不留幽灵文件（spoke-lua 接入指南）。
 -- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
--- 工作区其余内容（eggy.json、server/_trigger、data 等）不碰。
--- 旧布局残留（工作区根的 src/、examples/）随部署清除。
+-- 工作区根的杂物（deploy_plan.JUNK）随部署清除；其余内容（eggy.json、server/_trigger、
+-- data、.vscode、log.txt 等）不碰。
 -- 编辑器 syncEnabled=true：落盘即进编辑器内存，无需 code push（#5 实测）。
 
 package.path = "./?.lua;./?/init.lua;" .. package.path
@@ -81,8 +83,10 @@ local function require_dir(path, msg)
   end
 end
 
-require_dir("src/common/spoke", "本仓库缺 src/common/spoke（spoke 运行时）")
-require_dir("src", "本仓库缺 src（源码树）")
+for _, realm in ipairs(plan.REALMS) do
+  require_dir(realm, "本仓库缺部署根 " .. realm)
+end
+require_dir("common/spoke", "本仓库缺 common/spoke（spoke 运行时）")
 require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 
 -- ── 执行镜像计划 ──────────────────────────────────────────────────────────
