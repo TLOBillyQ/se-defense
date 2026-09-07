@@ -174,4 +174,27 @@ function Pool:idle_count(key)
   return stack and #stack or 0
 end
 
+-- ── 只读查询面 ──────────────────────────────────────────────────────
+-- live 记录 = { entity, spec, epoch }（dock_key 为内部字段，调用方不得依赖）。
+-- 外部按此面读取，不得直接翻 _live_by_entity_id。
+
+-- 按实体 id 取 live 记录；不是 live 返回 nil。
+function Pool:live_record(entity_id)
+  return self._live_by_entity_id[entity_id]
+end
+
+-- 遍历全部 live 记录（无序）。回调返回真值即中止并把该记录返回。
+function Pool:each_live(fn)
+  for _, record in pairs(self._live_by_entity_id) do
+    if fn(record) then return record end
+  end
+  return nil
+end
+
+function Pool:live_count()
+  local n = 0
+  for _ in pairs(self._live_by_entity_id) do n = n + 1 end
+  return n
+end
+
 return Pool

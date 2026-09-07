@@ -7,6 +7,8 @@
 -- and the SE stub are dropped from package.loaded and required again, so
 -- module-level state (adapter registries, stub signal lists, _G.bd) starts
 -- from scratch.
+local Roster = require("server.game.roster")
+
 local M = {}
 
 local real_print = print
@@ -84,10 +86,8 @@ end
 
 function M.has_power(e)
   local pool = root().pool
-  local rec = pool and pool._live_by_entity_id and pool._live_by_entity_id[e.id]
-  local b = rec and rec.epoch and rec.epoch.building
-  local p = b and b.power and b.power.has_power
-  return p ~= nil and p:now() == true
+  local rec = pool and pool:live_record(e.id)
+  return M.building_power(rec and rec.epoch and rec.epoch.building)
 end
 
 function M.node_visible(s, path)
@@ -100,21 +100,11 @@ function M.node(s, path)
 end
 
 -- ── 规则层读取面（GDD 词汇 → 本地游戏结构）────────────────────────────
--- 建筑/矿点定位按坐标（EPS 容差）；「在场」= 未离场（死亡后碎裂 2 秒内仍在场，
--- 离场即 pool 回收 / 实体销毁）。
-
-local EPS = 1e-6
-
-local function pos_eq(p, x, z)
-  return p and math.abs(p.x - x) < EPS and math.abs(p.z - z) < EPS
-end
+-- 「谁在场」类问题全部转发 server/game/roster.lua（GM 面同源），这里不重做。
 
 -- 矿点：按坐标取 Resource 组件。
 function M.site_at(_, x, z)
-  for _, r in ipairs(root().resources or {}) do
-    if pos_eq(r.entity.position, x, z) then return r end
-  end
-  return nil
+  return Roster.site_at(root(), x, z)
 end
 
 function M.sites_remaining(_)
@@ -124,40 +114,19 @@ end
 -- 建筑：Core 走 game_state.core，其余走 pool live 记录。
 -- 返回 building 组件（.power/.health/.departed）与 pool 记录（非 Core）。
 function M.building_at(_, kind, x, z)
-  if kind == "Core" then
-    local core = root().game_state.core
-    if core and pos_eq(core.entity.position, x, z) then return core.building, nil end
-    return nil
-  end
-  local key = string.lower(tostring(kind))
-  for _, rec in pairs(root().pool and root().pool._live_by_entity_id or {}) do
-    if rec.spec and rec.spec.key == key and pos_eq(rec.entity.position, x, z) then
-      return rec.epoch and rec.epoch.building, rec
-    end
-  end
-  return nil
+  local b, rec = Roster.building_at(root(), kind, x, z)
+  if kind == "Core" and b then return b.building, nil end
+  return b, rec
 end
 
 -- 某类型建筑是否在场（未离场即在场，碎裂中算在场）。
 function M.building_present(_, kind)
-  if kind == "Core" then
-    local core = root().game_state.core
-    return core ~= nil and core.building ~= nil and not core.building.departed:now()
-  end
-  local key = string.lower(tostring(kind))
-  for _, rec in pairs(root().pool and root().pool._live_by_entity_id or {}) do
-    if rec.spec and rec.spec.key == key then return true end
-  end
-  return false
+  return Roster.building_present(root(), kind)
 end
 
 -- 场上建筑数：Core（在场时）+ pool live 建筑数。
-function M.building_count(s)
-  local n = M.building_present(s, "Core") and 1 or 0
-  for _ in pairs(root().pool and root().pool._live_by_entity_id or {}) do
-    n = n + 1
-  end
-  return n
+function M.building_count(_)
+  return Roster.building_count(root())
 end
 
 function M.building_power(b)
@@ -287,22 +256,9 @@ function M.building_tint(s, kind, x, z)
   return c and { c.r or c[1], c.g or c[2], c.b or c[3] } or nil
 end
 
--- 碎裂中：该类型第一个「已死亡但未离场」的建筑（GDD 15 F3）。
+-- 碎裂中：该类型有「已死亡但未离场」的建筑（GDD 15 F3）。
 function M.crumbling(_, kind)
-  if kind == "Core" then
-    local core = root().game_state.core
-    local b = core and core.building
-    return b ~= nil and not b.health.is_alive:now() and not b.departed:now()
-  end
-  local key = string.lower(tostring(kind))
-  for _, rec in pairs(root().pool and root().pool._live_by_entity_id or {}) do
-    local b = rec.epoch and rec.epoch.building
-    if b and rec.spec and rec.spec.key == key
-      and not b.health.is_alive:now() and not b.departed:now() then
-      return true
-    end
-  end
-  return false
+  return Roster.crumbling(root(), kind)
 end
 
 -- 边缘警示是否激活（GDD 12 A3：闪烁中即显示，与瞬时亮灭无关）。

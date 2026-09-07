@@ -56,6 +56,10 @@ local GameState = Epoch.extend("GameState", {
         self.repair_zone:tick()
         self.enemy_zone:tick()
       end
+      -- 初始布局收敛：树 spawn 后、仍在 Pregame（t=0）时显式采样一次供电圈
+      -- 并令其 flush，Core 圈内的矿点因此在开局瞬间即通电（去抖只约束开局后的
+      -- 通断电变化，GDD 03 R8）。宿主入口在挂载/重开后调用一次。
+      self.settle_power = function() self.power_zone:tick() end
       local unlisten = game_tick:listen(tick_zones)
       s:on_cleanup(function()
         unlisten()

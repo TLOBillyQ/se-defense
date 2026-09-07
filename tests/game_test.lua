@@ -147,3 +147,75 @@ function TestGame.test_match_endings()
   headless.advance(s2, 2.2)
   lu.assertEquals(headless.mode(s2), "GameOver")
 end
+
+-- server/game/roster.lua：场上名册查询（GM 面与无头 harness 同源）。
+TestRoster = {}
+
+local Roster = require("server.game.roster")
+
+local function root_of(s) return _G.bd.root end
+
+function TestRoster.test_core_and_sites_are_on_roster()
+  local s = headless.boot()
+  local r = root_of(s)
+  lu.assertTrue(Roster.building_present(r, "Core"))
+  lu.assertEquals(Roster.building_count(r), 1)
+  lu.assertNotNil(Roster.site_at(r, -0.98, 13.91))
+  lu.assertNil(Roster.site_at(r, 99, 99))
+  lu.assertNotNil(Roster.building_at(r, "Core", 0, 0))
+  lu.assertNil(Roster.building_at(r, "Core", 1, 0))
+end
+
+function TestRoster.test_spawned_building_is_found_by_kind_and_position()
+  local s = boot_playing()
+  local r = root_of(s)
+  headless.gm(s, "spawn_building", "Turret", 3, 0)
+  headless.steps(s, 2)
+  local b, rec = Roster.building_at(r, "Turret", 3, 0)
+  lu.assertNotNil(b)
+  lu.assertEquals(rec.spec.key, "turret")
+  lu.assertNil(Roster.building_at(r, "Relay", 3, 0))
+  lu.assertTrue(Roster.building_present(r, "Turret"))
+  lu.assertFalse(Roster.building_present(r, "Relay"))
+  lu.assertEquals(Roster.building_count(r), 2)
+  lu.assertEquals(r.pool:live_count(), 1)
+  lu.assertIs(r.pool:live_record(rec.entity.id), rec)
+end
+
+-- 死亡后碎裂期内：不再 first_alive，但仍在场且 crumbling。
+function TestRoster.test_crumbling_building_stays_present()
+  local s = boot_playing()
+  local r = root_of(s)
+  headless.gm(s, "spawn_building", "Relay", 2, 0)
+  headless.steps(s, 2)
+  lu.assertNotNil(Roster.first_alive(r, "Relay"))
+  lu.assertFalse(Roster.crumbling(r, "Relay"))
+  headless.gm(s, "kill", "Relay")
+  headless.steps(s, 2)
+  lu.assertNil(Roster.first_alive(r, "Relay"))
+  lu.assertTrue(Roster.crumbling(r, "Relay"))
+  lu.assertTrue(Roster.building_present(r, "Relay"))
+  headless.advance(s, 2.5)
+  lu.assertFalse(Roster.building_present(r, "Relay"))
+  lu.assertEquals(Roster.building_count(r), 1)
+end
+
+function TestRoster.test_alive_enemies_excludes_dead()
+  local s = boot_playing()
+  local r = root_of(s)
+  headless.gm(s, "spawn_enemy_at", 10, 0, "东", 1)
+  headless.gm(s, "spawn_enemy_at", 12, 0, "东", 1)
+  headless.steps(s, 1)
+  lu.assertEquals(#Roster.alive_enemies(r), 2)
+  headless.gm(s, "kill_enemy_nth", 1)
+  headless.steps(s, 1)
+  lu.assertEquals(#Roster.alive_enemies(r), 1)
+end
+
+-- GM start 与客户端 start 意图同一守卫。
+function TestRoster.test_gm_start_only_from_pregame()
+  local s = headless.boot()
+  headless.gm(s, "start")
+  headless.steps(s, 2)
+  lu.assertEquals(headless.mode(s), "Playing")
+end
