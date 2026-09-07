@@ -1,11 +1,13 @@
 -- tools/acceptance/steps_repo.lua — step handlers that inspect the repository
--- itself (features/source-layout.feature, features/deploy-mirror.feature).
+-- itself (features/source-layout.feature, features/deploy-mirror.feature,
+-- features/engineering/spoke-primitives.feature).
 --
 -- These steps run from the repository root and never boot a game; they are
 -- kept apart from the game-session steps in steps.lua so each file has one
 -- job. steps.lua appends `patterns` to its own dispatch table; the entry
 -- shape is identical: { lua-pattern, handler(w, captures...) }.
 local M = {}
+local repo = require("tools.acceptance.repo_checks")
 
 local function read_file(path)
   local f = io.open(path, "r")
@@ -76,6 +78,30 @@ M.patterns = {
       pipe:close()
       if #bad == 0 then return true end
       return nil, "仍引用 src. 前缀模块: " .. table.concat(bad, ",") end },
+  -- ── spoke 原语约束（spoke-primitives.feature，不启动对局）──
+  { "^源码文件(%S+)引用common%.spoke下的模块$", function(w, file)
+      local body = read_file(file)
+      if not body then return nil, file .. " 不存在" end
+      if repo.references_common_spoke(body) then return true end
+      return nil, file .. " 未引用 common.spoke 下的模块" end },
+  { "^源码文件(%S+)使用spoke原语(%S+)$", function(w, file, prim)
+      local body = read_file(file)
+      if not body then return nil, file .. " 不存在" end
+      if repo.uses_spoke_primitive(body, prim) then return true end
+      return nil, string.format("%s 未使用 spoke 原语 %s", file, prim) end },
+  { "^server/game下不引用common%.spoke的模块都属于(.+)$", function(w, list)
+      local want = {}
+      for name in list:gmatch("%S+") do want[#want + 1] = name end
+      table.sort(want)
+      local actual = repo.non_spoke_modules(repo.server_game_files())
+      if table.concat(actual, " ") == table.concat(want, " ") then return true end
+      return nil, "server/game 不引用 common.spoke 的模块实际为 " .. table.concat(actual, " ") end },
+  { "^源码文件(%S+)只引用前缀为server%.的模块$", function(w, file)
+      local body = read_file(file)
+      if not body then return nil, file .. " 不存在" end
+      local bad = repo.non_server_requires(body)
+      if #bad == 0 then return true end
+      return nil, file .. " 引用非 server. 前缀模块: " .. table.concat(bad, ",") end },
   -- ── 部署镜像（deploy-mirror.feature，临时工作区在 ./tmp 下）──
   { "^一个空的临时工作区$", function(w)
       w.workspace = "tmp/deploy-mirror-workspace"
