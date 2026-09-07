@@ -6,17 +6,17 @@
 -- 语义落成：
 --   1. tree:dispose()             —— 让 Spoke 逆序清理整棵子树；
 --   2. host:reset_scene()         —— 清空 mock 场景（EUI / 实体 / 输入）；
---   3. 用同一份 config 创建新的 GameRoot 与 SpokeTree。
+--   3. 用同一份 config 创建新的 GameRootFull 与 SpokeTree。
 --
 -- 真机部署时，宿主自己的“离开/重进玩法”流程就是场景重载；本文件只是
 -- headless 验证与单局重开的薄壳，不进入核心库。
 --
--- 组合根可选：默认 GameRoot（垂直切片）；传 root_class 可换成 GameRootFull
--- 等任何 `.new(config)` 返回 Epoch 的组合根（se-defense 真机重开走这里）。
+-- 组合根可选：默认 GameRootFull（唯一生产组合根）；传 root_class 可换成
+-- 任何 `.new(config)` 返回 Epoch 的组合根（无头测试用）。
 
 local spoke = require("common.spoke")
 local SpokeTree = spoke.SpokeTree
-local GameRoot = require("server.game.game_root")
+local GameRootFull = require("server.game.game_root_full")
 
 local host_default = require("server.adapter.host")
 
@@ -24,7 +24,7 @@ local Session = {}
 Session.__index = Session
 
 local function build(config, mode, root_class)
-  local root = (root_class or GameRoot).new(config)
+  local root = (root_class or GameRootFull).new(config)
   local tree
   if mode == "Manual" then
     tree = SpokeTree.spawn_manual(root)
@@ -51,7 +51,7 @@ local function wrap(config, mode, root_class)
 end
 
 -- 创建 Auto 会话（默认）；mode 传 "Manual" 可创建 Manual 会话；
--- root_class 缺省为 GameRoot。
+-- root_class 缺省为 GameRootFull。
 function Session.spawn(config, mode, root_class)
   return wrap(config or {}, mode or "Auto", root_class)
 end

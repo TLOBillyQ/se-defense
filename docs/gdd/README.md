@@ -46,6 +46,8 @@
 
 规则归属原则：**谁被影响，规则写在谁那里**。"Relay 被毁导致分支断电"在电网；"未通电 Turret 不开火"在侦测与火力；"进攻期停采"在经济。
 
+这张图在源码层被**固定**：`features/engineering/dependencies.feature` 把每条影响方向翻译成模块依赖方向（被影响的一方 require 影响它的一方），并要求反向 require 被架构门禁 `tools/arch check`（arch-view，配置在仓库根 `arch_view.config.json`）拒绝。改依赖方向要同时改这张图、那份 feature 与门禁配置。
+
 ## 验收接缝（供 to-spec 引用）
 
 只用一个接缝：现有无头 harness（SE 桩 + 真适配层 + 真服务端入口）。steps 层把规则词汇翻译成编排动作（直接造好建筑、指定位置与航线生成敌人、设定波次、推进秒数）与读取（模式、资金、实体、通电、快照节点 text/color/visible、ring/line 形状）。不为单个系统另开模块级测试接缝。

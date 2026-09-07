@@ -1,7 +1,7 @@
 -- server/game/roster.lua — 场上名册查询（组合根之上的只读领域问题）。
 --
 -- 回答「谁在场」这一类问题：按坐标找矿点、按类型/坐标找建筑、某类型是否
--- 在场、场上建筑数、是否有碎裂中的建筑、存活敌人。GM 面（server/adapter/gm.lua）、
+-- 在场、场上建筑数、是否有碎裂中的建筑、存活敌人。GM 面（server/gm.lua）、
 -- 无头 harness（tools/acceptance/headless.lua）与真机集成脚本都从这里取答案，
 -- 不各自翻 pool / game_state 重做。
 --

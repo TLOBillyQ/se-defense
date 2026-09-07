@@ -13,6 +13,7 @@
 #     （docs/ tools/ tests/ features/ data/ 等）不部署。
 #   - 只被服务端引用的模块放 server/，只被客户端引用的放 client/，双端共用的才放 common/。
 #     业务模块在 server/game/，服务端宿主适配层在 server/adapter/，客户端渲染器直接在 client/。
+#     GM 面 server/gm.lua 与网络层 server/net.lua 与 main.lua 同级：它们编排业务与适配层，适配层自身不得 require server.game。
 #   - require 名以仓库根为根（即工作区根），例如 server.game.core、server.adapter.host、
 #     client.eui_render；仓库内不再出现 src. 前缀的模块名。spoke 运行时内联在 common/spoke/，
 #     require 前缀 common.spoke（SE 文档只认 client/common/data/server 四个根目录，vendor/ 不在其中）。
@@ -44,8 +45,14 @@
   | server/game/core.lua           |
   | server/adapter/host.lua        |
   | server/adapter/build_panel.lua |
+  | server/gm.lua                  |
+  | server/net.lua                 |
   | client/main.lua                |
   | client/eui_render.lua          |
+  | client/channel.lua             |
+  | client/camera.lua              |
+  | client/board_input.lua         |
+  | client/gm.lua                  |
   | common/spoke/init.lua          |
 
 场景大纲: 源码树布局 4: 模块名相对仓库根解析
@@ -55,9 +62,13 @@
   | 文件                 | 模块                       |
   | server/main.lua      | server.game.game_root_full |
   | server/main.lua      | server.adapter.host        |
+  | server/main.lua      | server.net                 |
   | server/game/core.lua | server.adapter.host        |
   | server/game/core.lua | common.spoke               |
   | client/main.lua      | client.eui_render          |
+  | client/main.lua      | client.channel             |
+  | client/main.lua      | client.camera              |
+  | client/main.lua      | client.board_input         |
 
 场景: 源码树布局 5: 仓库内不再有 src 前缀的模块名
   那么 部署树下没有文件引用以src.开头的模块
