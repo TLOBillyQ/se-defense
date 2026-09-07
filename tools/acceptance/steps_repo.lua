@@ -17,6 +17,19 @@ local function read_file(path)
   return body
 end
 
+-- Every server/game/*.lua as {name, body} specs (the allowlist check input).
+local function server_game_files()
+  local specs = {}
+  local pipe = io.popen("find server/game -maxdepth 1 -name '*.lua'")
+  for f in pipe:lines() do
+    local base = f:match("^server/game/(.+)%.lua$")
+    local body = base and read_file(f)
+    if body then specs[#specs + 1] = { name = base, body = body } end
+  end
+  pipe:close()
+  return specs
+end
+
 local function dir_exists(path)
   local ok, _, code = os.execute("test -d '" .. path .. "'")
   return ok ~= nil and code == 0
@@ -93,7 +106,7 @@ M.patterns = {
       local want = {}
       for name in list:gmatch("%S+") do want[#want + 1] = name end
       table.sort(want)
-      local actual = repo.non_spoke_modules(repo.server_game_files())
+      local actual = repo.non_spoke_modules(server_game_files())
       if table.concat(actual, " ") == table.concat(want, " ") then return true end
       return nil, "server/game 不引用 common.spoke 的模块实际为 " .. table.concat(actual, " ") end },
   { "^源码文件(%S+)只引用前缀为server%.的模块$", function(w, file)
