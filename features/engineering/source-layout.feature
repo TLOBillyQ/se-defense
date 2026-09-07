@@ -48,6 +48,10 @@
   | server/gm.lua                  |
   | client/main.lua                |
   | client/eui_render.lua          |
+  | client/channel.lua             |
+  | client/camera.lua              |
+  | client/board_input.lua         |
+  | client/gm.lua                  |
   | common/spoke/init.lua          |
 
 场景大纲: 源码树布局 4: 模块名相对仓库根解析
@@ -60,6 +64,9 @@
   | server/game/core.lua | server.adapter.host        |
   | server/game/core.lua | common.spoke               |
   | client/main.lua      | client.eui_render          |
+  | client/main.lua      | client.channel             |
+  | client/main.lua      | client.camera              |
+  | client/main.lua      | client.board_input         |
 
 场景: 源码树布局 5: 仓库内不再有 src 前缀的模块名
   那么 部署树下没有文件引用以src.开头的模块
