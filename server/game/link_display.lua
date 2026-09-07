@@ -40,7 +40,7 @@ function LinkDisplay.draw_all(s, opts)
   s:effect("LinkDisplay.All:" .. path, function(sb)
     local segments = {}
     for _, node in ipairs(sb:d(PowerNode.all)) do
-      local parent = sb:d(node.parent)
+      local parent = not node.link_hidden and sb:d(node.parent) or nil
       if parent ~= nil then
         segments[#segments + 1] = {
           node = node,

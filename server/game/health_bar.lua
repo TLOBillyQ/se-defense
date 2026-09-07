@@ -39,9 +39,10 @@ local HealthBar = Epoch.extend("HealthBar", {
     -- 语义（alive=false 隐藏），需要“空值也隐藏”的调用方打开此开关。
     self.hide_when_empty = config.hide_when_empty == true
 
-    self.healthy_colour = config.healthy_colour or { r = 0, g = 1, b = 0, a = 1 }
-    self.moderate_colour = config.moderate_colour or { r = 1, g = 1, b = 0, a = 1 }
-    self.severe_colour = config.severe_colour or { r = 1, g = 0, b = 0, a = 1 }
+    -- GDD 15 F1 色板（与 steps_support 命名色一致）：绿 / 黄 / 红。
+    self.healthy_colour = config.healthy_colour or { r = 0.2, g = 0.8, b = 0.2, a = 1 }
+    self.moderate_colour = config.moderate_colour or { r = 1, g = 0.85, b = 0, a = 1 }
+    self.severe_colour = config.severe_colour or { r = 1, g = 0.25, b = 0.25, a = 1 }
   end,
 
   init = function(self, s)

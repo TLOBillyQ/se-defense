@@ -17,6 +17,8 @@ local Radar = require("server.game.radar")
 local Turret = require("server.game.turret")
 local Repair = require("server.game.repair")
 
+local World = require("server.game.world")
+
 local host_default = require("server.adapter.host")
 
 local BuildingSpecs = {}
@@ -47,57 +49,62 @@ function BuildingSpecs.create(deps)
   local game_tick = deps.game_tick or error("BuildingSpecs requires game_tick", 2)
   local pool = deps.pool
 
+  -- GDD 00 实体总表（数值真源 server/game/world.lua）。
+  local specs = World.specs
   local defaults = {
     relay = {
       key = "relay",
       prefab = "relay",
-      cost = 50,
-      radius = 0.6,
+      cost = specs.Relay.price,
+      radius = specs.Relay.footprint,
       coverage = "Power",
       building = {
-        max_hp = 30,
+        max_hp = specs.Relay.health,
         display_name = "Relay",
-        provide_range = 4,
-        receive_range = 0.1,
+        provide_range = specs.Relay.provide,
+        receive_range = specs.Relay.receive,
       },
     },
     radar = {
       key = "radar",
       prefab = "radar",
-      cost = 75,
-      radius = 0.4,
+      cost = specs.Radar.price,
+      radius = specs.Radar.footprint,
       coverage = "Radar",
       building = {
-        max_hp = 25,
+        max_hp = specs.Radar.health,
         display_name = "Radar",
-        range = 8,
+        range = specs.Radar.range,
       },
     },
     turret = {
       key = "turret",
       prefab = "turret",
-      cost = 100,
-      radius = 0.6,
+      cost = specs.Turret.price,
+      radius = specs.Turret.footprint,
       coverage = "Turret",
       building = {
-        max_hp = 40,
+        max_hp = specs.Turret.health,
         display_name = "Turret",
-        range = 5,
-        damage = 1,
-        fire_rate = 2,
+        range = specs.Turret.range,
+        damage = World.fire_damage,
+        fire_rate = 1 / World.fire_interval,
+        fire_angle = World.turret_fire_angle,
+        rotation_speed = World.turret_turn_rate,
+        beam_flash_time = World.fire_beam,
       },
     },
     repair = {
       key = "repair",
       prefab = "repair",
-      cost = 80,
-      radius = 0.6,
+      cost = specs.Repair.price,
+      radius = specs.Repair.footprint,
       coverage = "Repair",
       building = {
-        max_hp = 30,
+        max_hp = specs.Repair.health,
         display_name = "Repair",
-        range = 5,
-        repair_rate = 5,
+        range = specs.Repair.range,
+        repair_rate = World.repair_rate,
       },
     },
   }
@@ -117,6 +124,7 @@ function BuildingSpecs.create(deps)
           entity = ctx.entity,
           max_hp = b.max_hp,
           display_name = b.display_name,
+          radius = spec_cfg.radius,
           power_zone = game_state.power_zone,
           ground_zone = game_state.ground_zone,
           game_tick = game_tick,

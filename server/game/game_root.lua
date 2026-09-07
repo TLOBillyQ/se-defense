@@ -13,8 +13,8 @@
 local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
-local Dock = spoke.Dock
 
+local World = require("server.game.world")
 local GameState = require("server.game.game_state")
 local Core = require("server.game.core")
 local WaveDirector = require("server.game.wave_director")
@@ -41,16 +41,6 @@ end
 
 local host_default = require("server.adapter.host")
 
--- 默认矿点：贴近 Core，使默认配置无需放置 relay 即可开始采掘。
-local function default_resources()
-  return {
-    { position = { x = -2.5, y = 0, z = 2.5 }, start_resources = 20 },
-    { position = { x = 2.5, y = 0, z = 2.5 }, start_resources = 20 },
-    { position = { x = -2.5, y = 0, z = -2.5 }, start_resources = 20 },
-    { position = { x = 2.5, y = 0, z = -2.5 }, start_resources = 20 },
-  }
-end
-
 local GameRoot = Epoch.extend("GameRoot", {
   constructor = function(self, config)
     config = config or {}
@@ -69,7 +59,7 @@ local GameRoot = Epoch.extend("GameRoot", {
     self.enemy_config = config.enemy or {}
     self.resource_configs = config.resources
     if self.resource_configs == nil then
-      self.resource_configs = default_resources()
+      self.resource_configs = World.near_core_resource_configs()
     end
 
     self.game_state = nil
@@ -106,33 +96,28 @@ local GameRoot = Epoch.extend("GameRoot", {
       game_state.core = core
       self.core = core
 
-      -- 上游每个 wave 用一个 Dock 持有该波敌人；本切片按波创建 Dock。
-      -- Enemy 死亡时会自行销毁宿主实体（Enemy.Dead Phase），组合根在波次
-      -- 清场后把整个 wave Dock 卸下，避免单个死亡即 detach 时与测试 stub
-      -- 的 cleanup 行为产生竞态。
-      local waves_dock = ss:dock("waves")
-      local current_wave_dock
+      -- 敌人：常驻 Dock 盛放（与 GameRootFull 同一范式；GDD 07）。
+      local enemies_dock = ss:dock("enemies")
       local enemy_serial = 0
 
-      local function spawn_enemy(front, position)
+      local function spawn_enemy(spec)
         enemy_serial = enemy_serial + 1
         local key = "enemy_" .. enemy_serial
+        local tier_cfg = World.enemy_tiers[spec.tier or 1]
         local enemy = get_enemy_class().new({
           host = self.host,
           game_tick = self.game_tick,
           game_state = game_state,
-          position = position,
-          max_hp = self.enemy_config.max_hp,
-          move_speed = self.enemy_config.move_speed,
-          stop_distance = self.enemy_config.stop_distance,
-          fire_rate = self.enemy_config.fire_rate,
-          damage = self.enemy_config.damage,
+          position = { x = spec.x, y = 0, z = spec.z },
+          heading = spec.heading,
+          tier = spec.tier,
+          max_hp = self.enemy_config.max_hp or tier_cfg.health,
+          move_speed = self.enemy_config.move_speed or World.enemy_speed,
+          stop_distance = self.enemy_config.stop_distance or World.enemy_stop_distance,
+          radius = self.enemy_config.radius or tier_cfg.footprint,
         })
 
-        if not current_wave_dock then
-          error("spawn_enemy called before any wave_started", 2)
-        end
-        current_wave_dock:call(key, enemy)
+        enemies_dock:call(key, enemy)
 
         self.enemies[#self.enemies + 1] = enemy
         return enemy
@@ -142,12 +127,7 @@ local GameRoot = Epoch.extend("GameRoot", {
         game_state = game_state,
         game_tick = self.game_tick,
         spawn_enemy = spawn_enemy,
-        lull_duration = self.wave_director_config.lull_duration,
-        front_reveal_time = self.wave_director_config.front_reveal_time,
-        spawn_interval = self.wave_director_config.spawn_interval,
-        enemy_count = self.wave_director_config.enemy_count,
-        spawn_margin = self.wave_director_config.spawn_margin,
-        pick_front = self.wave_director_config.pick_front,
+        rng01 = self.wave_director_config.rng01,
       }))
       self.wave_director = wave_director
 
@@ -190,17 +170,6 @@ local GameRoot = Epoch.extend("GameRoot", {
         game_tick = self.game_tick,
       }))
 
-      -- 每波开始时新建一个 Dock 盛放该波敌人。
-      ss:subscribe(wave_director.wave_started, function(w)
-        current_wave_dock = Dock.new("wave_" .. w.number)
-        waves_dock:call("wave_" .. w.number, current_wave_dock)
-      end)
-
-      -- 波次清场：只卸下本波敌人 Dock；胜负判定在 GameState，不在此重复。
-      ss:subscribe(wave_director.wave_defeated, function(w)
-        waves_dock:drop("wave_" .. w.number)
-        current_wave_dock = nil
-      end)
     end))
   end,
 })

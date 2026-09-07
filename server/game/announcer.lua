@@ -10,6 +10,7 @@
 local spoke = require("common.spoke")
 local Epoch = spoke.Epoch
 local Effect = spoke.Effect
+local State = spoke.State
 
 -- 确保 s:coroutine 扩展已加载。
 require("server.game.coroutine")
@@ -49,6 +50,13 @@ local Announcer = Epoch.extend("Announcer", {
     end
     self.onscreen = onscreen
     self.warnings = warnings
+    -- 边缘警示「显示」= 警示激活（正在闪烁），而非瞬时亮灭：闪烁 coroutine
+    -- 每 0.5s 翻 visible，断言读 active（GDD 12 A3/A4；闪烁周期 =
+    -- wave_warning_blink_time，经同名配置字段读取）。
+    self.warning_active = {}
+    for _, front in ipairs({ "North", "East", "South", "West" }) do
+      self.warning_active[front] = State.new("Announcer.warning." .. front, false)
+    end
 
     local is_playing = s:call(spoke.Memo.new("Announcer.is_playing", function(m)
       return m:d(game_state.mode) == "Playing"
@@ -65,8 +73,10 @@ local Announcer = Epoch.extend("Announcer", {
         end
 
         node:set_visible(true)
+        self.warning_active[front]:set(true)
         s3:on_cleanup(function()
           node:set_visible(false)
+          self.warning_active[front]:set(false)
         end)
 
         s3:coroutine(game_tick, function(_, wait_seconds)
@@ -112,6 +122,7 @@ local Announcer = Epoch.extend("Announcer", {
       end
       self.onscreen = nil
       self.warnings = nil
+      self.warning_active = nil
     end)
   end,
 })

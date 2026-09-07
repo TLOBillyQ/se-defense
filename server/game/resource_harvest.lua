@@ -39,7 +39,7 @@ function ResourceHarvest.install(s, resource, ctx)
       local assaulting = false
       if wave_signal then
         local wave = s3:d(wave_signal)
-        assaulting = wave and wave.starts_in == 0
+        assaulting = wave and wave.assault == true
       end
       return playing and has_power and not assaulting
     end, can_harvest_deps)

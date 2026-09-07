@@ -30,11 +30,18 @@ function M.create(host, root)
     if spec then
       local node = host.eui.node("panel/build/" .. key)
       node:set_visible(false)
-      -- spec 上没有 display_name（在 spec.building 里），首字母大写即可
-      node:set_text(string.format("%s $%d", key:gsub("^%l", string.upper), spec.cost or 0))
-      panel.buttons[#panel.buttons + 1] = { key = key, spec = spec, node = node }
+      -- H7：文案 `<建筑名> - $<价格>`（spec 上没有 display_name，首字母大写即可）。
+      local label = key:gsub("^%l", string.upper)
+      local base_text = string.format("%s - $%d", label, spec.cost or 0)
+      node:set_text(base_text)
+      panel.buttons[#panel.buttons + 1] = {
+        key = key, spec = spec, node = node, base_text = base_text,
+      }
     end
   end
+  panel.start = host.eui.node("panel/start")
+  panel.start:set_visible(false)
+  panel.start:set_text("Start")
   panel.cancel = host.eui.node("panel/cancel")
   panel.cancel:set_visible(false)
   panel.cancel:set_text("Cancel")
@@ -60,12 +67,26 @@ function M.update(panel)
   for _, b in ipairs(panel.buttons) do
     b.node:set_visible(playing)
     local c
+    local enabled
+    local text = b.base_text
     if placing == b.spec then
+      -- H7：放置态中只有当前类型按钮可用，文案变为 Cancel。
       c = COLOR_SELECTED
+      enabled = true
+      text = "Cancel"
+    elseif placing ~= nil then
+      c = COLOR_POOR
+      enabled = false
     elseif money >= (b.spec.cost or 0) then
       c = COLOR_AFFORD
+      enabled = true
     else
       c = COLOR_POOR
+      enabled = false
+    end
+    b.node:set_enabled(playing and enabled)
+    if b.node.text ~= text then
+      b.node:set_text(text)
     end
     local cur = b.node.color
     if cur.r ~= c.r or cur.g ~= c.g or cur.b ~= c.b then
@@ -73,15 +94,24 @@ function M.update(panel)
     end
   end
   panel.cancel:set_visible(playing and placing ~= nil)
+  panel.start:set_visible(gs.mode:now() == "Pregame")
   panel.restart:set_visible(M.restart_allowed(panel))
 end
 
--- 放置意图入口（RemoteEvent / GM 共用）：只在 Playing 且 key 合法时置位。
--- 返回 true 表示已置位。
+-- 放置意图入口（RemoteEvent / GM 共用）：Playing 中、key 合法且资金可负担
+-- （GDD 04 R1 资金不足不可选）时置位；放置态中再点当前类型按钮 = 取消
+-- （GDD 16 I4）。返回 true 表示已置位。
 function M.place(panel, key)
   local spec = panel.root.building_specs and panel.root.building_specs[key]
   if not spec then return false, "unknown" end
   if panel.root.game_state.mode:now() ~= "Playing" then return false, "not_playing" end
+  if panel.root.board_interactions.placing:now() == spec then
+    panel.root.board_interactions.placing:set(nil)
+    return false, "cancelled"
+  end
+  if (panel.root.game_state.money:now() or 0) < (spec.cost or 0) then
+    return false, "unaffordable"
+  end
   panel.root.board_interactions.placing:set(spec)
   return true
 end
