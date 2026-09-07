@@ -41,16 +41,6 @@ end
 
 local host_default = require("server.adapter.host")
 
--- 默认矿点：贴近 Core，使默认配置无需放置 relay 即可开始采掘。
-local function default_resources()
-  return {
-    { position = { x = -2.5, y = 0, z = 2.5 }, start_resources = 20 },
-    { position = { x = 2.5, y = 0, z = 2.5 }, start_resources = 20 },
-    { position = { x = -2.5, y = 0, z = -2.5 }, start_resources = 20 },
-    { position = { x = 2.5, y = 0, z = -2.5 }, start_resources = 20 },
-  }
-end
-
 local GameRoot = Epoch.extend("GameRoot", {
   constructor = function(self, config)
     config = config or {}
@@ -69,7 +59,7 @@ local GameRoot = Epoch.extend("GameRoot", {
     self.enemy_config = config.enemy or {}
     self.resource_configs = config.resources
     if self.resource_configs == nil then
-      self.resource_configs = default_resources()
+      self.resource_configs = World.near_core_resource_configs()
     end
 
     self.game_state = nil

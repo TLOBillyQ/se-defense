@@ -50,6 +50,18 @@ M.sites = {
   { x = -15.31, z = 13.35 },  { x = 6.15,   z = -7.75 },  { x = -1.99,  z = -0.10 },
 }
 
+-- 组合根缺省矿点（game_root / game_root_full 共用）：「贴近 Core」，使默认配置
+-- 无需放置 relay 即可开始采掘。返回资源配置表（position + start_resources）；
+-- 每次调用返回新表，避免调用方原地改写污染共享事实。
+function M.near_core_resource_configs()
+  return {
+    { position = { x = -2.5, y = 0, z = 2.5 }, start_resources = 20 },
+    { position = { x = 2.5, y = 0, z = 2.5 }, start_resources = 20 },
+    { position = { x = -2.5, y = 0, z = -2.5 }, start_resources = 20 },
+    { position = { x = 2.5, y = 0, z = -2.5 }, start_resources = 20 },
+  }
+end
+
 
 -- 波次（GDD 07 W1–W7）：平静期、方向公布阈值、预算、间隔、层级门槛、生成点。
 M.wave = {
