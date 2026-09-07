@@ -1,10 +1,13 @@
--- tools/acceptance/repo_checks.lua — pure predicates that back the
--- features/engineering/spoke-primitives.feature repository inspections.
+-- tools/acceptance/repo_checks.lua — pure predicates backing the engineering
+-- repository inspections: features/engineering/spoke-primitives.feature and
+-- features/engineering/dependencies.feature.
 --
--- These are pure string checks (no game boot, no filesystem, no side effects)
--- so they stay testable by unit tests and reusable by the step handlers in
--- steps_repo.lua, which owns the file reading. The rule truth source is CONTEXT.md「spoke 原语约束」and the
--- feature's header comment.
+-- These are pure checks (no game boot, no filesystem, no side effects) so they
+-- stay testable by unit tests and reusable by the step handlers in
+-- steps_repo.lua, which owns the file reading and the arch_view model scan.
+-- Truth sources: CONTEXT.md「spoke 原语约束」and the two feature header
+-- comments, plus arch_view.config.json for the gate config the dependency
+-- predicates read.
 local M = {}
 
 -- True if `body` references the common.spoke facade (require("common.spoke"))

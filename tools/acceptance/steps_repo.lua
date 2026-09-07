@@ -1,6 +1,7 @@
 -- tools/acceptance/steps_repo.lua — step handlers that inspect the repository
 -- itself (features/source-layout.feature, features/deploy-mirror.feature,
--- features/engineering/spoke-primitives.feature).
+-- features/engineering/spoke-primitives.feature,
+-- features/engineering/dependencies.feature).
 --
 -- These steps run from the repository root and never boot a game; they are
 -- kept apart from the game-session steps in steps.lua so each file has one
