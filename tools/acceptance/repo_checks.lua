@@ -21,13 +21,21 @@ end
 --   spoke.reactive.<snake> / spoke.runtime.<snake>  subtable access
 --   require("common.spoke.reactive.<snake>") / require("common.spoke.runtime.<snake>")
 -- where <snake> is the lowercase primitive name.
+-- for Dock, an EffectBuilder-scoped compose call (`ss:dock(...)`) also counts;
+-- it is the Dock primitive reached through the EffectBuilder compose surface.
 function M.uses_spoke_primitive(body, prim)
   local snake = prim:lower()
-  return M._has_identifier(body, "spoke." .. prim)
+  if M._has_identifier(body, "spoke." .. prim)
       or M._has_identifier(body, "spoke.reactive." .. snake)
       or M._has_identifier(body, "spoke.runtime." .. snake)
       or body:find("require[%s%(]*[\"']common%.spoke%.reactive%." .. snake .. "([^%w_])") ~= nil
-      or body:find("require[%s%(]*[\"']common%.spoke%.runtime%." .. snake .. "([^%w_])") ~= nil
+      or body:find("require[%s%(]*[\"']common%.spoke%.runtime%." .. snake .. "([^%w_])") ~= nil then
+    return true
+  end
+  if snake == "dock" and body:find(":dock%(") then
+    return true
+  end
+  return false
 end
 
 -- Module names required as string literals in `body`. Non-literal requires

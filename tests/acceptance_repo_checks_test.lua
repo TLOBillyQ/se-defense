@@ -58,6 +58,17 @@ function TestUsesSpokePrimitive.test_direct_require_word_boundary()
     'local EffectBuilder = require("common.spoke.reactive.effect_builder")', "Effect"))
 end
 
+function TestUsesSpokePrimitive.test_scoped_dock_compose_counts_as_dock()
+  -- game_root_full composes a Dock through the EffectBuilder scope (ss:dock).
+  lu.assertTrue(repo.uses_spoke_primitive(
+    "local enemies_dock = ss:dock(\"enemies\")", "Dock"))
+end
+
+function TestUsesSpokePrimitive.test_scoped_dock_is_not_other_primitive()
+  lu.assertFalse(repo.uses_spoke_primitive(
+    "local enemies_dock = ss:dock(\"enemies\")", "State"))
+end
+
 TestNonServerRequires = {}
 
 function TestNonServerRequires.test_only_server_prefix_is_ok()
