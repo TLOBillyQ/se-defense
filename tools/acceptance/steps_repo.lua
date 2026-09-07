@@ -50,9 +50,9 @@ M.patterns = {
   { "^部署白名单为(.+)$", function(w, list)
       local want = {}
       for name in list:gmatch("%S+") do want[#want + 1] = name end
-      local plan = require("tools.deploy_plan")
-      if table.concat(plan.REALMS, " ") == table.concat(want, " ") then return true end
-      return nil, "部署白名单实际为 " .. table.concat(plan.REALMS, " ") end },
+      local deploy = require("tools.deploy")
+      if table.concat(deploy.REALMS, " ") == table.concat(want, " ") then return true end
+      return nil, "部署白名单实际为 " .. table.concat(deploy.REALMS, " ") end },
   { "^源码树中存在文件(%S+)$", function(w, path)
       if read_file(path) then return true end
       return nil, path .. " 不存在" end },

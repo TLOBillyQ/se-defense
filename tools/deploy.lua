@@ -3,9 +3,9 @@
 -- 直接 `lua5.4 tools/deploy.lua` 亦可。反方向回同步见 tools/sync.lua。
 -- 先例：monopoly tools/packages/ops/deploy.lua（镜像部署 + WSL→Windows 接缝）。
 --
--- 部署树（CONTEXT.md「部署树」词条；计划本身在 tools/deploy_plan.lua）：
+-- 部署树（CONTEXT.md「部署树」词条）：
 --   <端>/<child>/...   → 工作区 <端>/<child>/...（端 = 白名单 client/common/server，
---                        即官方强制的工作区根，仓库根直接对齐，见 deploy_plan.REALMS；
+--                        即官方强制的工作区根，仓库根直接对齐，见 M.REALMS；
 --                        spoke 运行时即 common/spoke/，与业务同规则镜像）
 -- 仓库根白名单之外的内容（docs/、tools/、tests/、data/ 等）不部署。
 --
@@ -23,10 +23,13 @@
 
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
-local plan = require("tools.deploy_plan")
 local workspace = require("tools.eggy_workspace")
 
 local M = {}
+
+-- 官方强制的工作区根目录，即部署白名单；顺序即部署顺序。
+-- 重置粒度是每个端下的一级子树；白名单之外的内容（无论仓库根还是工作区）一律不碰。
+M.REALMS = { "client", "common", "server" }
 
 -- 业务失败统一 error 出去，由 main 收成 stderr + 退出码 1。
 local function fail(msg)
@@ -227,7 +230,7 @@ function M.usage()
     "用法: lua5.4 tools/cli.lua deploy",
     "",
     "把仓库根 <端>/<child> byte 镜像进 SE 工作区 <端>/<child>（先重置目标子树）。",
-    "端为白名单 " .. table.concat(plan.REALMS, "/") .. "（官方强制的工作区根，仓库根直接对齐）；",
+    "端为白名单 " .. table.concat(M.REALMS, "/") .. "（官方强制的工作区根，仓库根直接对齐）；",
     "仓库根其他内容不部署，工作区其余内容不碰。",
     "镜像后自动经 Windows 侧 editor-cli 收尾：code validate → code diff → 有差异才 push；",
     "编辑器没开该地图则跳过收尾（磁盘已最新）。地图侧多出的文件只提示，不删。",
@@ -237,49 +240,52 @@ function M.usage()
     "  --clean   只清不装：删掉工作区里本仓库拥有的全部子树，不拷贝。",
     "            工作区其余内容（eggy.json、server/_trigger、data/ 等）不碰。",
     "",
-    "镜像/清理计划见 tools/deploy_plan.lua。",
     "",
   }, "\n") .. "\n"
 end
 
 local function run_deploy(clean_only)
   local WORKSPACE = workspace.resolve()
-  for _, realm in ipairs(plan.REALMS) do
+  for _, realm in ipairs(M.REALMS) do
     require_dir(realm, "本仓库缺部署根 " .. realm)
   end
   require_dir(WORKSPACE, "SE 工作区不存在；可用环境变量 EGGY_WORKSPACE 覆盖")
 
+  -- 本仓库拥有的子树清单：<端>/<child>，仓库路径与工作区路径相同。
+  local targets = {}
+  for _, realm in ipairs(M.REALMS) do
+    for _, child in ipairs(entries(realm)) do
+      targets[#targets + 1] = realm .. "/" .. child.name
+    end
+  end
+
   if clean_only then
-    for _, op in ipairs(plan.clean(entries)) do
-      rm_rf(WORKSPACE .. "/" .. op.dst)
-      print("removed " .. op.dst)
+    for _, rel in ipairs(targets) do
+      rm_rf(WORKSPACE .. "/" .. rel)
+      print("removed " .. rel)
     end
     print("deploy --clean ok → " .. WORKSPACE)
     return
   end
 
   require_dir("common/spoke", "本仓库缺 common/spoke（spoke 运行时）")
-  local ops = plan.build(entries)
   local dir_pairs = {}
-  for _, op in ipairs(ops) do
-    if op.kind == "mirror" and is_dir(op.src) then
-      dir_pairs[#dir_pairs + 1] = { src = op.src, dst = WORKSPACE .. "/" .. op.dst }
+  for _, rel in ipairs(targets) do
+    if is_dir(rel) then
+      dir_pairs[#dir_pairs + 1] = { src = rel, dst = WORKSPACE .. "/" .. rel }
     end
   end
   local via_robocopy = robocopy_mirror_all(dir_pairs)
   local how = via_robocopy and "robocopy" or "cp"
 
-  for _, op in ipairs(ops) do
-    local dst = WORKSPACE .. "/" .. op.dst
-    if op.kind ~= "mirror" then
-      rm_rf(dst)
-      print("removed " .. op.dst)
-    elseif via_robocopy and is_dir(op.src) then
-      print(op.dst .. ": " .. file_count(dst) .. " 文件 (robocopy)")
+  for _, rel in ipairs(targets) do
+    local dst = WORKSPACE .. "/" .. rel
+    if via_robocopy and is_dir(rel) then
+      print(rel .. ": " .. file_count(dst) .. " 文件 (robocopy)")
     else
       rm_rf(dst)
-      cp_entry(op.src, dst)
-      print(op.dst .. ": " .. file_count(dst) .. " 文件 (" .. (is_dir(op.src) and how or "cp") .. ")")
+      cp_entry(rel, dst)
+      print(rel .. ": " .. file_count(dst) .. " 文件 (" .. (is_dir(rel) and how or "cp") .. ")")
     end
   end
 

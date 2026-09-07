@@ -9,7 +9,7 @@
 # 规则（官方工作区根：client/ common/ data/ server/，本项目跟随）：
 #   - 仓库根直接持有 client/ common/ server/ 三个部署目录，没有 src/ 中间层；
 #     game/ 与 adapter/ 不是仓库根的一级目录。data/ 是编辑器导出物，只回同步不部署。
-#   - 部署（tools/deploy_plan.lua）采用白名单 client common server；仓库根其余内容
+#   - 部署（tools/deploy.lua）采用白名单 client common server；仓库根其余内容
 #     （docs/ tools/ tests/ features/ data/ 等）不部署。
 #   - 只被服务端引用的模块放 server/，只被客户端引用的放 client/，双端共用的才放 common/。
 #     业务模块在 server/game/，服务端宿主适配层在 server/adapter/，客户端渲染器直接在 client/。
