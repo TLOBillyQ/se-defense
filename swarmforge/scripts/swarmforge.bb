@@ -1041,8 +1041,18 @@
     (println (str (boolean (fs/exists? (dashboard-url-file ctx))) " "
                   (boolean (fs/exists? (pack-web-pid-file ctx)))))))
 
+(defn print-usage! []
+  (println "Usage: swarmforge [project-root]")
+  (println "       swarmforge --start-project <root>")
+  (println "       swarmforge --stop-project <root>")
+  (println "       swarmforge --help")
+  (println)
+  (println "With no arguments, uses the current directory as the project root.")
+  (println "Internal test entrypoints are available as --test-* (see source)."))
+
 (defn -main [& args]
   (case (first args)
+    ("--help" "-h") (print-usage!)
     "--test-parse" (test-parse! (or (second args) (System/getProperty "user.dir")))
     "--test-required-helpers" (test-required-helpers!)
     "--test-launch-plan" (test-launch-plan! (or (second args) (System/getProperty "user.dir")))
@@ -1062,10 +1072,12 @@
     "--test-create-role-session" (test-create-role-session! (second args) (nth args 2))
     "--start-project" (run-project! (second args))
     "--stop-project" (run-stop-project! (second args))
-    (let [root (or (first args) (System/getProperty "user.dir"))]
-      (if (forge-root? root)
-        (run-host! root)
-        (run-main! root)))))
+    (if (and (first args) (str/starts-with? (first args) "-"))
+      (fail! (str red "Error:" reset " Unknown option: " (first args) " (try --help)"))
+      (let [root (or (first args) (System/getProperty "user.dir"))]
+        (if (forge-root? root)
+          (run-host! root)
+          (run-main! root))))))
 
 (when (= (str *file*) (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
