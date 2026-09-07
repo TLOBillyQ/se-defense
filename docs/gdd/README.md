@@ -53,7 +53,7 @@
 ## 迁移说明
 
 - 旧 Lua 移植保留在分支 `legacy/lua-port`，仅作参考。
-- 旧 `features/base-defence.feature` 与 `acceptance/generated/base-defence/` 在新 feature 集落地时删除（与新集在价格、开局方式上矛盾）。
+- 旧 `features/base-defence.feature` 与其生成物（`build/acceptance/generated/base-defence/`，每次运行重建）在新 feature 集落地时删除（与新集在价格、开局方式上矛盾）。
 - `features/source-layout.feature`、`features/deploy-mirror.feature` 是工程 feature，保留不动。
 
 ## 已知的移植差异（照 Unity 写，实现时由适配层吸收）

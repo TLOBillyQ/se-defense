@@ -2,7 +2,7 @@
 # Locate a Lua 5.4 interpreter: PATH candidates first (verified by version),
 # then brew's keg-only lua@5.4.
 #
-# Sourced by the bash wrappers under tools/acceptance/.
+# Sourced by the bash wrappers under tools/acceptance/ (. ./tools/pick-lua.sh).
 pick_lua() {
   local cand
   for cand in lua5.4 lua-5.4 lua; do

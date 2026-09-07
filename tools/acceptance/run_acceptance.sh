@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # Normal acceptance run for se-defense: parse -> dry-check (advisory) -> generate -> run.
 # Run from anywhere; the script cd's to the repository root.
-# Needs Lua 5.4 (scripts/pick-lua.sh) and the acceptance4lua rock (auto-installed
+# Needs Lua 5.4 (tools/pick-lua.sh) and the acceptance4lua rock (auto-installed
 # into .toolcache/luarocks). Game steps boot src/server/main.lua headlessly via
 # tools/acceptance/headless.lua; see tools/acceptance/README.md.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
-. ./scripts/pick-lua.sh
+. ./tools/pick-lua.sh
 LUA="$(pick_lua)"
 
-GEN_DIR="acceptance/generated"
+GEN_DIR="build/acceptance/generated"
 IR_DIR="build/acceptance/ir"
 DRY_DIR="build/acceptance/dry"
+# Reset generated specs first: stale stems from renamed features would otherwise pile up.
+rm -rf "$GEN_DIR"
 mkdir -p "$GEN_DIR" "$IR_DIR" "$DRY_DIR"
 
 shopt -s nullglob

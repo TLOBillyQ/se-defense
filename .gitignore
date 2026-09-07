@@ -1,6 +1,5 @@
 .swarmforge/
 .worktrees/
 build/
-acceptance/generated/
 tmp/
 .toolcache/

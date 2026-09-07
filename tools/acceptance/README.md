@@ -24,12 +24,12 @@ mandatory for files under `features/`).
 - `tools/acceptance/cli/*.lua` — thin wrappers over `acceptance4lua.cli.*`;
   `runner_worker.lua` is the NDJSON runner-worker for `gherkin-mutator`.
 - `tools/acceptance/{gherkin-parser,ir-dry-checker,gherkin-mutator}` —
-  bash entrypoints (Lua 5.4 located by `scripts/pick-lua.sh`).
+  bash entrypoints (Lua 5.4 located by `tools/pick-lua.sh`).
   `entrypoint_generator` binds generated specs to `tools.acceptance.steps`;
   `runner_adapter` is the runner-worker command.
 - `tools/acceptance/provision.sh` — writes forwarders for the three PATH
   names into `.swarmforge/bin` so role prompts' bare commands hit this lane.
-- `build/acceptance/`, `acceptance/generated/`, `.toolcache/` — generated
+- `build/acceptance/` (ir, dry, generated specs), `build/acceptance-mutation/`, `.toolcache/` — generated
   artifacts and tool tree (gitignored).
 
 ## Commands
@@ -46,7 +46,7 @@ Babashka wrappers.
 
 ## Environment
 
-- Lua 5.4 (`brew install lua@5.4`); `scripts/pick-lua.sh` finds it even when
+- Lua 5.4 (`brew install lua@5.4`); `tools/pick-lua.sh` finds it even when
   PATH `lua` is another version.
 - `luarocks` for the one-time rock install. `SE_DEFENSE_LUA_DIR` can point
   luarocks at a keg-only Lua (e.g. `/opt/homebrew/opt/lua@5.4`).

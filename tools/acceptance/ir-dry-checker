@@ -3,7 +3,7 @@
 # Run from anywhere; the script cd's to the repository root and uses Lua 5.4.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-. ./scripts/pick-lua.sh
+. ./tools/pick-lua.sh
 LUA="$(pick_lua)"
 export ACCEPTANCE_LUA_BIN="$LUA"
 exec "$LUA" tools/acceptance/cli/ir_dry.lua "$@"
