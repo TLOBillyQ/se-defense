@@ -75,5 +75,8 @@
   | server/game/game_tick.lua        |
   | server/game/link_display.lua     |
   | server/game/render_util.lua      |
+  | server/game/roster.lua           |
   | server/game/sidebar_gameplay.lua |
   | server/game/turret_behaviour.lua |
+  | server/game/wave_cycle.lua       |
+  | server/game/world.lua            |
