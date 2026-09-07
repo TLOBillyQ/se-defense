@@ -17,7 +17,6 @@
 #     client.eui_render；仓库内不再出现 src. 前缀的模块名。spoke 运行时内联在 common/spoke/，
 #     require 前缀 common.spoke（SE 文档只认 client/common/data/server 四个根目录，vendor/ 不在其中）。
 #   - package.path 只需 ./?.lua 与 ./?/init.lua；无头测试按 server./client./common. 前缀复位模块。
-#   - 现有 features/base-defence.feature 与 tools/headless 冒烟在新布局下必须原样通过。
 功能: 源码树布局
 
 场景大纲: 源码树布局 1: 仓库根直接持有蛋仔工作区根目录

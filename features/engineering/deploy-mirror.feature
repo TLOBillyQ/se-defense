@@ -54,15 +54,14 @@
 # 场景清单：
 #   部署镜像 1: 部署把仓库根各端镜像到工作区根
 #   部署镜像 2: 部署不触碰工作区中不归本仓库的文件
-#   部署镜像 3: 部署清除工作区根杂物
 #
+# 工程 feature：背景在 ./tmp 下创建临时工作区，不启动对局。规则真源 CONTEXT.md「部署树」。
 # 规则：
 #   - 部署（tools/deploy.lua，工作区由 EGGY_WORKSPACE 指定）把仓库根白名单 <端>/（client/
 #     common/ server/）下每个文件落到工作区 /<端>/ 同相对路径；spoke 运行时就是 common/spoke/，
 #     落到 common/spoke，无特例。仓库根其余内容不部署。
-#   - 部署只重置本仓库拥有的子树；工作区里 server/_trigger、data、eggy.json、.vscode、log.txt
-#     等不归本仓库的内容原样保留。
-#   - 工作区根的杂物 .gm/ server.TableMgr unit_scripts/（编辑器脚手架残留、探针遗留）随部署清除。
+#   - 部署只重置本仓库拥有的白名单子树；工作区里 server/_trigger、data、eggy.json 等不归本仓库的
+#     内容，以及编辑器自己生成的 .gm/ server.TableMgr unit_scripts/，一律原样保留。
 功能: 部署镜像
 
 背景:
@@ -91,14 +90,6 @@
   | server/_trigger/GlobalVars.lua |
   | data/Prefab.lua                |
   | eggy.json                      |
-
-场景大纲: 部署镜像 3: 部署清除工作区根杂物
-  假如 临时工作区预置文件<路径>
-  当 执行部署到临时工作区
-  那么 临时工作区不存在目录<目录>
-
-例子:
-  | 路径                 | 目录             |
-  | .gm/probe.lua        | .gm              |
-  | unit_scripts/x.lua   | unit_scripts     |
-  | server.TableMgr/a    | server.TableMgr  |
+  | .gm/probe.lua                  |
+  | unit_scripts/x.lua             |
+  | server.TableMgr/a              |
