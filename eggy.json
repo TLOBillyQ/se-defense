@@ -1,0 +1,16 @@
+{
+  "projectName": "BaseDefence",
+  "projectID": "6a9a578e5050765b687ab324",
+  "serverPort": 60813,
+  "syncEnabled": true,
+  "excludePatterns": [
+    ".vscode",
+    ".git",
+    "EggyAPI.lua",
+    ".codemaker"
+  ],
+  "version": "1.0.0",
+  "isSEMap": true,
+  "playerNid": "623873800",
+  "mapDir": "C:\\FeverApps\\party_pc\\Documents\\etc\\editor_maps\\YXBwWGpsQlFkbHRvZXJNaw==__pc"
+}
