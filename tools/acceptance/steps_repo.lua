@@ -1,5 +1,6 @@
 -- tools/acceptance/steps_repo.lua — step handlers that inspect the repository
--- itself (features/source-layout.feature, features/deploy-mirror.feature,
+-- itself (features/engineering/source-layout.feature,
+-- features/engineering/deploy-mirror.feature,
 -- features/engineering/spoke-primitives.feature,
 -- features/engineering/dependencies.feature).
 --
