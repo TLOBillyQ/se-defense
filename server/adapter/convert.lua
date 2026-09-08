@@ -24,7 +24,7 @@ end
 
 -- 颜色归一化拷贝：具名表 / 数字数组 → {r,g,b,a}，缺省通道补 1（白色）。
 -- 已知重复：`server.game.render_util.copy_colour` 是逐字相同的一份，理由见那边的注释
--- （业务侧只经 host 依赖适配层，收敛需要新路径，留给目录单）。改这里必须同步改那边。
+-- （业务侧只经 host 依赖适配层，收敛需要新路径，留给 #44 目录单）。改这里必须同步改那边。
 function convert.copy_color(c)
   if type(c) == "table" then
     return { r = c.r or c[1] or 1, g = c.g or c[2] or 1, b = c.b or c[3] or 1, a = c.a or c[4] or 1 }

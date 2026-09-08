@@ -49,6 +49,10 @@ end
 -- 特效不吃颜色（#21 实测），所以「颜色语义」只能靠选不同特效表达（#23）：
 --   电力连线 / 炮塔光束 / 维修光束 → 4506 连线-激光射线（黄色光束）
 -- 表按 path 前缀匹配，首个命中生效；无命中走 LINE_DEFAULT。
+-- 已知接口偏宽（#43 记录不改）：前缀是业务侧的节点命名（board/power_links、turret_、
+-- repair_），也就是适配层在这里知道了业务的路径约定，业务改名会静默掉回 LINE_DEFAULT。
+-- 干净的形态是让调用方随形状传一个特效意图，而不是让适配层反查路径。本单不动接口，
+-- 留给 #44（目录重排 / adapter -> host）一并评估。
 local LINE_EFFECTS = {
   { prefix = "board/power_links", id = "official://effect/4506", y = 0.3 },
   { prefix = "board/hover_link",  id = "official://effect/4506", y = 0.3 },

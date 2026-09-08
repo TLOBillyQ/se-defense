@@ -306,6 +306,9 @@ function M.create(ctx)
     end
   end
 
+  -- 已知接口偏宽（#43 记录不改）：这里读的 _shape_only 是 eui 的私有字段，
+  -- 快照面（shapes/order/nodes）没暴露「是不是纯形状节点」这个问题的答案。
+  -- 加只读访问器还是让 shapes() 自带该标记，留给 #44 评估。
   function bd.dump_nodes()
     for _, path in ipairs(host.eui.order) do
       local n = host.eui.nodes[path]
