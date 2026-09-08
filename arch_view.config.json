@@ -27,7 +27,12 @@
     { "name": "forbid_resource_to_game_state", "description": "经济资源不得反向依赖对局状态", "from": ["^server%.game%.resource$"], "to": ["^server%.game%.game_state$"] },
     { "name": "forbid_resource_to_board_interactions", "description": "经济资源不得反向依赖棋盘交互", "from": ["^server%.game%.resource$"], "to": ["^server%.game%.board_interactions$"] },
     { "name": "forbid_radar_to_turret", "description": "侦测雷达不得反向依赖火力炮台", "from": ["^server%.game%.radar$"], "to": ["^server%.game%.turret$"] },
-    { "name": "forbid_power_node_to_board_interactions", "description": "网电节点不得反向依赖棋盘交互（通电▶合法落点，接线在组合根）", "from": ["^server%.game%.power_node$"], "to": ["^server%.game%.board_interactions$"] }
+    { "name": "forbid_power_node_to_board_interactions", "description": "网电节点不得反向依赖棋盘交互（通电▶合法落点，接线在组合根）", "from": ["^server%.game%.power_node$"], "to": ["^server%.game%.board_interactions$"] },
+    { "name": "forbid_game_state_to_power_node", "description": "对局状态不得反向依赖网电节点（冻结/解冻由组合根接线）", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.power_node$"] },
+    { "name": "forbid_game_state_to_board_interactions", "description": "对局状态不得反向依赖棋盘交互（冻结/解冻由组合根接线）", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.board_interactions$"] },
+    { "name": "forbid_game_state_to_radar", "description": "对局状态不得反向依赖侦测雷达（冻结/解冻由组合根接线）", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.radar$"] },
+    { "name": "forbid_game_state_to_turret", "description": "对局状态不得反向依赖火力炮台（冻结/解冻由组合根接线）", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.turret$"] },
+    { "name": "forbid_game_state_to_repair", "description": "对局状态不得反向依赖维修（冻结/解冻由组合根接线）", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.repair$"] }
   ],
   "allowed_cycles": [
     { "view": "spoke", "nodes": ["spoke.reactive", "spoke.runtime"],

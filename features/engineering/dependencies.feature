@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=b22bdb4257eadaa25213f50802e15344a8ee10a3ec0124a7282ab533c867487c
+# mutation-stamp: sha256=5a857a409c4b882b3fa6d9cdfd34b9c630312fa45d22959d42ea7d767e03acd7
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "依赖关系约束",
 #   "feature_path": "features/engineering/dependencies.feature",
-#   "implementation_hash": "sha256:b3e6f5ffda7f6aa300c0301452e14c1bee9fdc89154ffe17697f5c7ddbbaadb6",
+#   "implementation_hash": "sha256:6c6e85112132e56fdfd027bae9540795e55a3ece9f886d40956f0d9e4872caab",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -18,7 +18,7 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "96abdb87673581f28d38f18cb55f0f13ca236cb20feb535afa63293c9683ae1b",
-#       "tested_at": "2026-09-08T03:17:44Z"
+#       "tested_at": "2026-09-08T03:19:36Z"
 #     },
 #     {
 #       "index": 1,
@@ -31,20 +31,20 @@
 #         "Total": 26
 #       },
 #       "scenario_hash": "a6aae4a1ce88fd239aef70f015f9e7b083a4f796dfd3765aaf26fc2fabc90443",
-#       "tested_at": "2026-09-08T03:17:51Z"
+#       "tested_at": "2026-09-08T03:19:44Z"
 #     },
 #     {
 #       "index": 2,
-#       "mutation_count": 42,
+#       "mutation_count": 52,
 #       "name": "依赖关系约束 3: 反向依赖被架构门禁拒绝",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 42,
+#         "Killed": 52,
 #         "Survived": 0,
-#         "Total": 42
+#         "Total": 52
 #       },
-#       "scenario_hash": "f179e18933fdd00198b941134621691f346407b00710e718faed278c106dfc08",
-#       "tested_at": "2026-09-08T03:18:01Z"
+#       "scenario_hash": "5913679ee30bc36563329f0fae61b550b56e0bbae9224a468bdd3cfdcfd52a1c",
+#       "tested_at": "2026-09-08T03:19:59Z"
 #     },
 #     {
 #       "index": 3,
@@ -57,7 +57,7 @@
 #         "Total": 12
 #       },
 #       "scenario_hash": "8cbade16ac9369508a4ea6e0e5c6bcc618081dd5df8606e84ce36d64bec7d8b5",
-#       "tested_at": "2026-09-08T03:18:05Z"
+#       "tested_at": "2026-09-08T03:20:03Z"
 #     },
 #     {
 #       "index": 4,
@@ -70,10 +70,10 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "b30059e02e03267d435243ed798f735fba75980946932ac2df2e7aa839170e3e",
-#       "tested_at": "2026-09-08T03:18:05Z"
+#       "tested_at": "2026-09-08T03:20:03Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T03:18:05Z",
+#   "tested_at": "2026-09-08T03:20:03Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end
@@ -101,9 +101,11 @@
 #   - 「架构门禁禁止 A 依赖 B」是更强的断言：图上没有 A→B 这条边，且门禁配置会拒绝它——
 #     日后有人写出这条 require，`tools/arch check` 必须失败。这就是「固定」：约束落在门禁里，
 #     不只落在这张表里。命中方式是禁止依赖规则或分层上行判定之一，本 feature 不区分。
-#   - 系统依赖图里有几条影响方向在源码层**没有**直接模块边（进攻期停采、Radar 揭示▶Turret 开火、
-#     资金▶放置、矿点采空▶胜利、电网通电▶放置合法落点）：这些系统互不 require，接线在组合根
-#     server.game.game_root_full（放置的通电信息由 game_state.power_zone 注入）。
+#   - 系统依赖图里有几条影响方向在源码层**没有**直接模块边（对局流程▶全部玩法系统的冻结/解冻、
+#     进攻期停采、Radar 揭示▶Turret 开火、资金▶放置、矿点采空▶胜利、电网通电▶放置合法落点）：
+#     这些系统互不 require，接线在组合根 server.game.game_root_full（放置的通电信息由
+#     game_state.power_zone 注入）。「全部玩法系统」逐个列出：经济、电网、放置、侦测、火力、
+#     维修、敌人与波次；血量不在其中——game_state 依赖 health 是「建筑血量▶对局流程」那条边。
 #     它们只由场景 3 的反向禁止固定——谁都不许反过来 require 对方，方向不会被悄悄接反。
 #   - 组件分层为门禁配置里的既定决策：数字越大越底层，依赖只能从小数字流向大数字；
 #     spoke 运行时是基座（substrate），任何层都可以依赖它。
@@ -157,6 +159,11 @@
   | server.game.resource       | server.game.board_interactions |
   | server.game.radar          | server.game.turret             |
   | server.game.power_node     | server.game.board_interactions |
+  | server.game.game_state     | server.game.power_node         |
+  | server.game.game_state     | server.game.board_interactions |
+  | server.game.game_state     | server.game.radar              |
+  | server.game.game_state     | server.game.turret             |
+  | server.game.game_state     | server.game.repair             |
   | server.adapter.host        | server.game.core               |
   | server.game.core           | server.gm                      |
   | server.game.core           | client.eui_render              |
