@@ -92,7 +92,7 @@ local function mount_adapter(r)
 end
 mount_adapter(root)
 
--- 运行时静态场景（地面/棋盘/能量角柱/外围水晶）：仅视觉，不进 entity.by_id，
+-- 运行时静态场景（草地地面 + 外围晶石点缀）：仅视觉，不进 entity.by_id，
 -- 不参与 host:reset_scene()，因此只在加载时构建一次，不随 restart 重建。
 require("server.adapter.scene").build()
 
