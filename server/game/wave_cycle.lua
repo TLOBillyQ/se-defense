@@ -12,7 +12,7 @@
 -- 随机抽取都经 director.rng01（编排可固定：固定最大值时层级取上限、
 -- 另一轴取棋盘边、方向取表尾即北）。
 
-local World = require("server.game.world")
+local World = require("server.game.world_data")
 
 local WaveCycle = {}
 

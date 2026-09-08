@@ -49,7 +49,7 @@ headless 验证与单局重开的薄壳。
 | `BaseDefence.unity` 场景接线 | `game_root_full.lua` | 唯一组合根：GameState、Core、矿点、WaveDirector、Pool、BuildingSpecs、InputSignals、BoardInteractions、UI 挂同一棵树；敌人常驻 Dock |
 | `GameState.cs` | `game_state.lua` | Mode/Money/CollectRate/ResourcesRemaining、六碰撞区、胜负条件、Core（GameRootFull 中改由 `core.lua` 完整组件注入） |
 | `GameState.Restart()`（场景重载） | `session.lua` | 拆树 → 清场景 → 重建树 |
-| `SpokeExtensions.cs` | `coroutine.lua` | `s:coroutine(game_tick, body)`；`yield()` 等一 tick，`wait_seconds(n)` 定时 |
+| `SpokeExtensions.cs` | `spoke_coroutine.lua` | `s:coroutine(game_tick, body)`；`yield()` 等一 tick，`wait_seconds(n)` 定时 |
 | `WaveDirector.cs` | `wave_director.lua` | lull 倒计时/揭示 → `wave_started` → 逐个 spawn → 全灭 `wave_defeated` → 下一波；tier/budget 简化为 `enemy_count`/`spawn_interval` |
 | `Controls/InputSignals.cs` | `input_signals.lua` | 每 tick 轮询 host.input，发布 left/right click 与 `view.mouse_point` |
 | `Controls/CameraControls.cs` | 裁掉 | 只保留 `View.MousePoint` 语义并并入 `input_signals.lua`；相机运动不是无头验证目标 |

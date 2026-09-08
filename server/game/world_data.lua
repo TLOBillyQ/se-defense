@@ -1,4 +1,4 @@
--- server/game/world.lua — 世界数据表（规则真源 docs/gdd/00-world.md）。
+-- server/game/world_data.lua — 世界数据表（规则真源 docs/gdd/00-world.md）。
 -- 集中定义：棋盘、起始资金、首波倒计时、实体总表、初始布局（Core + 27 矿点）。
 -- 纯数据 + 纯函数：无状态、无宿主依赖，所有系统从这里取共享事实。
 

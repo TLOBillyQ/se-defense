@@ -22,7 +22,7 @@ local State = spoke.State
 local Phase = spoke.Phase
 
 -- 注册 s:coroutine() 扩展（debounce 用）。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local POWER_DELAY = 0.15
 local POWER_NODE_SERIAL = 0

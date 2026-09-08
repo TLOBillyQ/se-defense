@@ -22,7 +22,7 @@ local HealthBar = require("server.game.health_bar")
 local ResourceHarvest = require("server.game.resource_harvest")
 
 -- 注册 s:coroutine() 扩展。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local Resource = Epoch.extend("Resource", {
   constructor = function(self, config)

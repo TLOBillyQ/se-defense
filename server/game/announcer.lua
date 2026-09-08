@@ -13,7 +13,7 @@ local Effect = spoke.Effect
 local State = spoke.State
 
 -- 确保 s:coroutine 扩展已加载。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local FRONT_PATHS = {
   North = "announce/warning/north",

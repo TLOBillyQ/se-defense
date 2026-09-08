@@ -14,7 +14,7 @@ local Trigger = spoke.Trigger
 local Effect = spoke.Effect
 
 -- 确保 s:coroutine 扩展已加载。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local host_default = require("server.adapter.host")
 

@@ -18,7 +18,7 @@ local Building = require("server.game.building")
 local PowerNode = require("server.game.power_node")
 
 -- 注册 s:coroutine() 扩展。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local Radar
 Radar = Epoch.extend("Radar", {

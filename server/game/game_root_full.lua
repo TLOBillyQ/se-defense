@@ -27,7 +27,7 @@ local Pool = require("server.game.pool")
 local BuildingSpecs = require("server.game.building_specs")
 
 -- 确保 s:coroutine 扩展已加载。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 -- Enemy 采用惰性 require，避免加载本组合根时污染 package.loaded。
 local Enemy
@@ -40,7 +40,7 @@ local function get_enemy_class()
   return Enemy
 end
 
-local World = require("server.game.world")
+local World = require("server.game.world_data")
 
 local host_default = require("server.adapter.host")
 

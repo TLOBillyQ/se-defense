@@ -17,7 +17,7 @@
 -- 返回的表挂到 _G.bd；bd.root 由 main.lua 在重开后回填（harness 直读）。
 
 local Roster = require("server.game.roster")
-local WorldData = require("server.game.world")
+local WorldData = require("server.game.world_data")
 local BuildPanel = require("server.adapter.build_panel")
 
 local M = {}

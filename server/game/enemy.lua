@@ -12,7 +12,7 @@
 --   - 死亡（E7）：无奖励，实体销毁由表现层（碎裂）接管前保持尸体 2 秒。
 --   - 只有 Playing 推进（01 R3/W10）。
 --
--- 数值集中在 server/game/world.lua（enemy_tiers / enemy_speed /
+-- 数值集中在 server/game/world_data.lua（enemy_tiers / enemy_speed /
 -- enemy_stop_distance / bomb_interval / bomb_fuse / bomb_radius / bomb_damage）。
 
 local Epoch = require("common.spoke.runtime.epoch")
@@ -23,8 +23,8 @@ local State = require("common.spoke.reactive.state")
 local Health = require("server.game.health")
 local HealthBar = require("server.game.health_bar")
 local Building = require("server.game.building")
-local World = require("server.game.world")
-require("server.game.coroutine")
+local World = require("server.game.world_data")
+require("server.game.spoke_coroutine")
 
 local EPS = 1e-9
 

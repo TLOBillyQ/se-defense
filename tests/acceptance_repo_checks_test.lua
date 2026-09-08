@@ -16,7 +16,7 @@ function TestReferencesCommonSpoke.test_submodule_require()
 end
 
 function TestReferencesCommonSpoke.test_plain_require_is_not_spoke()
-  lu.assertFalse(repo.references_common_spoke('local World = require("server.game.world")'))
+  lu.assertFalse(repo.references_common_spoke('local World = require("server.game.world_data")'))
 end
 
 function TestReferencesCommonSpoke.test_no_require()
@@ -92,7 +92,7 @@ function TestNonSpokeModules.test_filters_specs_by_reference()
   local specs = {
     { name = "uses_spoke", body = 'require("common.spoke")' },
     { name = "plain", body = "local x = 1" },
-    { name = "server_only", body = 'require("server.game.world")' },
+    { name = "server_only", body = 'require("server.game.world_data")' },
   }
   lu.assertEquals(repo.non_spoke_modules(specs), { "plain", "server_only" })
 end

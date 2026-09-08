@@ -7,7 +7,7 @@
 --   server/net.lua        RemoteEvent bd_game：快照下行、握手/意图上行
 --   server/gm.lua         _G.bd（$CLI exec / 集成测试编排面）
 --
--- 规则与数值真源：docs/gdd/（世界常量在 server/game/world.lua）。
+-- 规则与数值真源：docs/gdd/（世界常量在 server/game/world_data.lua）。
 -- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。
 
 local RunService = game:GetService("RunService")
@@ -34,7 +34,7 @@ local SpokeRuntime = require("common.spoke.runtime.spoke_runtime")
 local GameTick = require("server.game.game_tick")
 local GameRootFull = require("server.game.game_root_full")
 local Session = require("server.game.session")
-local WorldData = require("server.game.world")
+local WorldData = require("server.game.world_data")
 local BuildPanel = require("server.adapter.build_panel")
 local Net = require("server.net")
 local GM = require("server.gm")
@@ -94,7 +94,7 @@ mount_adapter(root)
 
 -- 运行时静态场景（草地地面 + 外围晶石点缀）：仅视觉，不进 entity.by_id，
 -- 不参与 host:reset_scene()，因此只在加载时构建一次，不随 restart 重建。
--- 棋盘半径由此处注入：适配层不许反向依赖 server.game.world。
+-- 棋盘半径由此处注入：适配层不许反向依赖 server.game.world_data。
 require("server.adapter.scene").build(WorldData.board.max)
 
 local net

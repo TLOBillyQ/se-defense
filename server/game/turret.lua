@@ -23,7 +23,7 @@ local PowerNode = require("server.game.power_node")
 local TurretBehaviour = require("server.game.turret_behaviour")
 
 -- 注册 s:coroutine() 扩展。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local Turret
 Turret = Epoch.extend("Turret", {

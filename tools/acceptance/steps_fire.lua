@@ -9,7 +9,7 @@ return { patterns = {
   { "^位于%((%-?[%d.]+),(%-?[%d.]+)%)的(%w+)枪口朝(%S+)$",
     needs_session(function(w, s, x, z, kind, dir_name)
       if kind ~= "Turret" then return nil, "枪口朝向只适用于 Turret，实际 " .. tostring(kind) end
-      if not require("server.game.world").direction(dir_name) then
+      if not require("server.game.world_data").direction(dir_name) then
         return nil, "未知方向: " .. dir_name
       end
       headless.gm(s, "aim_turret", tonumber(x), tonumber(z), dir_name)

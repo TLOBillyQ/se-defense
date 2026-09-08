@@ -1,10 +1,10 @@
 -- 对局几何/碰撞领域的性质测试。
 --
--- 覆盖 server.game.world 的欧氏距离，server.game.collision_body 的圆重叠与排序，
+-- 覆盖 server.game.world_data 的欧氏距离，server.game.collision_body 的圆重叠与排序，
 -- 以及 server.game.collision 碰撞世界发布的重叠集合必须等于暴力法算出的有序集合
 -- （空间哈希正确性 / 确定性排序 / 幂等发布的强不变量）。纯 Lua，无宿主依赖。
 local property = require("tests.spoke.property.support.property")
-local World = require("server.game.world")
+local World = require("server.game.world_data")
 local CollisionBody = require("server.game.collision_body")
 local CollisionWorld = require("server.game.collision")
 

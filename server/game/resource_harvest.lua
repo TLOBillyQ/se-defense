@@ -6,7 +6,7 @@
 -- Resource 组件在 server.game.resource 中挂载本 phase。
 
 -- 注册 s:coroutine() 扩展（采集协程）。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local Phase = require("common.spoke.reactive.phase")
 

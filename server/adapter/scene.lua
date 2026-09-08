@@ -13,7 +13,7 @@
 -- 主题：能量防线(草原)。绿色草原地面 + 外围晶石。
 --
 -- 晶石点位按棋盘半径的倍数表达，棋盘范围由组合根（server/main.lua）从
--- server.game.world 注入：适配层（L4）不许反向依赖业务（L3），而把 ±20 抄进来
+-- server.game.world_data 注入：适配层（L4）不许反向依赖业务（L3），而把 ±20 抄进来
 -- 就等于在适配层复制一份棋盘尺寸，棋盘改尺寸时装饰会悄悄错位。
 
 local World = game:GetService("World")

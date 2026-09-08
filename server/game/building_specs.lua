@@ -17,7 +17,7 @@ local Radar = require("server.game.radar")
 local Turret = require("server.game.turret")
 local Repair = require("server.game.repair")
 
-local World = require("server.game.world")
+local World = require("server.game.world_data")
 
 local host_default = require("server.adapter.host")
 
@@ -49,7 +49,7 @@ function BuildingSpecs.create(deps)
   local game_tick = deps.game_tick or error("BuildingSpecs requires game_tick", 2)
   local pool = deps.pool
 
-  -- GDD 00 实体总表（数值真源 server/game/world.lua）。
+  -- GDD 00 实体总表（数值真源 server/game/world_data.lua）。
   local specs = World.specs
   local defaults = {
     relay = {

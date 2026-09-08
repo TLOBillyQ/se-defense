@@ -4,7 +4,7 @@
 -- 平静期倒计时（≤5 秒公布来袭方向）→ 归零进入进攻期并按预算生成敌人 →
 -- 预算耗尽停 → 本波全灭后进入下一波。数值（预算 2+(N−1)、层级解锁 4/8、
 -- 间隔 max(0.25, 1−0.1(N−1))、边界外 6 生成、航线指向中心 ±10）见
--- server/game/world.lua 的 wave/enemy_tiers 表；每拍逻辑在 wave_cycle.lua。
+-- server/game/world_data.lua 的 wave/enemy_tiers 表；每拍逻辑在 wave_cycle.lua。
 --
 -- wave 状态表字段：
 --   number        波号（1 起）
@@ -34,7 +34,7 @@ local State = require("common.spoke.reactive.state")
 local Trigger = require("common.spoke.reactive.trigger")
 local Effect = require("common.spoke.reactive.effect")
 
-local World = require("server.game.world")
+local World = require("server.game.world_data")
 local WaveCycle = require("server.game.wave_cycle")
 
 local WaveDirector = Epoch.extend("WaveDirector", {

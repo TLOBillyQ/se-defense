@@ -20,10 +20,10 @@ local Memo = require("common.spoke.reactive.memo")
 local Reaction = require("common.spoke.reactive.reaction")
 local Health = require("server.game.health")
 local HealthBar = require("server.game.health_bar")
-local World = require("server.game.world")
+local World = require("server.game.world_data")
 
 -- 注册 s:coroutine() 扩展。
-require("server.game.coroutine")
+require("server.game.spoke_coroutine")
 
 local Building
 Building = Epoch.extend("Building", {
