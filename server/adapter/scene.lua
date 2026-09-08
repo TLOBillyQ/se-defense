@@ -14,6 +14,7 @@
 
 local World = game:GetService("World")
 local AssetService = game:GetService("AssetService")
+local color = require("server.adapter.color")
 
 local scene = {}
 
@@ -21,12 +22,7 @@ local GRASS = "official://preset/1510240"      -- 基础草地
 local CRYSTAL = "official://mesh/59291"        -- 四棱锥（native half=(3,3,3), center_y=1.5）
 
 local function tint(u, c)
-  if u and c then
-    u.ModelColor1 = Color.New(
-      math.floor(c[1] * 255 + 0.5),
-      math.floor(c[2] * 255 + 0.5),
-      math.floor(c[3] * 255 + 0.5), 255)
-  end
+  if u and c then u.ModelColor1 = color.rgb01(c[1], c[2], c[3]) end
   return u
 end
 
@@ -69,8 +65,6 @@ function scene.build()
   for i, r in ipairs(ring) do
     crystal(i, r[1], r[2], (i % 2 == 0) and 0.6 or 0.45, r[3])
   end
-
-  return scene
 end
 
 return scene

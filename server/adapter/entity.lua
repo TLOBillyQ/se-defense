@@ -19,10 +19,8 @@
 -- 网格半高（落地）；业务读写的是逻辑位置（含 y=0），距离/碰撞查询不受影响。
 
 local World = game:GetService("World")
+local color = require("server.adapter.color")
 
--- ── 视觉配置表（prefab 键 → 原语配方；#9 D1）─────────────────────────
--- mesh_half: 网格包围盒半长（立方体 1 / 圆柱 3），落地偏移 = mesh_half × scale.y。
--- color: {r,g,b} 0..1，spawn 时染底色（业务受击/断电再覆写）。
 -- ── 视觉配置表（prefab 键 → 模型配方；#29 主题化升级）─────────────────────
 -- half: 网格包围盒半长（Y 向）。pivot: 模型中心相对原点的 Y 偏移。
 -- 落地偏移 = (half - pivot) × scale.y，使模型底面贴地（对称模型 pivot=0，等价旧公式 half×scale.y）。
@@ -117,11 +115,7 @@ function entity.spawn(prefab, pos)
   local function apply_color(self)
     if not self._unit then return end
     local t, b = self.color, self._base
-    self._unit.ModelColor1 = Color.New(
-      math.floor(t.r * b.r * 255 + 0.5),
-      math.floor(t.g * b.g * 255 + 0.5),
-      math.floor(t.b * b.b * 255 + 0.5),
-      math.floor((t.a or 1) * 255 + 0.5))
+    self._unit.ModelColor1 = color.rgb01(t.r * b.r, t.g * b.g, t.b * b.b, t.a)
   end
 
   function e:set_position(np)

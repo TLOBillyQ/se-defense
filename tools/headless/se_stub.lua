@@ -2,7 +2,8 @@
 -- 只覆盖 server/main.lua + 适配层用到的面：game:GetService / World:CreateUnit /
 -- AssetService:LoadUnitAsset / RunService.Heartbeat / RemoteEvent / Vector3 / Vector2 /
 -- Color / Enums。
--- 桩不模拟渲染，只记录属性写入，供断言读取（units 表按 Name 索引）。
+-- 桩不模拟渲染，只记录属性写入，供断言读取（units 是以单位表为键的集合，
+-- 按名字找用 World:FindFirstChild）。
 
 local stub = { units = {}, sent = {}, heartbeat = {}, server_handlers = {} }
 
