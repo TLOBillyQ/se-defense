@@ -11,11 +11,16 @@ local render_util = {}
 --
 -- 已知重复：`server.host.convert.copy_color` 是逐字相同的一份。归一化本身不是宿主
 -- 知识（不碰任何 SE 全局），两边都只是把「具名表 / 数字数组、缺省通道补 1」这条表示
--- 约定实现一遍，所以理应只有一份。现在收不掉：业务侧只经 `server.host` 这一个
--- 入口依赖适配层（见 CONTEXT.md「宿主接缝」），直接 require adapter.convert 会是第一个
--- 绕过组合根的业务模块，比重复更糟；而放进 common/ 要新开路径，#43 明确不动路径。
--- 与 `entity.unit_name` 的双端契约同类，一并留给 #44 目录单评估是否进 common/。
--- 改这里必须同步改 convert.copy_color。
+-- 约定实现一遍，所以理应只有一份。#44 分层后仍收不掉，三条路都堵着：
+--   - 放 kernel/（层 8）：host（层 9）不能反向依赖它，方向规则不允许；
+--   - 让 ui/ 直接 require server.host.convert：层 4 → 9 门禁允许，但破掉
+--     「业务只经 server.host 一个接缝」（server/README.md「宿主接缝」）；
+--   - 挂到 host 表上经接缝取：不破接缝，但把一条与宿主无关的表示约定塞进宿主面，
+--     接缝凭空多一个成员。
+-- 真正的位置多半是 common/（两端共享的表示约定），那要新开路径。与
+-- `entity.unit_name` 的双端契约完全同类，#44 对那条也明确「本单只记录」。
+-- 改这里必须同步改 convert.copy_color；
+-- tests/colour_normalisation_parity_test.lua 会在两份漂移时失败。
 function render_util.copy_colour(c)
   if type(c) == "table" then
     return {
