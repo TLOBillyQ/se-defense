@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=50b846ffa754980873b9218a0afd12d88c3c8382dbe785ef365cd7bcfdd06f73
+# mutation-stamp: sha256=754071aa2990d21f12396ee27d8faaa9c16a07e0996bb02e3c5f76e4351a9ded
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "依赖关系约束",
 #   "feature_path": "features/engineering/dependencies.feature",
-#   "implementation_hash": "sha256:43f85cd619d38c31e38ed6ab99d17419c775bf99f517c2d0c33ccfbc779b9f4d",
+#   "implementation_hash": "sha256:bcbcd9032d4978b4c78a3360f183fcbdba9ac3ac681d8f7b320c99ae44cd59a6",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -22,42 +22,42 @@
 #     },
 #     {
 #       "index": 1,
-#       "mutation_count": 26,
+#       "mutation_count": 28,
 #       "name": "依赖关系约束 2: 系统依赖图的边在模块依赖里成立",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 26,
+#         "Killed": 28,
 #         "Survived": 0,
-#         "Total": 26
+#         "Total": 28
 #       },
-#       "scenario_hash": "a6aae4a1ce88fd239aef70f015f9e7b083a4f796dfd3765aaf26fc2fabc90443",
-#       "tested_at": "2026-09-08T03:21:47Z"
+#       "scenario_hash": "4ca576d426dda8c20a077ffd751260c7f4021db31cbe0460b89488e1a27f3d87",
+#       "tested_at": "2026-09-08T12:37:33Z"
 #     },
 #     {
 #       "index": 2,
-#       "mutation_count": 58,
+#       "mutation_count": 60,
 #       "name": "依赖关系约束 3: 反向依赖被架构门禁拒绝",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 58,
+#         "Killed": 60,
 #         "Survived": 0,
-#         "Total": 58
+#         "Total": 60
 #       },
-#       "scenario_hash": "db7c314c63ab1cf1650154778807f2d0619014d3b168f8c4eae1c7c0785caa9a",
-#       "tested_at": "2026-09-08T10:14:49Z"
+#       "scenario_hash": "0f8fa7c3cc60dfc4f3c40667a0cb0e51cf4cfc16aa65a30266f1be58d870ee12",
+#       "tested_at": "2026-09-08T12:37:56Z"
 #     },
 #     {
 #       "index": 3,
-#       "mutation_count": 12,
+#       "mutation_count": 22,
 #       "name": "依赖关系约束 4: 组件分层固定",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 12,
+#         "Killed": 22,
 #         "Survived": 0,
-#         "Total": 12
+#         "Total": 22
 #       },
-#       "scenario_hash": "8cbade16ac9369508a4ea6e0e5c6bcc618081dd5df8606e84ce36d64bec7d8b5",
-#       "tested_at": "2026-09-08T03:22:09Z"
+#       "scenario_hash": "c6677edfd95042d7bac2e91c4b352ec8a6ef0215d3176c67505df149094c3c14",
+#       "tested_at": "2026-09-08T12:38:05Z"
 #     },
 #     {
 #       "index": 4,
@@ -73,7 +73,7 @@
 #       "tested_at": "2026-09-08T03:22:09Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T10:14:49Z",
+#   "tested_at": "2026-09-08T12:38:05Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end

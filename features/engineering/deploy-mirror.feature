@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=25be928849c3b04cfdf8a536bd7c06642baf04ae6926d7e57e1ce469b73c7a0a
+# mutation-stamp: sha256=9fcd280edd95f6b5365f641e4a7de6c50daefd5ffc2c01015083b6c679be1150
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "dec0798057c6072fd5bc9200831a8be7a95e38764b4ffc6a47a3a2c4b300e951",
 #   "feature_name": "部署镜像",
 #   "feature_path": "features/engineering/deploy-mirror.feature",
-#   "implementation_hash": "sha256:126dcb7381f182f3e998a71bb987e8faf0f470723228150d10402038767130ff",
+#   "implementation_hash": "sha256:33418cde0e64aa75413e2e41df5441f0db75db3ea968f87d6939f27c7534fcd4",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -17,8 +17,8 @@
 #         "Survived": 0,
 #         "Total": 1
 #       },
-#       "scenario_hash": "69f6bd24b5ebf3d9cb68aeb4bc3e95b2d75c2245affadfe10583124795db2bf8",
-#       "tested_at": "2026-09-08T10:18:41Z"
+#       "scenario_hash": "d94424974b4636609f16e016f6c98dad9e7b427c113c4d6fe46596eb6ad2a37d",
+#       "tested_at": "2026-09-08T12:38:07Z"
 #     },
 #     {
 #       "index": 1,
@@ -34,7 +34,7 @@
 #       "tested_at": "2026-09-08T10:18:42Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T10:18:42Z",
+#   "tested_at": "2026-09-08T12:38:07Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end
