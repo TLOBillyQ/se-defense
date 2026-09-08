@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=754071aa2990d21f12396ee27d8faaa9c16a07e0996bb02e3c5f76e4351a9ded
+# mutation-stamp: sha256=8654924031afe085d5e7457870f1c58a87b38809c894475867017261507d4086
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "依赖关系约束",
 #   "feature_path": "features/engineering/dependencies.feature",
-#   "implementation_hash": "sha256:bcbcd9032d4978b4c78a3360f183fcbdba9ac3ac681d8f7b320c99ae44cd59a6",
+#   "implementation_hash": "sha256:6db135103eee3799d1eab54376b015d0bd122e8803ae4fee7201b9b497c09e8b",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -35,29 +35,29 @@
 #     },
 #     {
 #       "index": 2,
-#       "mutation_count": 60,
+#       "mutation_count": 68,
 #       "name": "依赖关系约束 3: 反向依赖被架构门禁拒绝",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 60,
+#         "Killed": 68,
 #         "Survived": 0,
-#         "Total": 60
+#         "Total": 68
 #       },
-#       "scenario_hash": "0f8fa7c3cc60dfc4f3c40667a0cb0e51cf4cfc16aa65a30266f1be58d870ee12",
-#       "tested_at": "2026-09-08T12:37:56Z"
+#       "scenario_hash": "edbf710c839c6d12b4debeb2c29fa377c55950dc1590d36a1c859b1e3b5db5f2",
+#       "tested_at": "2026-09-08T13:26:10Z"
 #     },
 #     {
 #       "index": 3,
-#       "mutation_count": 22,
+#       "mutation_count": 24,
 #       "name": "依赖关系约束 4: 组件分层固定",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 22,
+#         "Killed": 24,
 #         "Survived": 0,
-#         "Total": 22
+#         "Total": 24
 #       },
-#       "scenario_hash": "c6677edfd95042d7bac2e91c4b352ec8a6ef0215d3176c67505df149094c3c14",
-#       "tested_at": "2026-09-08T12:38:05Z"
+#       "scenario_hash": "6cd3e40c395b83bf83532263c2a2cab5363f20b3c922eb638c1f88b4dbc889ec",
+#       "tested_at": "2026-09-08T13:26:19Z"
 #     },
 #     {
 #       "index": 4,
@@ -73,7 +73,7 @@
 #       "tested_at": "2026-09-08T03:22:09Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T12:38:05Z",
+#   "tested_at": "2026-09-08T13:26:19Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end

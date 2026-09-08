@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=61fdcfd5a12622737dfeda977ca838f6a0ee61cc51fe29367d0c9d2c2748611b
+# mutation-stamp: sha256=c504acdecd6af2d8fdc479b74c3df90797ae5440edf7ac9d5d547c6228b6c86a
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "spoke 原语约束",
 #   "feature_path": "features/engineering/spoke-primitives.feature",
-#   "implementation_hash": "sha256:6bf1543647ed7974a74d0d4bc3005c1a51f56939b1f06218f584119439db64e3",
+#   "implementation_hash": "sha256:2d009cd1808fcfdfa7a640622fecb1a1eb1c16448a2606d2a3bda0f91f813f95",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -49,18 +49,18 @@
 #     {
 #       "index": 3,
 #       "mutation_count": 14,
-#       "name": "spoke 原语约束 4: 豁免模块只组合 server. 前缀的模块",
+#       "name": "spoke 原语约束 4: 豁免模块只组合 server. 与 common. 前缀的模块",
 #       "result": {
 #         "Errors": 0,
 #         "Killed": 14,
 #         "Survived": 0,
 #         "Total": 14
 #       },
-#       "scenario_hash": "28fd11c39a66193b39a1865da6454e889e812ce5706023d7de5fc61072bc9afb",
-#       "tested_at": "2026-09-08T12:38:12Z"
+#       "scenario_hash": "3b9c9392dc85f8444a3d05bbad20630b9073288265df0aca52a5ce3475ff36f6",
+#       "tested_at": "2026-09-08T13:26:22Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T12:38:12Z",
+#   "tested_at": "2026-09-08T13:26:22Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end
