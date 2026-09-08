@@ -1,7 +1,7 @@
 -- 服务端入口：装配 Session(GameRootFull) + Heartbeat 固定步长驱动 + 网络/GM 面。
 --
--- 架构决策见 docs/adr/（0001 双端与节拍、0002 快照协议、0003 形状双路由
--- 及取代其 ring 部分的 0006 ring 走快照、0004 上帝视角输入）。
+-- 架构决策见 docs/adr/（0001 双端与节拍、0002 快照协议、0003 形状双路由、
+-- 0004 上帝视角输入、0006 ring 改走快照——取代 0003 里 ring 就地渲染的那半）。
 --   server/game/          业务（spoke 树，GameRootFull 组合根）
 --   server/adapter/       宿主适配层：host.eui / host.input / host.entity / reset_scene
 --                         + 放置面板 + scene（静态场景装饰，纯视觉）
