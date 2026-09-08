@@ -1,4 +1,82 @@
 # language: zh-CN
+# mutation-stamp: sha256=d7f5467bc66273f19246af996012a775a0ef6f8cc9a91ba1026e7be622803020
+# acceptance-mutation-manifest-begin
+# {
+#   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+#   "feature_name": "依赖关系约束",
+#   "feature_path": "features/engineering/dependencies.feature",
+#   "implementation_hash": "sha256:20b2e0055dc52065a71ca0d284277e763554e5ec31383cf96baf42566bca66c6",
+#   "scenarios": [
+#     {
+#       "index": 0,
+#       "mutation_count": 0,
+#       "name": "依赖关系约束 1: 架构门禁在当前源码树上通过",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "96abdb87673581f28d38f18cb55f0f13ca236cb20feb535afa63293c9683ae1b",
+#       "tested_at": "2026-09-07T14:53:45Z"
+#     },
+#     {
+#       "index": 1,
+#       "mutation_count": 24,
+#       "name": "依赖关系约束 2: 系统依赖图的边在模块依赖里成立",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 24,
+#         "Survived": 0,
+#         "Total": 24
+#       },
+#       "scenario_hash": "a3a0f24d135074632e9b1c6c04982d27f973b8ad4304e0e7201f57a21300b2a6",
+#       "tested_at": "2026-09-07T14:54:06Z"
+#     },
+#     {
+#       "index": 2,
+#       "mutation_count": 40,
+#       "name": "依赖关系约束 3: 反向依赖被架构门禁拒绝",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 40,
+#         "Survived": 0,
+#         "Total": 40
+#       },
+#       "scenario_hash": "a31f6095c283d6b2ce0bea19d4d5bbeca07c5f27fc2d7d5dac868fd362c68bd5",
+#       "tested_at": "2026-09-07T14:54:39Z"
+#     },
+#     {
+#       "index": 3,
+#       "mutation_count": 12,
+#       "name": "依赖关系约束 4: 组件分层固定",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 12,
+#         "Survived": 0,
+#         "Total": 12
+#       },
+#       "scenario_hash": "8cbade16ac9369508a4ea6e0e5c6bcc618081dd5df8606e84ce36d64bec7d8b5",
+#       "tested_at": "2026-09-07T14:54:50Z"
+#     },
+#     {
+#       "index": 4,
+#       "mutation_count": 0,
+#       "name": "依赖关系约束 5: 依赖环只剩豁免清单里的上游 spoke 内部环",
+#       "result": {
+#         "Errors": 0,
+#         "Killed": 0,
+#         "Survived": 0,
+#         "Total": 0
+#       },
+#       "scenario_hash": "b30059e02e03267d435243ed798f735fba75980946932ac2df2e7aa839170e3e",
+#       "tested_at": "2026-09-07T14:54:50Z"
+#     }
+#   ],
+#   "tested_at": "2026-09-07T14:54:50Z",
+#   "version": 1
+# }
+# acceptance-mutation-manifest-end
 # 场景清单：
 #   依赖关系约束 1: 架构门禁在当前源码树上通过
 #   依赖关系约束 2: 系统依赖图的边在模块依赖里成立

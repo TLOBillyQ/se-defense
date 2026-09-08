@@ -1,13 +1,13 @@
--- tools/acceptance/repo_checks.lua — pure predicates backing the engineering
--- repository inspections: features/engineering/spoke-primitives.feature and
--- features/engineering/dependencies.feature.
+-- tools/acceptance/repo_checks.lua — pure predicates over Lua source text,
+-- backing features/engineering/spoke-primitives.feature and
+-- features/source-layout.feature.
 --
 -- These are pure checks (no game boot, no filesystem, no side effects) so they
 -- stay testable by unit tests and reusable by the step handlers in
--- steps_repo.lua, which owns the file reading and the arch_view model scan.
--- Truth sources: CONTEXT.md「spoke 原语约束」and the two feature header
--- comments, plus arch_view.config.json for the gate config the dependency
--- predicates read.
+-- steps_repo.lua, which owns the file reading.
+-- Truth source: CONTEXT.md「spoke 原语约束」and the feature header comments.
+-- The architecture-model predicates for dependencies.feature live in
+-- arch_checks.lua; the gate query lives in arch_probe.lua.
 local M = {}
 
 -- True if `body` references the common.spoke facade (require("common.spoke"))
@@ -81,93 +81,6 @@ function M._has_identifier(body, prefix)
     if nextc == "" or not nextc:match("[%w_]") then return true end
     i = e + 1
   end
-end
-
--- ── 依赖关系约束（dependencies.feature）──
---
--- These predicates answer the gates feature against the arch_view model.
--- They are pure over the scanned architecture table (graph / modules) and the
--- raw arch_view config, so unit tests can feed synthetic models. The
--- forbidden / layer logic deliberately mirrors arch_view's
--- `internal/analyzer.lua` `_build_check` so the predicate agrees with the real
--- gate; scenario 1 (tools/arch check passes) is the independent Oracle that
--- keeps them honest.
-
--- True if the graph's edge list contains a direct from -> to edge.
--- `graph` is arch_view's `{ nodes = [...], edges = [{from,to}, ...] }`.
-function M.arch_edge_exists(graph, from_id, to_id)
-  for _, edge in ipairs((graph or {}).edges or {}) do
-    if edge.from == from_id and edge.to == to_id then
-      return true
-    end
-  end
-  return false
-end
-
--- The gate's declared layer for a module (arch_view ADR 0039 D2): an integer
--- for a layered component, the string "substrate" for a substrate component, or
--- nil when neither. Substrate deliberately carries no integer value.
-local function _declared_layer(module)
-  if module == nil then return nil end
-  if module.component_substrate == true then return "substrate" end
-  return module.component_layer
-end
-
--- Mirrors arch_view `_is_layer_upward`: a lower layer depending on a higher one
--- (from_layer > to_layer) is the forbidden upward edge; substrate is qualitative
--- (anyone -> substrate legal, substrate -> any layered component illegal); edges
--- with no declared layer are not judged here.
-local function _is_layer_upward(from_layer, to_layer)
-  if from_layer == nil or to_layer == nil then return false end
-  if from_layer == "substrate" then return to_layer ~= "substrate" end
-  if to_layer == "substrate" then return false end
-  return from_layer > to_layer
-end
-
-local function _matches_any(value, patterns)
-  for _, pattern in ipairs(patterns or {}) do
-    if tostring(value):match(pattern) ~= nil then return true end
-  end
-  return false
-end
-
--- True if the arch_view gate would reject an edge from_id -> to_id, i.e. either
--- a config forbidden_dependency_rules entry matches both ends, or the edge is a
--- layer-upward violation. The edge need not exist for this to be true: it is
--- the "fixed" assertion that the gate will refuse the direction.
-function M.arch_edge_forbidden(config, modules, from_id, to_id)
-  for _, rule in ipairs((config or {}).forbidden_dependency_rules or {}) do
-    if _matches_any(from_id, rule.from) and _matches_any(to_id, rule.to) then
-      return true
-    end
-  end
-  return _is_layer_upward(
-    _declared_layer((modules or {})[from_id]),
-    _declared_layer((modules or {})[to_id])
-  )
-end
-
--- The declared gate layer for a component name, as configured. Returns the
--- integer layer, the string "基座" for a substrate component, or nil when the
--- component is not declared.
-function M.arch_component_layer(config, component)
-  for _, rule in ipairs((config or {}).component_rules or {}) do
-    if rule.component == component then
-      if rule.substrate == true then return "基座" end
-      return rule.layer
-    end
-  end
-  return nil
-end
-
--- Count of reported projection cycles that are NOT waived by config
--- allowed_cycles: the ones the gate treats as violations.
-function M.arch_unwaived_cycle_count(check)
-  local count = 0
-  for _, entry in ipairs((check or {}).projection_cycles or {}) do
-    if entry.waived ~= true then count = count + 1 end
-  end
-  return count
 end
 
 return M

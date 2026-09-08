@@ -9,6 +9,8 @@
 -- shape is identical: { lua-pattern, handler(w, captures...) }.
 local M = {}
 local repo = require("tools.acceptance.repo_checks")
+local archc = require("tools.acceptance.arch_checks")
+local probe = require("tools.acceptance.arch_probe")
 
 local function read_file(path)
   local f = io.open(path, "r")
@@ -56,9 +58,10 @@ end
 -- Lazy arch_view model + config for the dependency-constraints feature.
 -- Loaded once per feature process (dependencies.feature never mutates the
 -- source tree between scenarios). `arch_view.analyze` scans source_roots and
--- produces the module/graph/check model; the raw config supplies the forbidden
--- dependency rules and component/layer declarations that `repo` predicates
--- read. package.path is extended by tools.arch_bootstrap.ensure().
+-- produces the module/graph/check model; the raw config supplies the
+-- component/layer declarations that `archc` predicates read. The "would the
+-- gate reject this direction" question is not answered from either of these —
+-- see arch_probe.lua. package.path is extended by tools.arch_bootstrap.ensure().
 local _arch = nil
 local function arch_dep()
   if _arch then return _arch end
@@ -141,18 +144,33 @@ M.patterns = {
       if check.ok then return true end
       return nil, "架构门禁未通过（" .. #check.violations .. " 处违规）" end },
   { "^模块(.+)依赖模块(.+)$", function(w, a, b)
-      if repo.arch_edge_exists(arch_dep().model.graph, a, b) then return true end
+      if archc.arch_edge_exists(arch_dep().model.graph, a, b) then return true end
       return nil, string.format("%s 不依赖 %s", a, b) end },
+  -- 「禁止」是三重断言：两端都是真实存在的模块、真实源码树上没有这条边、
+  -- 且把这条边喂给真门禁时它拒绝。后半句由 arch_probe 交给 arch_view 自己
+  -- 判定，不在本仓复刻门禁规则。
+  -- 存在性那一条不是多余的：跨层的禁止由组件层级判定，同组件里换个模块名
+  -- 结论不变，所以拼错的模块名本来能蒙混过关（变异测试实证）。
   { "^架构门禁禁止模块(.+)依赖模块(.+)$", function(w, a, b)
-      local d = arch_dep()
-      if repo.arch_edge_forbidden(d.config, d.model.modules, a, b) then return true end
+      local model = arch_dep().model
+      for _, id in ipairs({ a, b }) do
+        if model.modules[id] == nil then
+          return nil, "源码树中不存在模块 " .. id
+        end
+      end
+      if archc.arch_edge_exists(model.graph, a, b) then
+        return nil, string.format("源码树上已存在 %s 依赖 %s", a, b)
+      end
+      local rejected, info = probe.rejects_edge(a, b)
+      if rejected == nil then return nil, "架构探针失败: " .. tostring(info) end
+      if rejected then return true end
       return nil, string.format("门禁未禁止 %s 依赖 %s", a, b) end },
   { "^组件(.+)的层级为(.+)$", function(w, comp, layer)
-      local actual = repo.arch_component_layer(arch_dep().config, comp)
+      local actual = archc.arch_component_layer(arch_dep().config, comp)
       if tostring(actual) == layer then return true end
       return nil, string.format("%s 层级实际为 %s", comp, tostring(actual)) end },
   { "^未豁免的依赖环数量为(%d+)$", function(w, n)
-      local actual = repo.arch_unwaived_cycle_count(arch_dep().model.check)
+      local actual = archc.arch_unwaived_cycle_count(arch_dep().model.check)
       if actual == tonumber(n) then return true end
       return nil, string.format("未豁免依赖环实际为 %d", actual) end },
   -- ── 部署镜像（deploy-mirror.feature，临时工作区在 ./tmp 下）──
