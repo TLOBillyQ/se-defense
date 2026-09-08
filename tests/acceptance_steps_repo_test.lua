@@ -14,11 +14,11 @@ local function handler_for(fragment)
   error("步骤表里找不到包含 " .. fragment .. " 的模式")
 end
 
-local function write(path)
+local function write(path, body)
   local parent = path:match("^(.*)/[^/]+$")
   if parent then os.execute("mkdir -p '" .. parent .. "'") end
   local f = assert(io.open(path, "w"))
-  f:write("-- preset\n")
+  f:write(body or "-- preset\n")
   f:close()
 end
 
@@ -49,6 +49,15 @@ function TestDeployMirrorSteps:test_preset_creates_every_path_in_list()
   lu.assertTrue(exists(self.ws .. "/eggy.json"))
 end
 
+function TestDeployMirrorSteps:test_preset_ignores_extra_whitespace()
+  local ok, err = handler_for("临时工作区预置文件")(self.world,
+    "  server/main.lua\tclient/main.lua   eggy.json  ")
+  lu.assertTrue(ok, err)
+  lu.assertTrue(exists(self.ws .. "/server/main.lua"))
+  lu.assertTrue(exists(self.ws .. "/client/main.lua"))
+  lu.assertTrue(exists(self.ws .. "/eggy.json"))
+end
+
 function TestDeployMirrorSteps:test_exists_requires_every_path_in_list()
   write(self.ws .. "/server/main.lua")
   write(self.ws .. "/client/main.lua")
@@ -69,4 +78,17 @@ function TestDeployMirrorSteps:test_exists_accepts_single_path()
   write(self.ws .. "/eggy.json")
   local ok, err = handler_for("临时工作区存在文件")(self.world, "eggy.json")
   lu.assertTrue(ok, err)
+end
+
+function TestDeployMirrorSteps:test_exists_accepts_empty_file()
+  write(self.ws .. "/eggy.json", "")
+  local ok, err = handler_for("临时工作区存在文件")(self.world, "eggy.json")
+  lu.assertTrue(ok, err)
+end
+
+function TestDeployMirrorSteps:test_handler_requires_workspace()
+  self.world.workspace = nil
+  local ok, err = handler_for("临时工作区存在文件")(self.world, "eggy.json")
+  lu.assertNil(ok)
+  lu.assertStrContains(err, "尚未创建临时工作区")
 end
