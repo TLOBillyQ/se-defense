@@ -10,7 +10,15 @@ local lu = require("luaunit")
 TestDeployTransport = {}
 
 local function lua_bin()
-  return (arg and type(arg[-1]) == "string" and arg[-1]:match("lua")) and arg[-1] or "lua5.4"
+  if arg then
+    for i = -1, -4, -1 do
+      local candidate = arg[i]
+      if type(candidate) == "string" and not candidate:match("^%-") and candidate:match("lua") then
+        return candidate
+      end
+    end
+  end
+  return "lua5.4"
 end
 
 function TestDeployTransport:setUp()
