@@ -11,6 +11,10 @@
 --   - ModelColor1 对部分网格是乘法、对带烘焙色网格可能被忽略；场景配色依赖原生资产色。
 --
 -- 主题：能量防线(草原)。绿色草原地面 + 外围晶石。
+--
+-- 晶石点位按棋盘半径的倍数表达，棋盘范围由组合根（server/main.lua）从
+-- server.game.world 注入：适配层（L4）不许反向依赖业务（L3），而把 ±20 抄进来
+-- 就等于在适配层复制一份棋盘尺寸，棋盘改尺寸时装饰会悄悄错位。
 
 local World = game:GetService("World")
 local AssetService = game:GetService("AssetService")
@@ -51,19 +55,22 @@ local function crystal(idx, x, z, s, c)
   return tint(u, c)
 end
 
-function scene.build()
-  build_ground(2.5)
+-- 外围晶石点位（native 偏粉白，作为晶石成立）：x/z 以棋盘半径 R 为单位，
+-- 四角贴边（±1R），其余落在盘外一圈（1.2R~1.4R）。
+local CRY = { 0.5, 0.9, 0.8 }
+local CRY2 = { 0.62, 0.9, 0.86 }
+local RING = {
+  { -1.0, -1.0, CRY }, { 1.0, -1.0, CRY2 }, { -1.0, 1.0, CRY2 }, { 1.0, 1.0, CRY },
+  { -1.4, -0.6, CRY2 }, { 1.4, -0.6, CRY }, { -1.4, 0.6, CRY }, { 1.4, 0.6, CRY2 },
+  { -0.6, 1.2, CRY2 }, { 0.6, 1.2, CRY }, { 0, 1.3, CRY2 },
+}
 
-  -- 外围晶石：沿棋盘边缘与四角点缀（native 偏粉白，作为晶石成立）。
-  local CRY = { 0.5, 0.9, 0.8 }
-  local CRY2 = { 0.62, 0.9, 0.86 }
-  local ring = {
-    { -20, -20, CRY }, { 20, -20, CRY2 }, { -20, 20, CRY2 }, { 20, 20, CRY },
-    { -28, -12, CRY2 }, { 28, -12, CRY }, { -28, 12, CRY }, { 28, 12, CRY2 },
-    { -12, 24, CRY2 }, { 12, 24, CRY }, { 0, 26, CRY2 },
-  }
-  for i, r in ipairs(ring) do
-    crystal(i, r[1], r[2], (i % 2 == 0) and 0.6 or 0.45, r[3])
+-- board_max: 棋盘半径（world.board.max）。缺省 20 只为让桩/探针能单独调用。
+function scene.build(board_max)
+  local R = board_max or 20
+  build_ground(2.5)
+  for i, r in ipairs(RING) do
+    crystal(i, r[1] * R, r[2] * R, (i % 2 == 0) and 0.6 or 0.45, r[3])
   end
 end
 

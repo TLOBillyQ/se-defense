@@ -94,7 +94,8 @@ mount_adapter(root)
 
 -- 运行时静态场景（草地地面 + 外围晶石点缀）：仅视觉，不进 entity.by_id，
 -- 不参与 host:reset_scene()，因此只在加载时构建一次，不随 restart 重建。
-require("server.adapter.scene").build()
+-- 棋盘半径由此处注入：适配层不许反向依赖 server.game.world。
+require("server.adapter.scene").build(WorldData.board.max)
 
 local net
 
