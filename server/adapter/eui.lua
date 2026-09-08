@@ -1,4 +1,7 @@
--- host.eui 域真实现（服务端半）：快照出口 + 形状双路由。
+-- host.eui 域真实现（服务端半）：快照出口 + 形状路由。
+-- 形状路由（CONTEXT.md 同名词条）：ring 只把圆心与半径写进快照，几何由客户端按
+-- client/ring_geometry 生成；line 仍在服务端就地渲为 EffectUnit，不跨网络。
+-- 「双路由」是 ADR 0003 时期 ring/line 都就地渲染的旧名，#42（ADR 0006）已取代 ring 那半。
 --
 -- 依据 #18 决议：
 --   - 混合快照协议：text/fill/color/visible 四字段浅比较，节点级增量（dirty），

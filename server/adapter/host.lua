@@ -4,7 +4,7 @@
 -- tools/headless/se_stub.lua 提供 SE 全局，不再有 mock 替换。
 --
 -- 四域真实现（#19 垂直切片）：
---   eui         服务端快照出口 + ring/line 双路由（#18）
+--   eui         服务端快照出口 + 形状路由：ring 进快照、line 就地渲（#18；ADR 0006）
 --   input       意图队列 → 业务轮询面（#8 D5）
 --   entity      WorldUnit 映射（#9 D1），Name = 业务实体 id（#18 决策 4）
 --   reset_scene 销毁适配器单位 + 重置注册表（#7 决策 3；#43 由 reset_scene.lua 并入）

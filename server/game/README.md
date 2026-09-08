@@ -15,7 +15,7 @@ GameObject/prefab/粒子等表现层换成宿主 EUI 节点、实体状态与 `p
 | require | 职责 |
 | --- | --- |
 | `server.adapter.host` | 组合根：实体、`reset_scene`，并挂载 `host.eui`、`host.input` |
-| `server.adapter.eui` | 服务端 UI 状态出口：text/fill/color/visible 进快照经 RemoteEvent 下发；ring/line 就地渲成 EffectUnit（双路由） |
+| `server.adapter.eui` | 服务端 UI 状态出口：text/fill/color/visible 与 ring 的圆心/半径进快照经 RemoteEvent 下发，ring 几何由客户端 `client/ring_geometry` 生成；只有 line 就地渲成 EffectUnit（形状路由，ADR 0006 取代 0003 中 ring 那半） |
 | `server.adapter.input` | 输入信号 |
 
 无头测试不需要 mock：`tools/headless/se_stub.lua` 提供 SE 全局，适配层原样

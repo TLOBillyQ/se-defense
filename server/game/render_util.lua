@@ -8,6 +8,14 @@
 local render_util = {}
 
 --- 归一化颜色表 → {r,g,b,a}。
+--
+-- 已知重复：`server.adapter.convert.copy_color` 是逐字相同的一份。归一化本身不是宿主
+-- 知识（不碰任何 SE 全局），两边都只是把「具名表 / 数字数组、缺省通道补 1」这条表示
+-- 约定实现一遍，所以理应只有一份。现在收不掉：业务侧只经 `server.adapter.host` 这一个
+-- 入口依赖适配层（见 CONTEXT.md「宿主接缝」），直接 require adapter.convert 会是第一个
+-- 绕过组合根的业务模块，比重复更糟；而放进 common/ 要新开路径，#43 明确不动路径。
+-- 与 `entity.unit_name` 的双端契约同类，一并留给目录单评估是否进 common/。
+-- 改这里必须同步改 convert.copy_color。
 function render_util.copy_colour(c)
   if type(c) == "table" then
     return {
