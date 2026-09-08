@@ -19,7 +19,7 @@
     { "name": "forbid_building_to_core", "description": "建筑不得反向依赖主基地核心", "from": ["^server%.game%.building$"], "to": ["^server%.game%.core$"] },
     { "name": "forbid_building_to_turret", "description": "建筑不得反向依赖火力炮台", "from": ["^server%.game%.building$"], "to": ["^server%.game%.turret$"] },
     { "name": "forbid_wave_cycle_to_wave_director", "description": "波次周期不得反向依赖波次导演", "from": ["^server%.game%.wave_cycle$"], "to": ["^server%.game%.wave_director$"] },
-    { "name": "forbid_world_to_wave_director", "description": "世界不得反向依赖波次导演", "from": ["^server%.game%.world$"], "to": ["^server%.game%.wave_director$"] },
+    { "name": "forbid_world_to_wave_director", "description": "世界不得反向依赖波次导演", "from": ["^server%.game%.world_data$"], "to": ["^server%.game%.wave_director$"] },
     { "name": "forbid_board_sensors_to_board_interactions", "description": "棋盘传感器不得反向依赖棋盘交互", "from": ["^server%.game%.board_sensors$"], "to": ["^server%.game%.board_interactions$"] },
     { "name": "forbid_game_state_to_wave_director", "description": "对局状态不得反向依赖波次导演", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.wave_director$"] },
     { "name": "forbid_game_state_to_resource", "description": "对局状态不得反向依赖经济资源", "from": ["^server%.game%.game_state$"], "to": ["^server%.game%.resource$"] },

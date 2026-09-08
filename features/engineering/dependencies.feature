@@ -154,7 +154,7 @@
   | server.game.building       | server.game.core               |
   | server.game.building       | server.game.turret             |
   | server.game.wave_cycle     | server.game.wave_director      |
-  | server.game.world          | server.game.wave_director      |
+  | server.game.world_data     | server.game.wave_director      |
   | server.game.board_sensors  | server.game.board_interactions |
   | server.game.game_state     | server.game.wave_director      |
   | server.game.game_state     | server.game.resource           |
