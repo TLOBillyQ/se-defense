@@ -26,7 +26,8 @@
     { "name": "forbid_resource_harvest_to_wave_director", "description": "资源采集不得反向依赖波次导演", "from": ["^server%.game%.resource_harvest$"], "to": ["^server%.game%.wave_director$"] },
     { "name": "forbid_resource_to_game_state", "description": "经济资源不得反向依赖对局状态", "from": ["^server%.game%.resource$"], "to": ["^server%.game%.game_state$"] },
     { "name": "forbid_resource_to_board_interactions", "description": "经济资源不得反向依赖棋盘交互", "from": ["^server%.game%.resource$"], "to": ["^server%.game%.board_interactions$"] },
-    { "name": "forbid_radar_to_turret", "description": "侦测雷达不得反向依赖火力炮台", "from": ["^server%.game%.radar$"], "to": ["^server%.game%.turret$"] }
+    { "name": "forbid_radar_to_turret", "description": "侦测雷达不得反向依赖火力炮台", "from": ["^server%.game%.radar$"], "to": ["^server%.game%.turret$"] },
+    { "name": "forbid_power_node_to_board_interactions", "description": "网电节点不得反向依赖棋盘交互（通电▶合法落点，接线在组合根）", "from": ["^server%.game%.power_node$"], "to": ["^server%.game%.board_interactions$"] }
   ],
   "allowed_cycles": [
     { "view": "spoke", "nodes": ["spoke.reactive", "spoke.runtime"],
