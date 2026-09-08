@@ -1,8 +1,10 @@
 -- host.input 域真实现（服务端半）：意图队列 → 业务轮询面。
 --
 -- 依据 #8 D5：
---   - 业务轮询面与 input_mock 1:1：get_mouse_world_point / get_mouse_button_down(0/1) /
---     reset_frame。
+--   - 业务轮询面：get_mouse_world_point / get_mouse_button_down(0/1) / reset_frame。
+--     #8 D5 原文写的是「与 input_mock 1:1」，那是迁入前靠 mock 同路径替换接入的形态；
+--     mock 已废除（CONTEXT.md「宿主接缝」），#43 又删掉键盘/指针那五个零调用导出，
+--     所以轮询面就是上面三个，不再与任何 mock 对齐。
 --   - tap 边沿 → 左键；取消（专用按钮/PC 右键/Escape）→ 右键；触点 → 世界点。
 --   - reset_frame 由 GameTick 驱动器在每个固定步长边界调用（#7 决策 3）。
 --   - 界外点 → nil（#8 D2）：bounds 由 server/main.lua 在树 spawn 后注入
