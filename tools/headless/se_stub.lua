@@ -1,6 +1,7 @@
 -- SE 运行时 API 最小桩（无头验证用，#19 一次性版本的可复用化，#21）。
 -- 只覆盖 server/main.lua + 适配层用到的面：game:GetService / World:CreateUnit /
--- RunService.Heartbeat / RemoteEvent / Vector3 / Vector2 / Color / Enums。
+-- AssetService:LoadUnitAsset / RunService.Heartbeat / RemoteEvent / Vector3 / Vector2 /
+-- Color / Enums。
 -- 桩不模拟渲染，只记录属性写入，供断言读取（units 表按 Name 索引）。
 
 local stub = { units = {}, sent = {}, heartbeat = {}, server_handlers = {} }
@@ -34,6 +35,16 @@ function World:FindFirstChild(name)
   return nil
 end
 
+-- AssetService:LoadUnitAsset 真机返回资产内的单位数组；桩只造一个根单位，
+-- 属性写入与 CreateUnit 同路，记入 stub.units 供断言。
+local AssetService = {}
+function AssetService:LoadUnitAsset(asset_id)
+  -- 真机资产单位一定带 Name，桩照做：断言里的 u.Name 谓词不能遇到 nil。
+  local u = setmetatable({ _kind = "AssetUnit", _asset = asset_id, Name = "asset:" .. tostring(asset_id) }, Unit)
+  stub.units[u] = true
+  return { u }
+end
+
 local signal = function(list)
   return { Connect = function(_, fn) list[#list + 1] = fn; return { Disconnect = function() end } end }
 end
@@ -42,6 +53,7 @@ local RunService = { Heartbeat = signal(stub.heartbeat) }
 _G.game = { GetService = function(_, name)
   if name == "World" then return World end
   if name == "RunService" then return RunService end
+  if name == "AssetService" then return AssetService end
   return {}
 end }
 
