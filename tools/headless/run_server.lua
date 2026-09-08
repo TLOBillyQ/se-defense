@@ -22,6 +22,18 @@ local root = _G.bd.root
 local bi = root.board_interactions
 local gs = root.game_state
 
+-- 场景构建（#29 静态场景，cherry-pick）：草地 preset 根单位 + 11 块外围晶石。
+-- 只做视觉，不进 entity.by_id，因此不改变业务实体计数。
+real_print("== 场景构建（静态场景，cherry-pick）")
+local grass_n, crystal_n = 0, 0
+for u in pairs(stub.units) do
+  if u.Name == "asset:official://preset/1510240" then grass_n = grass_n + 1 end
+  if u.Name and u.Name:match("^bd_crystal_") then crystal_n = crystal_n + 1 end
+end
+check(grass_n == 1, "场景草地已构建（grass=" .. grass_n .. "）")
+check(crystal_n == 11, "外围晶石 11 块（实际 " .. crystal_n .. "）")
+check(#host.entity.all() == 28, "场景单位不进 entity.by_id（业务实体仍 28）")
+
 local function entities_of(prefab)
   local n = 0
   for _, e in ipairs(host.entity.all()) do if e.prefab == prefab then n = n + 1 end end
