@@ -37,6 +37,8 @@ local renderer = Renderer.new({
     local key = path:match("^panel/build/(%a+)$")
     if key then
       channel:send({ kind = "input", itype = "place", key = key })
+    elseif path == "panel/start" then
+      channel:send({ kind = "input", itype = "start" })
     elseif path == "panel/cancel" then
       channel:send({ kind = "input", itype = "cancel" })
     elseif path == "panel/restart" then

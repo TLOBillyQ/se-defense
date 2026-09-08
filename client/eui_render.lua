@@ -37,6 +37,9 @@ local function recipe_for(path)
   if build_key then
     return { kind = "button", slot = BUILD_SLOT[build_key] or 4, font = 30 }
   end
+  if path == "panel/start" then
+    return { kind = "button", center_y = 0.45, font = 40, size = { 320, 88 }, color = { 255, 255, 255 } }
+  end
   if path == "panel/cancel" then
     return { kind = "button", slot = 5, font = 30, color = { 255, 120, 120 } }
   end
