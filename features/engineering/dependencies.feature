@@ -118,6 +118,11 @@
 #     一个组件（同层，互相可依赖），units 是血量/建筑等被系统操作的实体，kernel 是底座
 #     （机制与共享事实，不含系统规则），host 是面向宿主的适配层。game/ 这层目录已取消：
 #     它原来只用来隔开业务与宿主/入口，该职责由分层承担。
+#   - board▶ui 这条边被翻过来：原来 board_interactions 自己 require board_display 并
+#     挂载，是全图唯一一条玩法→表现的边，不翻则 board 与 ui 分不了层。现在
+#     board_interactions 只暴露信号，组合根拿了信号再挂 BoardDisplay。两半都要钉住：
+#     场景 2 的 game_root_full▶board_display 保证挂载没被顺手删掉，场景 3 的
+#     board_interactions▶board_display 保证旧方向接不回来。
 #   - 上游 spoke 运行时内联进本仓（docs/spoke-upstream.md），其内部环不重写，走豁免清单；
 #     本仓自己的代码不得引入新环。
 #   - 本 feature 由 run_acceptance.sh 扫描 features/engineering/ 自动执行。
@@ -144,6 +149,7 @@
   | server.board.building_specs     | server.defense.turret      |
   | server.match.game_state         | server.units.health        |
   | server.match.game_root_full     | server.match.game_state    |
+  | server.match.game_root_full     | server.ui.board_display    |
 
 场景大纲: 依赖关系约束 3: 反向依赖被架构门禁拒绝
   那么 架构门禁禁止模块<模块>依赖模块<被依赖模块>
