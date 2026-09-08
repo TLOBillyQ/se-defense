@@ -42,6 +42,13 @@ local function q(path)
   return "'" .. path .. "'"
 end
 
+-- 空格分隔的路径列表（deploy-mirror.feature：一个场景一次部署，一次核对多条路径）。
+local function split_paths(list)
+  local paths = {}
+  for path in tostring(list):gmatch("%S+") do paths[#paths + 1] = path end
+  return paths
+end
+
 -- Lua 5.4 binary that runs this spec (for subprocess steps such as deploy).
 local function lua_bin()
   if arg and type(arg[-1]) == "string" and arg[-1]:match("lua") then
@@ -179,16 +186,18 @@ M.patterns = {
       os.execute("rm -rf " .. q(w.workspace))
       os.execute("mkdir -p " .. q(w.workspace))
       return true end },
-  { "^临时工作区预置文件(%S+)$", function(w, path)
+  { "^临时工作区预置文件(.+)$", function(w, list)
       local ws, err = workspace(w)
       if not ws then return nil, err end
-      local full = ws .. "/" .. path
-      local parent = full:match("^(.*)/[^/]+$")
-      if parent then os.execute("mkdir -p " .. q(parent)) end
-      local f = io.open(full, "w")
-      if not f then return nil, "无法写入 " .. full end
-      f:write("-- preset\n")
-      f:close()
+      for _, path in ipairs(split_paths(list)) do
+        local full = ws .. "/" .. path
+        local parent = full:match("^(.*)/[^/]+$")
+        if parent then os.execute("mkdir -p " .. q(parent)) end
+        local f = io.open(full, "w")
+        if not f then return nil, "无法写入 " .. full end
+        f:write("-- preset\n")
+        f:close()
+      end
       return true end },
   { "^执行部署到临时工作区$", function(w)
       local ws, err = workspace(w)
@@ -198,11 +207,15 @@ M.patterns = {
       local ok, _, code = os.execute(cmd)
       if ok and code == 0 then return true end
       return nil, "deploy 失败 exit=" .. tostring(code) end },
-  { "^临时工作区存在文件(%S+)$", function(w, path)
+  { "^临时工作区存在文件(.+)$", function(w, list)
       local ws, err = workspace(w)
       if not ws then return nil, err end
-      if read_file(ws .. "/" .. path) then return true end
-      return nil, "临时工作区缺文件 " .. path end },
+      for _, path in ipairs(split_paths(list)) do
+        if not read_file(ws .. "/" .. path) then
+          return nil, "临时工作区缺文件 " .. path
+        end
+      end
+      return true end },
   { "^临时工作区不存在目录(%S+)$", function(w, path)
       local ws, err = workspace(w)
       if not ws then return nil, err end
