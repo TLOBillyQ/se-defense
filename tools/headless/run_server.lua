@@ -45,9 +45,13 @@ local function last_state(path)
     if m.nodes and m.nodes[path] then return m.nodes[path] end
   end
 end
-local function ring_unit(path)
-  local n = host.eui.nodes[path]
-  return n and n._shape and n._shape.unit
+-- 形状一律问 host.eui.shapes()：ring 走快照、只有 line 才是就地渲染的单位
+-- （ADR 0006 / #42）。直接翻 nodes[path]._shape.unit 是 #42 之前的形态，
+-- ring 改走快照后必然取不到。
+local function live_shape(path, kind)
+  for _, sh in ipairs(host.eui.shapes()) do
+    if sh.path == path and sh.kind == kind and sh.visible then return sh end
+  end
 end
 
 real_print("== Pregame（手动开局，GDD 01 R2）")
@@ -83,8 +87,8 @@ check(host.eui.nodes["panel/cancel"].visible == true, "placing 时取消按钮�
 stub.client_send({ kind = "input", itype = "hover", x = 8, z = 0 })
 stub.steps(3)
 check(bi.placement_valid:now() == false, "hover (8,0) 电网外 → 无效")
-local fp = ring_unit("board/placement_footprint")
-check(fp ~= nil, "放置预览圆已就地渲为单位")
+local fp = live_shape("board/placement_footprint", "ring")
+check(fp ~= nil, "放置预览圆进快照（ADR 0006）")
 stub.client_send({ kind = "input", itype = "hover", x = 3, z = 0 })
 stub.steps(3)
 check(bi.placement_valid:now() == true, "hover (3,0) 电网内 → 有效")
