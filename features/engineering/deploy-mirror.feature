@@ -49,6 +49,10 @@
 #     落到 common/spoke，无特例。仓库根其余内容不部署。
 #   - 部署只重置本仓库拥有的白名单子树；工作区里 server/_trigger、data、eggy.json 等不归本仓库的
 #     内容，以及编辑器自己生成的 .gm/ server.TableMgr unit_scripts/，一律原样保留。
+#   - 路径列表为空格分隔；「存在文件」要求列表里每个路径都存在，「预置文件」逐个创建。
+# 执行成本：验收运行时对每个例子行都重跑一遍背景与全部步骤，而一次部署是整树镜像
+#   （WSL 下经 cmd.exe 走 robocopy 并做 editor-cli 收尾，跨系统调用尤其贵）。所以待验路径
+#   走一个空格分隔的列表参数、每个场景只留一行例子：一个场景一次部署，而不是一行一次。
 功能: 部署镜像
 
 背景:
@@ -56,27 +60,17 @@
 
 场景大纲: 部署镜像 1: 部署把仓库根各端镜像到工作区根
   当 执行部署到临时工作区
-  那么 临时工作区存在文件<路径>
+  那么 临时工作区存在文件<路径列表>
 
 例子:
-  | 路径                    |
-  | server/main.lua         |
-  | server/game/core.lua    |
-  | server/adapter/host.lua |
-  | client/main.lua         |
-  | client/eui_render.lua   |
-  | common/spoke/init.lua   |
+  | 路径列表                                                                                                                  |
+  | server/main.lua server/game/core.lua server/adapter/host.lua client/main.lua client/eui_render.lua common/spoke/init.lua |
 
 场景大纲: 部署镜像 2: 部署不触碰工作区中不归本仓库的文件
-  假如 临时工作区预置文件<路径>
+  假如 临时工作区预置文件<路径列表>
   当 执行部署到临时工作区
-  那么 临时工作区存在文件<路径>
+  那么 临时工作区存在文件<路径列表>
 
 例子:
-  | 路径                           |
-  | server/_trigger/GlobalVars.lua |
-  | data/Prefab.lua                |
-  | eggy.json                      |
-  | .gm/probe.lua                  |
-  | unit_scripts/x.lua             |
-  | server.TableMgr/a              |
+  | 路径列表                                                                                                     |
+  | server/_trigger/GlobalVars.lua data/Prefab.lua eggy.json .gm/probe.lua unit_scripts/x.lua server.TableMgr/a |
