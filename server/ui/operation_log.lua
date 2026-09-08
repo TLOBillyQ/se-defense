@@ -4,7 +4,7 @@
 -- 供客户端 recipe 表渲染成左下角的实时日志。只记录"关键时刻"，不逐帧刷屏；
 -- 每 push 一次把最新条目放到 hud/log/0，旧的依次下移，超出 MAX 条丢弃最旧。
 --
--- 层级：适配层（L4），与 build_panel 同级；不反向依赖业务模块。业务通过组合根
+-- 层级：UI 层（L4），与 build_panel 同级；不反向依赖业务模块。业务通过组合根
 -- 注入本对象的 push 接口（board_interactions / build_panel / net / main 编排），
 -- 本模块只依赖 host.eui 节点接口。
 --
@@ -28,7 +28,7 @@ local COLORS = {
   system  = { r = 0.4,   g = 0.8,   b = 1,     a = 1 },
 }
 
--- host: 适配层宿主（需 eui.node / eui.nodes）；opts.max 覆盖日志条数上限。
+-- host: 宿主接缝（需 eui.node / eui.nodes）；opts.max 覆盖日志条数上限。
 function M.create(host, opts)
   opts = opts or {}
   local log = {

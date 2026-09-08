@@ -18,7 +18,7 @@
 -- 目的地在 Linux 侧（临时工作区、非 WSL 机器）则一律本地 rm + cp：那种情况下 robocopy
 -- 反而要 Windows 走 9P 回读 Linux 侧，凭空造出一次本来不存在的跨系统往返。
 -- robocopy 不可用或退出码 >= 8 时同样回落 rm + cp。
--- 重置粒度是本仓库拥有的「端的一级子树」（如 server/game、server/main.lua）；
+-- 重置粒度是本仓库拥有的「端的一级子树」（如 server/match、server/main.lua）；
 -- 其余内容（eggy.json、server/_trigger、data、.vscode、log.txt、unit_scripts 等）不碰。
 
 package.path = "./?.lua;./?/init.lua;" .. package.path

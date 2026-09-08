@@ -17,11 +17,11 @@ end
 
 function TestDeployPlan:test_targets_pair_repo_path_with_same_workspace_path()
   local targets = plan.targets("/ws", listing({
-    server = { { name = "game", dir = true }, { name = "main.lua", dir = false } },
+    server = { { name = "match", dir = true }, { name = "main.lua", dir = false } },
   }), { "server" })
   lu.assertEquals(#targets, 2)
-  lu.assertEquals(targets[1], { rel = "server/game", dir = true,
-    src = "server/game", dst = "/ws/server/game" })
+  lu.assertEquals(targets[1], { rel = "server/match", dir = true,
+    src = "server/match", dst = "/ws/server/match" })
   lu.assertEquals(targets[2], { rel = "server/main.lua", dir = false,
     src = "server/main.lua", dst = "/ws/server/main.lua" })
 end

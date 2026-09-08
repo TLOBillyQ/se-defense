@@ -6,7 +6,7 @@
 --     校验（类型白名单、有限数值、字符串长度）；棋盘边界判定不在这里重复，统一交给
 --     host.input（set_bounds 注入的 level_bounds），界外 tap 无动作、界外 hover 清指针。
 --
--- 与 server/gm.lua 同级：编排业务（root）与适配层（host / BuildPanel），适配层不反向依赖。
+-- 与 server/gm.lua 同级：编排业务（root）与宿主/UI 层（host / BuildPanel），二者不反向依赖。
 
 local BuildPanel = require("server.ui.build_panel")
 

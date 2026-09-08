@@ -1,4 +1,4 @@
--- Behavior-level unit tests for server/game semantics landed by the rewrite
+-- Behavior-level unit tests for server business packages landed by the rewrite
 -- feature migration (docs/gdd/ rules). Pure-module checks go straight at the
 -- module; component behavior boots a fresh headless game per test via
 -- tools/acceptance/headless.lua (real adapter over the SE stub, no mocks).

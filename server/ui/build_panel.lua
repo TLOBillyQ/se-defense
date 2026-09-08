@@ -1,7 +1,7 @@
 -- 建筑放置面板（服务端半，#21）：四个放置按钮 + 取消按钮的快照节点。
 --
 -- 业务侧没有按钮（sidebar.lua 明示 BuildItem 按钮已由鼠标放置流取代），
--- 所以按钮归适配层：本模块用 host.eui 节点把「可放置项 + 造价 + 余额可否 +
+-- 所以按钮归 UI 层：本模块用 host.eui 节点把「可放置项 + 造价 + 余额可否 +
 -- 当前选中」投影成快照状态，客户端 recipe 表把 panel/* 渲成 EUIButton；
 -- 点击回流为 place/cancel 意图（server/main.lua 收）。快照零表现知识（#18）。
 --
@@ -28,7 +28,7 @@ local function spec_label(spec)
     or (spec.key and (spec.key:gsub("^%l", string.upper)) or "建筑")
 end
 
--- host: 适配层 host 表；root: GameRootFull 实例（spawn 后，building_specs 已就位）。
+-- host: 宿主接缝表；root: GameRootFull 实例（spawn 后，building_specs 已就位）。
 function M.create(host, root, op_log)
   local panel = { host = host, root = root, op_log = op_log, buttons = {} }
   for _, key in ipairs(ORDER) do

@@ -7,10 +7,10 @@
 -- 坐标找建筑）一律问 server/match/roster.lua，这里只做转发与格式化，不重做规则。
 --
 -- ctx 由 server/main.lua 提供（root/panel 每次重开都换对象，全部经访问器取）：
---   host          适配层宿主
+--   host          宿主接缝
 --   root()        当前组合根
 --   panel()       当前放置面板（server/ui/build_panel.lua）
---   restart(why)  整局重开（拆树 → 清场 → 重建 → 重挂适配层 → 广播 reset）
+--   restart(why)  整局重开（拆树 → 清场 → 重建 → 重挂每局挂件 → 广播 reset）
 --   stats()       { ticks, uptime, seq } 驱动器计数（status 日志用）
 --   log(fmt, ...) 日志
 --

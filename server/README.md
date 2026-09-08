@@ -28,7 +28,7 @@ server/ 按玩法系统分包，依赖只能从高层（小数字）流向低层
 
 `host.eui` 是服务端 UI 状态出口：text/fill/color/visible 与 ring 的圆心/半径进快照经 RemoteEvent 下发，ring 几何由客户端 `client/ring_geometry` 生成；只有 line 就地渲成 EffectUnit（形状路由，ADR 0006 取代 0003 中 ring 那半）。
 
-无头测试不需要 mock：`tools/headless/se_stub.lua` 提供 SE 全局，适配层原样
+无头测试不需要 mock：`tools/headless/se_stub.lua` 提供 SE 全局，host 层原样
 运行。验收：`tools/acceptance/run_acceptance.sh`；冒烟：`lua5.4 tools/headless/run_server.lua`。
 
 ## 明确取舍

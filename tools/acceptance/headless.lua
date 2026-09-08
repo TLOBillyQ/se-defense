@@ -1,11 +1,11 @@
 -- tools/acceptance/headless.lua — boots the headless game (SE stub + real
--- adapters + server/main.lua) inside the current process and exposes the
+-- host layer + server/main.lua) inside the current process and exposes the
 -- query surface the step handlers need. Same boot sequence as
 -- tools/headless/run_server.lua.
 --
 -- Fresh game per scenario: every module under server./client./common. (spoke included)
 -- and the SE stub are dropped from package.loaded and required again, so
--- module-level state (adapter registries, stub signal lists, _G.bd) starts
+-- module-level state (host registries, stub signal lists, _G.bd) starts
 -- from scratch.
 local Roster = require("server.match.roster")
 

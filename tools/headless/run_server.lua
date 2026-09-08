@@ -1,4 +1,4 @@
--- 无头验证：SE 桩 + 真适配层 + GameRootFull 跑服务端 main.lua。
+-- 无头验证：SE 桩 + 真 host 层 + GameRootFull 跑服务端 main.lua。
 -- 冒烟断言对齐 GDD 现实（docs/gdd/）：Pregame 手动开局、初始 100 资金、
 -- 27 矿点、放置流（预览/非法/扣费）、采集、胜利/败北与重开代际。
 -- 运行（仓库根）：lua5.4 tools/headless/run_server.lua
@@ -13,7 +13,7 @@ local function check(cond, msg)
   if not cond then fails = fails + 1 end
 end
 
--- 静音业务/适配层日志（VERBOSE=1 打开）
+-- 静音业务/host 层日志（VERBOSE=1 打开）
 local verbose = os.getenv("VERBOSE") == "1"
 print = function(...) if verbose then real_print(...) end end
 assert(loadfile("server/main.lua"))()

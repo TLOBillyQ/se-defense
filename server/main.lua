@@ -49,7 +49,7 @@ end
 
 local tick = GameTick.new(STEP)
 
--- 实时操作日志：与放置面板同为适配层挂件，跨整局/重开持同一对象，
+-- 实时操作日志：与放置面板同为 UI 挂件，跨整局/重开持同一对象，
 -- 业务（board_interactions）经组合根注入其 push 接口；重开时 host.eui.reset()
 -- 清空节点，由挂载流程 op_log:reset() 重建。
 local op_log = OperationLog.create(host)
@@ -77,33 +77,33 @@ local root = session.root
 local tree = session.tree
 log("Auto 树 spawn 完成 fault=%s detached=%s", tostring(tree.fault), tostring(tree.is_detached))
 
--- 树之外、每局都要随 root 重建的适配层挂件：棋盘边界 + 放置面板。
+-- 树之外、每局都要随 root 重建的宿主/UI 挂件：棋盘边界 + 放置面板。
 local panel
 
-local function mount_adapter(r)
+local function mount_session_widgets(r)
   host.input.set_bounds(r.game_state:level_bounds())
   op_log:reset()
   panel = BuildPanel.create(host, r, op_log)
   BuildPanel.update(panel)
   if r.game_state.settle_power then r.game_state:settle_power() end -- 初始布局收敛（GDD 03 R8）
 end
-mount_adapter(root)
+mount_session_widgets(root)
 
 -- 运行时静态场景（草地地面 + 外围晶石点缀）：仅视觉，不进 entity.by_id，
 -- 不参与 host:reset_scene()，因此只在加载时构建一次，不随 restart 重建。
--- 棋盘半径由此处注入：适配层不许反向依赖 server.kernel.world_data。
+-- 棋盘半径由此处注入：host/UI 层不许反向依赖 server.kernel.world_data。
 require("server.host.scene").build(WorldData.board.max)
 
 local net
 
 -- Restart（#28）：业务 session.lua 三步（dispose → host:reset_scene() → 重建），
--- 随后适配层重挂、广播 reset 全量。不在 tick 派发中途调用（RemoteEvent / GM 都在帧间到达）。
+-- 随后宿主/UI 挂件重挂、广播 reset 全量。不在 tick 派发中途调用（RemoteEvent / GM 都在帧间到达）。
 local function restart_game(why)
   local old_gen = host.eui.generation
   session:restart()
   root = session.root
   tree = session.tree
-  mount_adapter(root)
+  mount_session_widgets(root)
   op_log:push("system", "重新开始对局")
   if _G.bd then _G.bd.root = root end
   net:send_reset()
