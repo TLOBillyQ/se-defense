@@ -23,22 +23,28 @@ local World = game:GetService("World")
 -- ── 视觉配置表（prefab 键 → 原语配方；#9 D1）─────────────────────────
 -- mesh_half: 网格包围盒半长（立方体 1 / 圆柱 3），落地偏移 = mesh_half × scale.y。
 -- color: {r,g,b} 0..1，spawn 时染底色（业务受击/断电再覆写）。
+-- ── 视觉配置表（prefab 键 → 模型配方；#29 主题化升级）─────────────────────
+-- half: 网格包围盒半长（Y 向）。pivot: 模型中心相对原点的 Y 偏移。
+-- 落地偏移 = (half - pivot) × scale.y，使模型底面贴地（对称模型 pivot=0，等价旧公式 half×scale.y）。
+-- color: 业务 tint 的底色（乘法）：白 = 显示模型本底色；受击红闪/断电压暗经 tint 覆写。
 local VISUALS = {
-  Core =     { mesh = "official://mesh/59268", scale = { 2, 2, 2 },        half = 1, color = { 1, 0.84, 0 } },
-  -- 敌人三档（#26 波次阶梯的 prefab 变体键）：体积与色相都拉开，俯视一眼可辨。
-  enemy =       { mesh = "official://mesh/59268", scale = { 0.8, 0.8, 0.8 }, half = 1, color = { 0.9, 0.15, 0.15 }, kinematic = true },
-  enemy_heavy = { mesh = "official://mesh/59268", scale = { 1.3, 1.1, 1.3 }, half = 1, color = { 0.85, 0.1, 0.55 }, kinematic = true },
-  enemy_boss =  { mesh = "official://mesh/59268", scale = { 2, 1.8, 2 },     half = 1, color = { 0.45, 0.05, 0.75 }, kinematic = true },
-  Resource = { mesh = "official://mesh/59273", scale = { 0.6, 0.8, 0.6 },  half = 3, color = { 0.2, 0.9, 0.4 } },
-  relay =    { mesh = "official://mesh/59273", scale = { 0.5, 0.5, 0.5 },  half = 3, color = { 0.4, 0.7, 1 } },
-  radar =    { mesh = "official://mesh/59268", scale = { 0.8, 0.6, 0.8 },  half = 1, color = { 0.6, 0.6, 0.9 } },
-  -- 雷达天线（#23）：业务每 tick 绕 Y 轴累加旋转；竖杆绕 Y 转肉眼看不出，
-  -- 改为架在底座顶（radar 高 1.2）上的横杆，lift 指定中心离地高度。
-  RadarDish = { mesh = "official://mesh/59268", scale = { 1.6, 0.12, 0.12 }, half = 1, color = { 0.95, 0.95, 1 }, lift = 1.45 },
-  turret =   { mesh = "official://mesh/59268", scale = { 1, 1, 1 },        half = 1, color = { 0.9, 0.5, 0.1 } },
-  repair =   { mesh = "official://mesh/59268", scale = { 1, 1, 1 },        half = 1, color = { 0.5, 0.9, 0.7 } },
+  -- Core：城堡塔（俯视带细节的方形基座，主题化替代原样金色立方体）。
+  Core =           { mesh = "official://mesh/100120", scale = { 0.42, 0.42, 0.42 }, half = 10, pivot = 5, color = { 1, 1, 1 } },
+  -- 敌人三档：卡通小恶魔（恶魔冰淇淋球），同模型按体积/色相拉开，俯视一眼可辨。
+  enemy =          { mesh = "official://mesh/58189", scale = { 0.11, 0.11, 0.11 }, half = 6, pivot = 3, color = { 1, 0.42, 0.42 }, kinematic = true },
+  enemy_heavy =    { mesh = "official://mesh/58189", scale = { 0.15, 0.15, 0.15 }, half = 6, pivot = 3, color = { 1, 0.4, 0.85 }, kinematic = true },
+  enemy_boss =     { mesh = "official://mesh/58189", scale = { 0.22, 0.22, 0.22 }, half = 6, pivot = 3, color = { 0.72, 0.42, 1 }, kinematic = true },
+  -- 资源：四棱锥晶石。
+  Resource =       { mesh = "official://mesh/59291", scale = { 0.45, 0.45, 0.45 }, half = 3, pivot = 1.5, color = { 0.3, 0.95, 0.45 } },
+  -- 建筑：主题化。
+  relay =          { mesh = "official://mesh/55913", scale = { 1.2, 1.2, 1.2 }, half = 1.5, pivot = 0.75, color = { 1, 1, 1 } },
+  radar =          { mesh = "official://mesh/7000122", scale = { 0.35, 0.35, 0.35 }, half = 3, pivot = 1.49, color = { 1, 1, 1 } },
+  -- 雷达天线（#23）：业务每 tick 绕 Y 轴累加旋转；横杆架在底座顶（radar 高≈2.1）。
+  RadarDish =      { mesh = "official://mesh/59268", scale = { 1.6, 0.12, 0.12 }, half = 1, color = { 0.95, 0.95, 1 }, lift = 2.4 },
+  turret =         { mesh = "official://mesh/400889", scale = { 0.7, 0.7, 0.7 }, half = 1.18, pivot = 0.38, color = { 1, 1, 1 } },
+  repair =         { mesh = "official://mesh/57703", scale = { 0.18, 0.18, 0.18 }, half = 6, pivot = 3.02, color = { 1, 1, 1 } },
 }
--- 未知 prefab 的兜底：单位立方体（不报错，保业务零改动；视觉区分度留给后续票）。
+-- 未知 prefab 的兜底：单位立方体（不报错，保业务零改动）。
 local FALLBACK = { mesh = "official://mesh/59268", scale = { 1, 1, 1 }, half = 1, color = { 0.8, 0.8, 0.8 } }
 
 local entity = {
@@ -77,7 +83,7 @@ end
 function entity.spawn(prefab, pos)
   local vis = VISUALS[prefab] or FALLBACK
   local p = copy_vec3(pos)
-  local ground_y = vis.lift or (vis.half * vis.scale[2])
+  local ground_y = vis.lift or ((vis.half - (vis.pivot or 0)) * vis.scale[2])
 
   local unit = World:CreateUnit("WorldUnit", {
     Name = entity.unit_name(entity.next_id), -- #18 决策 4：Name = 业务实体 id（重开后带代数后缀）

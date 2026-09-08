@@ -2,7 +2,8 @@
 --
 -- 架构决策见 docs/adr/（0001 双端与节拍、0002 快照协议、0003 形状双路由、0004 上帝视角输入）。
 --   server/game/          业务（spoke 树，GameRootFull 组合根）
---   server/adapter/       宿主适配层：host.eui / host.input / host.entity / reset_scene + 放置面板
+--   server/adapter/       宿主适配层：host.eui / host.input / host.entity / reset_scene
+--                         + 放置面板 + scene（静态场景装饰，纯视觉）
 --   server/net.lua        RemoteEvent bd_game：快照下行、握手/意图上行
 --   server/gm.lua         _G.bd（$CLI exec / 集成测试编排面）
 --
@@ -90,6 +91,10 @@ local function mount_adapter(r)
   if r.game_state.settle_power then r.game_state:settle_power() end -- 初始布局收敛（GDD 03 R8）
 end
 mount_adapter(root)
+
+-- 运行时静态场景（地面/棋盘/能量角柱/外围水晶）：仅视觉，不进 entity.by_id，
+-- 不参与 host:reset_scene()，因此只在加载时构建一次，不随 restart 重建。
+require("server.adapter.scene").build()
 
 local net
 
