@@ -141,6 +141,10 @@ local function mount_adapter(r)
 end
 mount_adapter(root)
 
+-- 运行时静态场景（地面/棋盘/能量角柱/外围水晶）：仅视觉，不参与玩法，随地图加载重建。
+require("server.adapter.scene").build()
+
+
 -- ── RemoteEvent 通道（bd_game）：快照下行 + 输入/握手上行 ─────────────
 local re = RemoteEvent.New("bd_game")
 local seq = 0
@@ -171,6 +175,7 @@ local function restart_game(why)
   root = session.root
   tree = session.tree
   mount_adapter(root)
+
   start_at = uptime + AUTO_START_AT
   if _G.bd then _G.bd.root = root end
   host.eui.drain()
