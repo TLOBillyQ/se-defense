@@ -23,8 +23,13 @@
 #     场景 6 钉「旧的没了」，场景 4 钉「新的接上了」——只钉一半的话，把函数体原地换个名字，
 #     或加一条谁也不调用的 require，都能蒙混过关。
 #   - 「源码文件 F 不定义函数 N」看的是定义处，不是出现次数：源码里没有 `function ...N(`
-#     形式的定义（含 `t.N(`、`t:N(`、`local function N(`）。注释里提到 N、或调用别处的 N，
-#     都不算定义——收敛之后调用点还在，只是指向 common/ 的那一份。
+#     形式的定义（含 `t.N(`、`t:N(`、`local function N(`），也没有 `N = function` 这种
+#     赋值式定义——只堵前一种的话，把函数体原样改写成 `t.N = function(c) ... end` 就绕过去了。
+#     注释里提到 N、或调用别处的 N，都不算定义；`t.N = other.f` 这种转发也不算，
+#     它没有第二份实现。收敛之后调用点还在，只是指向 common/ 的那一份。
+#   - 服务端那一侧的颜色出口定在 server/host/convert.lua：它本来就是「坐标/颜色归一化拷贝」
+#     的入口期装配件（CONTEXT.md「入口期装配件」），SE 0..255 换算留在它手里，归一化转给
+#     common/。这样 host 下只有一处 require common.color_norm，不用把它散到 eui/entity 各处。
 #   - 文件名避开保留服务名（CONTEXT.md「保留服务名」）：撞名的 Lua 文件会被编辑器静默跳过、
 #     不进地图包，且目录层级不隔离。color_norm / unit_name 都是双词名，不与已知服务名相撞。
 #   - 出口选 common/ 而不是 server/kernel/：host/ 是最底层（第 9 层），依赖 kernel/（第 8 层）
@@ -89,6 +94,7 @@
   | client/main.lua           | client.channel              |
   | client/main.lua           | client.camera               |
   | client/main.lua           | client.board_input          |
+  | server/host/convert.lua   | common.color_norm           |
   | server/ui/render_util.lua | common.color_norm           |
   | server/host/entity.lua    | common.unit_name            |
   | client/eui_render.lua     | common.unit_name            |
