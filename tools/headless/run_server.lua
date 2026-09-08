@@ -17,7 +17,7 @@ end
 local verbose = os.getenv("VERBOSE") == "1"
 print = function(...) if verbose then real_print(...) end end
 assert(loadfile("server/main.lua"))()
-local host = require("server.adapter.host")
+local host = require("server.host")
 local root = _G.bd.root
 local bi = root.board_interactions
 local gs = root.game_state

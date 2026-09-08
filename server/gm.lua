@@ -1,24 +1,24 @@
 -- server/gm.lua — GM 面（`$CLI exec --platform server` / 无头 harness 驱动）。
 --
--- 位置：不属于业务（server/game/）也不属于宿主适配层（server/adapter/），它站在
--- 两者之上做编排与读回，因此与 main.lua 同级；适配层不得反向依赖业务模块。
+-- 位置：不属于业务包也不属于宿主层（server/host/），它站在
+-- 两者之上做编排与读回，因此与 main.lua 同级；host 层不得反向依赖业务模块。
 --
 -- 职责：把编排与读回动作翻译成对业务的调用并打日志。领域问题（谁在场、按
--- 坐标找建筑）一律问 server/game/roster.lua，这里只做转发与格式化，不重做规则。
+-- 坐标找建筑）一律问 server/match/roster.lua，这里只做转发与格式化，不重做规则。
 --
 -- ctx 由 server/main.lua 提供（root/panel 每次重开都换对象，全部经访问器取）：
 --   host          适配层宿主
 --   root()        当前组合根
---   panel()       当前放置面板（server/adapter/build_panel.lua）
+--   panel()       当前放置面板（server/ui/build_panel.lua）
 --   restart(why)  整局重开（拆树 → 清场 → 重建 → 重挂适配层 → 广播 reset）
 --   stats()       { ticks, uptime, seq } 驱动器计数（status 日志用）
 --   log(fmt, ...) 日志
 --
 -- 返回的表挂到 _G.bd；bd.root 由 main.lua 在重开后回填（harness 直读）。
 
-local Roster = require("server.game.roster")
-local WorldData = require("server.game.world_data")
-local BuildPanel = require("server.adapter.build_panel")
+local Roster = require("server.match.roster")
+local WorldData = require("server.kernel.world_data")
+local BuildPanel = require("server.ui.build_panel")
 
 local M = {}
 

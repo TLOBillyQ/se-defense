@@ -20,7 +20,7 @@
 
 local World = game:GetService("World")
 local RunService = game:GetService("RunService")
-local Roster = require("server.game.roster")
+local Roster = require("server.match.roster")
 local bd = _G.bd
 local function root() return bd.root end
 local function gs() return root().game_state end

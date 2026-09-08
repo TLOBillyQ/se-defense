@@ -28,16 +28,25 @@ local function file_exists(path)
   return true
 end
 
--- Every server/game/*.lua as {name, body} specs (the allowlist check input).
-local function server_game_files()
+-- Every business-package module (server/<pkg>/*.lua) as {name="<pkg>.<module>", body}
+-- specs. host/ and the server-root entries (main/net/gm) are outside the
+-- spoke-first constraint, so they are not enumerated here.
+local BUSINESS_PACKAGES = {
+  "match", "ui", "board", "power", "economy", "defense", "waves", "units", "kernel",
+}
+
+local function business_files()
   local specs = {}
-  local pipe = io.popen("find server/game -maxdepth 1 -name '*.lua'")
-  for f in pipe:lines() do
-    local base = f:match("^server/game/(.+)%.lua$")
-    local body = base and read_file(f)
-    if body then specs[#specs + 1] = { name = base, body = body } end
+  for _, pkg in ipairs(BUSINESS_PACKAGES) do
+    local dir = "server/" .. pkg
+    local pipe = io.popen("find '" .. dir .. "' -maxdepth 1 -name '*.lua'")
+    for f in pipe:lines() do
+      local base = f:match("^" .. dir .. "/(.+)%.lua$")
+      local body = base and read_file(f)
+      if body then specs[#specs + 1] = { name = pkg .. "." .. base, body = body } end
+    end
+    pipe:close()
   end
-  pipe:close()
   return specs
 end
 
@@ -150,12 +159,12 @@ M.patterns = {
       if not body then return nil, file .. " 不存在" end
       if repo.uses_spoke_primitive(body, prim) then return true end
       return nil, string.format("%s 未使用 spoke 原语 %s", file, prim) end },
-  { "^server/game下不引用common%.spoke的模块都属于(.+)$", function(w, list)
+  { "^server下业务包中不引用common%.spoke的模块都属于(.+)$", function(w, list)
       local want = split_words(list)
       table.sort(want)
-      local actual = repo.non_spoke_modules(server_game_files())
+      local actual = repo.non_spoke_modules(business_files())
       if table.concat(actual, " ") == table.concat(want, " ") then return true end
-      return nil, "server/game 不引用 common.spoke 的模块实际为 " .. table.concat(actual, " ") end },
+      return nil, "server 业务包中不引用 common.spoke 的模块实际为 " .. table.concat(actual, " ") end },
   { "^源码文件(%S+)只引用前缀为server%.的模块$", function(w, file)
       local body = read_file(file)
       if not body then return nil, file .. " 不存在" end

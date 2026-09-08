@@ -16,7 +16,7 @@ function TestReferencesCommonSpoke.test_submodule_require()
 end
 
 function TestReferencesCommonSpoke.test_plain_require_is_not_spoke()
-  lu.assertFalse(repo.references_common_spoke('local World = require("server.game.world_data")'))
+  lu.assertFalse(repo.references_common_spoke('local World = require("server.kernel.world_data")'))
 end
 
 function TestReferencesCommonSpoke.test_no_require()
@@ -72,12 +72,12 @@ end
 TestNonServerRequires = {}
 
 function TestNonServerRequires.test_only_server_prefix_is_ok()
-  local body = 'local A = require("server.game.relay") local B = require "server.adapter.host"'
+  local body = 'local A = require("server.power.relay") local B = require "server.host"'
   lu.assertEquals(#repo.non_server_requires(body), 0)
 end
 
 function TestNonServerRequires.test_reports_non_server_prefix()
-  local body = 'local A = require("server.game.relay") local B = require("client.eui_render")'
+  local body = 'local A = require("server.power.relay") local B = require("client.eui_render")'
   lu.assertEquals(repo.non_server_requires(body), { "client.eui_render" })
 end
 
@@ -92,7 +92,7 @@ function TestNonSpokeModules.test_filters_specs_by_reference()
   local specs = {
     { name = "uses_spoke", body = 'require("common.spoke")' },
     { name = "plain", body = "local x = 1" },
-    { name = "server_only", body = 'require("server.game.world_data")' },
+    { name = "server_only", body = 'require("server.kernel.world_data")' },
   }
   lu.assertEquals(repo.non_spoke_modules(specs), { "plain", "server_only" })
 end

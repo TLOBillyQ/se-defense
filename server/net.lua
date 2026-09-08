@@ -8,7 +8,7 @@
 --
 -- 与 server/gm.lua 同级：编排业务（root）与适配层（host / BuildPanel），适配层不反向依赖。
 
-local BuildPanel = require("server.adapter.build_panel")
+local BuildPanel = require("server.ui.build_panel")
 
 local M = {}
 local Net = {}

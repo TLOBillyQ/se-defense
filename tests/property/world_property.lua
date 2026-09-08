@@ -1,11 +1,11 @@
 -- 对局世界事实/波次领域的性质测试。
 --
--- 覆盖 server.game.world_data 的来袭方向查表与 wave_merge（浅拷贝合并的幂等/覆盖/
--- 不原地改写），以及 server.game.wave_cycle 的 fresh_wave（预算公式、平静期、
+-- 覆盖 server.kernel.world_data 的来袭方向查表与 wave_merge（浅拷贝合并的幂等/覆盖/
+-- 不原地改写），以及 server.waves.wave_cycle 的 fresh_wave（预算公式、平静期、
 -- 初始标志不随时间/波号变化）。纯 Lua，无宿主依赖。
 local property = require("tests.spoke.property.support.property")
-local World = require("server.game.world_data")
-local WaveCycle = require("server.game.wave_cycle")
+local World = require("server.kernel.world_data")
+local WaveCycle = require("server.waves.wave_cycle")
 
 local gen = property.gen
 

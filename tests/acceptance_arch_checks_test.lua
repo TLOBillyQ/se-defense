@@ -9,19 +9,19 @@ TestArchEdgeExists = {}
 
 function TestArchEdgeExists.test_present_edge()
   local graph = { edges = {
-    { from = "server.game.core", to = "server.game.power_node" },
-    { from = "server.game.radar", to = "server.game.turret" },
+    { from = "server.power.core", to = "server.power.power_node" },
+    { from = "server.defense.radar", to = "server.defense.turret" },
   } }
-  lu.assertTrue(archc.arch_edge_exists(graph, "server.game.core", "server.game.power_node"))
-  lu.assertTrue(archc.arch_edge_exists(graph, "server.game.radar", "server.game.turret"))
+  lu.assertTrue(archc.arch_edge_exists(graph, "server.power.core", "server.power.power_node"))
+  lu.assertTrue(archc.arch_edge_exists(graph, "server.defense.radar", "server.defense.turret"))
 end
 
 function TestArchEdgeExists.test_absent_edge()
   local graph = { edges = {
-    { from = "server.game.core", to = "server.game.power_node" },
+    { from = "server.power.core", to = "server.power.power_node" },
   } }
-  lu.assertFalse(archc.arch_edge_exists(graph, "server.game.power_node", "server.game.core"))
-  lu.assertFalse(archc.arch_edge_exists(graph, "server.game.core", "server.game.turret"))
+  lu.assertFalse(archc.arch_edge_exists(graph, "server.power.power_node", "server.power.core"))
+  lu.assertFalse(archc.arch_edge_exists(graph, "server.power.core", "server.defense.turret"))
   lu.assertFalse(archc.arch_edge_exists({ edges = {} }, "a", "b"))
 end
 

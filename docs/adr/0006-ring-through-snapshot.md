@@ -25,7 +25,7 @@ ADR 0003 把 `set_ring` 和 `set_line` 都留在服务端就地渲染，理由�
 ## 后果
 
 - 形状恢复 resync 能力：`full` / `reset` 会把圈一起带回来，不再只靠 Unit 复制节奏。
-- 尺寸正确性有了一条 headless 能跑的缝。`server/adapter/eui.lua` 里 ring 的两条渲染分支（EffectUnit 环 / WorldUnit 圆盘）合并成一条，只剩状态记录。
+- 尺寸正确性有了一条 headless 能跑的缝。`server/host/eui.lua` 里 ring 的两条渲染分支（EffectUnit 环 / WorldUnit 圆盘）合并成一条，只剩状态记录。
 - 每帧增量会多出跟随鼠标的预览圆一条 `shape`。`set_ring` 对同值写入不置脏，静态覆盖圈因此不产生流量；一圈仍只对应 1 个 Unit，量级与 ADR 0003 时期相同。
 - 白模不吃颜色（见 CONTEXT），覆盖圈因此是单色。业务侧的颜色语义（`board_display.coverage_colour`）保留并继续传递，渲染层忽略——将来换到可染色资源时无需回补。代价是 ring 节点的 `color` 也随快照上网：放置预览圆的合法性每翻转一次，就多发一条渲染层必然忽略的 color 增量（每次翻转一条，非每帧）。
 - 只有水平缩放经过标定。垂直方向用固定的 `RING_FLATTEN = 0.2` 把环压平贴地，这是个凭观感选的值，不是实测值：半径越大，环的截面被压得越扁。半径正确性不受影响。

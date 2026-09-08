@@ -1,12 +1,12 @@
--- server.adapter.convert.copy_color 与 server.game.render_util.copy_colour 是同一条
+-- server.host.convert.copy_color 与 server.ui.render_util.copy_colour 是同一条
 -- 表示约定的两份实现（具名表 / 数字数组 → {r,g,b,a}，缺省通道补 1）。收不掉的理由见
 -- render_util.lua 的注释：业务侧只经 host 依赖适配层，收敛需要新路径，#43 不动路径。
 --
 -- 在那之前，这条测试替代「靠注释保持一致」：两份实现在同一批输入上必须给出相同结果，
 -- 任何一侧单独改口径都会在这里转红。
 local lu = require("luaunit")
-local convert = require("server.adapter.convert")
-local render_util = require("server.game.render_util")
+local convert = require("server.host.convert")
+local render_util = require("server.ui.render_util")
 
 TestColourNormalisationParity = {}
 

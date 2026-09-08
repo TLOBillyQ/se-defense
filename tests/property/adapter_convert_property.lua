@@ -1,7 +1,7 @@
--- Property tests for server/adapter/convert.lua normalization:
+-- Property tests for server/host/convert.lua normalization:
 -- canonical shape/defaults for named tables and non-mutating copies.
 local property = require("tests.spoke.property.support.property")
-local convert = require("server.adapter.convert")
+local convert = require("server.host.convert")
 
 local gen = property.gen
 local number = gen.float(-100, 100)

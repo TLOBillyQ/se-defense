@@ -7,7 +7,7 @@
 -- and the SE stub are dropped from package.loaded and required again, so
 -- module-level state (adapter registries, stub signal lists, _G.bd) starts
 -- from scratch.
-local Roster = require("server.game.roster")
+local Roster = require("server.match.roster")
 
 local M = {}
 
@@ -38,7 +38,7 @@ function M.boot()
   local ok, err = pcall(function() assert(loadfile("server/main.lua"))() end)
   print = real_print
   if not ok then error(err, 0) end
-  return { stub = stub, host = require("server.adapter.host") }
+  return { stub = stub, host = require("server.host") }
 end
 
 local function quiet(fn, ...)
@@ -100,7 +100,7 @@ function M.node(s, path)
 end
 
 -- ── 规则层读取面（GDD 词汇 → 本地游戏结构）────────────────────────────
--- 「谁在场」类问题全部转发 server/game/roster.lua（GM 面同源），这里不重做。
+-- 「谁在场」类问题全部转发 server/match/roster.lua（GM 面同源），这里不重做。
 
 -- 矿点：按坐标取 Resource 组件。
 function M.site_at(_, x, z)

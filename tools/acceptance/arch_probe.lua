@@ -23,7 +23,7 @@ local function shell_quote(path)
   return "'" .. path .. "'"
 end
 
--- "server.game.core" -> "<root>/server/game/core.lua". Ids are rejected unless
+-- "server.power.core" -> "<root>/server/power/core.lua". Ids are rejected unless
 -- they are dot-separated identifiers: the result is used to create files and
 -- sits next to an `rm -rf`, so a "../" smuggled in from a feature table must
 -- not be able to reach outside PROBE_ROOT.

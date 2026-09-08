@@ -2,7 +2,7 @@
 -- R1–R10）：资金设定、可选判定、选择待建/确认/取消、放置态读取。
 -- 「玩家在 (x,z) 放置 X」复合步骤在 steps_match.lua。
 --
--- tap/cancel 的点击边沿按 TAP_DELAY_STEPS（server/adapter/input.lua）在两个
+-- tap/cancel 的点击边沿按 TAP_DELAY_STEPS（server/host/input.lua）在两个
 -- 固定步长后才举起并被业务消费，因此确认/取消意图后推进 3 个步长（0.1 秒，
 -- < 0.15 秒去抖、< 0.8 秒采集，不影响资金与通电断言）。
 local S = require("tools.acceptance.steps_support")

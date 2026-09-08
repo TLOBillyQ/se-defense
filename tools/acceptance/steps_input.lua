@@ -1,7 +1,7 @@
 -- tools/acceptance/steps_input.lua — 棋盘输入步骤（board-input.feature，
 -- GDD 16 I1–I8）：按钮点击（建筑按钮 = place 意图，再点当前类型 = 取消；
 -- 开始/重开按钮按阶段路由）、棋盘点击（tap）与拖动（hover）。
--- tap 边沿两个步长后才举起（server/adapter/input.lua TAP_DELAY_STEPS），
+-- tap 边沿两个步长后才举起（server/host/input.lua TAP_DELAY_STEPS），
 -- 点击棋盘后推进 3 个步长再返回。
 local S = require("tools.acceptance.steps_support")
 local headless, needs_session, known_kind = S.headless, S.needs_session, S.known_kind

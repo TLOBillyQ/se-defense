@@ -1,8 +1,8 @@
--- Unit tests for server/adapter/convert.lua, the shared colour conversion and
+-- Unit tests for server/host/convert.lua, the shared colour conversion and
 -- table-normalising copies extracted by #43. The module only touches the SE
 -- Color global inside rgb01, so the test supplies a minimal fake.
 local lu = require("luaunit")
-local convert = require("server.adapter.convert")
+local convert = require("server.host.convert")
 
 TestAdapterConvert = {}
 

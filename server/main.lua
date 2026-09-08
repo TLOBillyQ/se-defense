@@ -2,13 +2,14 @@
 --
 -- 架构决策见 docs/adr/（0001 双端与节拍、0002 快照协议、0003 形状双路由、
 -- 0004 上帝视角输入、0006 ring 改走快照——取代 0003 里 ring 就地渲染的那半）。
---   server/game/          业务（spoke 树，GameRootFull 组合根）
---   server/adapter/       宿主适配层：host.eui / host.input / host.entity / reset_scene
---                         + 放置面板 + scene（静态场景装饰，纯视觉）
+--   server/match/         组合根（GameRootFull）与对局流程
+--   server/{ui,board,power,economy,defense,waves,units,kernel}/  业务包（spoke 树）
+--   server/host/          宿主层：host 表（eui/input/entity/reset_scene）+ scene/convert
+--   server/ui/            表现层 + 放置面板 / 操作日志
 --   server/net.lua        RemoteEvent bd_game：快照下行、握手/意图上行
 --   server/gm.lua         _G.bd（$CLI exec / 集成测试编排面）
 --
--- 规则与数值真源：docs/gdd/（世界常量在 server/game/world_data.lua）。
+-- 规则与数值真源：docs/gdd/（世界常量在 server/kernel/world_data.lua）。
 -- 日志前缀 [bd][server]，供 `$CLI log grep` 提取。
 
 local RunService = game:GetService("RunService")
@@ -17,27 +18,14 @@ local function log(fmt, ...)
   print("[bd][server] " .. string.format(fmt, ...))
 end
 
--- SE 服务端沙盒的 package 库不完整（接入指南：package/io/os/debug 被移除），
--- 而业务 game_root_full.lua 在惰性加载 Enemy 时会写 package.loaded（清测试 stub
--- 缓存）。真机部署不存在 stub 污染，注入最小 shim 使该写法无害化即可，
--- 业务保持零改动。shim 语义：宿主 require 自管缓存时 shim 是死代码；
--- 宿主 require 走 package.loaded 时 shim 从头缓存（无 stub 可清，等价）。
-if type(_G.package) ~= "table" then
-  _G.package = {}
-end
-if type(_G.package.loaded) ~= "table" then
-  _G.package.loaded = {}
-  log("package.loaded 不存在，已注入最小 shim（兼容 game_root_full 的缓存复位写法）")
-end
-
-local host = require("server.adapter.host")
+local host = require("server.host")
 local SpokeRuntime = require("common.spoke.runtime.spoke_runtime")
-local GameTick = require("server.game.game_tick")
-local GameRootFull = require("server.game.game_root_full")
-local Session = require("server.game.session")
-local WorldData = require("server.game.world_data")
-local BuildPanel = require("server.adapter.build_panel")
-local OperationLog = require("server.adapter.operation_log")
+local GameTick = require("server.kernel.game_tick")
+local GameRootFull = require("server.match.game_root_full")
+local Session = require("server.match.session")
+local WorldData = require("server.kernel.world_data")
+local BuildPanel = require("server.ui.build_panel")
+local OperationLog = require("server.ui.operation_log")
 local Net = require("server.net")
 local GM = require("server.gm")
 
@@ -103,8 +91,8 @@ mount_adapter(root)
 
 -- 运行时静态场景（草地地面 + 外围晶石点缀）：仅视觉，不进 entity.by_id，
 -- 不参与 host:reset_scene()，因此只在加载时构建一次，不随 restart 重建。
--- 棋盘半径由此处注入：适配层不许反向依赖 server.game.world_data。
-require("server.adapter.scene").build(WorldData.board.max)
+-- 棋盘半径由此处注入：适配层不许反向依赖 server.kernel.world_data。
+require("server.host.scene").build(WorldData.board.max)
 
 local net
 

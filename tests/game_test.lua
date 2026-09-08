@@ -3,7 +3,7 @@
 -- module; component behavior boots a fresh headless game per test via
 -- tools/acceptance/headless.lua (real adapter over the SE stub, no mocks).
 local lu = require("luaunit")
-local CollisionBody = require("server.game.collision_body")
+local CollisionBody = require("server.kernel.collision_body")
 local headless = require("tools.acceptance.headless")
 
 TestCollision = {}
@@ -148,10 +148,10 @@ function TestGame.test_match_endings()
   lu.assertEquals(headless.mode(s2), "GameOver")
 end
 
--- server/game/roster.lua：场上名册查询（GM 面与无头 harness 同源）。
+-- server/match/roster.lua：场上名册查询（GM 面与无头 harness 同源）。
 TestRoster = {}
 
-local Roster = require("server.game.roster")
+local Roster = require("server.match.roster")
 
 local function root_of(s) return _G.bd.root end
 

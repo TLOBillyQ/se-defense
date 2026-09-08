@@ -2,7 +2,7 @@
 -- reset_scene as a function value that tolerates the business colon call.
 local lu = require("luaunit")
 require("tools.headless.se_stub")
-local host = require("server.adapter.host")
+local host = require("server.host")
 
 TestAdapterHost = {}
 
