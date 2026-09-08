@@ -18,7 +18,7 @@
 
 local World = game:GetService("World")
 local AssetService = game:GetService("AssetService")
-local color = require("server.adapter.color")
+local convert = require("server.adapter.convert")
 
 local scene = {}
 
@@ -26,7 +26,7 @@ local GRASS = "official://preset/1510240"      -- 基础草地
 local CRYSTAL = "official://mesh/59291"        -- 四棱锥（native half=(3,3,3), center_y=1.5）
 
 local function tint(u, c)
-  if u and c then u.ModelColor1 = color.rgb01(c[1], c[2], c[3]) end
+  if u and c then u.ModelColor1 = convert.rgb01(c[1], c[2], c[3]) end
   return u
 end
 

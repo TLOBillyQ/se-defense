@@ -13,13 +13,14 @@
 -- 业务合约（与 e1dadeee host_mock 对齐，grep 自 38 个业务文件）：
 --   spawn(prefab, pos) → entity 对象（id/prefab + set_position/get_position/
 --   set_active/is_active/set_color/get_color/set_rotation/get_rotation/destroy）
---   destroy(e) / by_id / all() / distance* / find_in_circle(center, radius)
+--   destroy(e) / by_id / all()
 --
 -- 逻辑位置与视觉位置分离：业务世界地面 y=0（#8 D2），适配层把单位抬到
--- 网格半高（落地）；业务读写的是逻辑位置（含 y=0），距离/碰撞查询不受影响。
+-- 网格半高（落地）；业务读写的是逻辑位置（含 y=0），碰撞查询由业务
+-- server/game/collision.lua 负责。
 
 local World = game:GetService("World")
-local color = require("server.adapter.color")
+local convert = require("server.adapter.convert")
 
 -- ── 视觉配置表（prefab 键 → 模型配方；#29 主题化升级）─────────────────────
 -- half: 网格包围盒半长（Y 向）。pivot: 模型中心相对原点的 Y 偏移。
@@ -58,29 +59,9 @@ function entity.unit_name(id, gen)
   return tostring(id) .. "g" .. tostring(gen)
 end
 
-local function copy_vec3(v)
-  if type(v) == "table" then
-    return { x = v.x or v[1] or 0, y = v.y or v[2] or 0, z = v.z or v[3] or 0 }
-  end
-  return { x = 0, y = 0, z = 0 }
-end
-
-local function copy_color(c)
-  if type(c) == "table" then
-    return { r = c.r or c[1] or 1, g = c.g or c[2] or 1, b = c.b or c[3] or 1, a = c.a or c[4] or 1 }
-  end
-  return { r = 1, g = 1, b = 1, a = 1 }
-end
-
-local function xz_sq(a, b)
-  local dx = a.x - b.x
-  local dz = a.z - b.z
-  return dx * dx + dz * dz
-end
-
 function entity.spawn(prefab, pos)
   local vis = VISUALS[prefab] or FALLBACK
-  local p = copy_vec3(pos)
+  local p = convert.copy_vec3(pos)
   local ground_y = vis.lift or ((vis.half - (vis.pivot or 0)) * vis.scale[2])
 
   local unit = World:CreateUnit("WorldUnit", {
@@ -98,7 +79,7 @@ function entity.spawn(prefab, pos)
   -- 上游 set_color 语义是「tint」（默认白 = 不变色，受击红闪、断电压暗），
   -- 与 prefab 底色是乘法关系：实际染色 = 底色 × tint。否则业务写回白色
   -- 会把底色冲掉（building.lua 的 current_tint 机制）。
-  local base_color = copy_color(vis.color)
+  local base_color = convert.copy_color(vis.color)
 
   local e = {
     id = id,
@@ -115,11 +96,11 @@ function entity.spawn(prefab, pos)
   local function apply_color(self)
     if not self._unit then return end
     local t, b = self.color, self._base
-    self._unit.ModelColor1 = color.rgb01(t.r * b.r, t.g * b.g, t.b * b.b, t.a)
+    self._unit.ModelColor1 = convert.rgb01(t.r * b.r, t.g * b.g, t.b * b.b, t.a)
   end
 
   function e:set_position(np)
-    self.position = copy_vec3(np)
+    self.position = convert.copy_vec3(np)
     if self._unit then
       self._unit.Position = Vector3.New(
         self.position.x, self._ground_y + self.position.y, self.position.z)
@@ -142,7 +123,7 @@ function entity.spawn(prefab, pos)
   end
 
   function e:set_color(c)
-    self.color = copy_color(c)
+    self.color = convert.copy_color(c)
     apply_color(self)
   end
 
@@ -192,46 +173,6 @@ function entity.all()
     list[#list + 1] = e
   end
   return list
-end
-
-function entity.distance_sq(a, b)
-  local dx = a.position.x - b.position.x
-  local dy = a.position.y - b.position.y
-  local dz = a.position.z - b.position.z
-  return dx * dx + dy * dy + dz * dz
-end
-
-function entity.distance(a, b)
-  return math.sqrt(entity.distance_sq(a, b))
-end
-
-function entity.distance_xz_sq(a, b)
-  return xz_sq(a.position, b.position)
-end
-
-function entity.distance_xz(a, b)
-  return math.sqrt(entity.distance_xz_sq(a, b))
-end
-
--- 返回与 center 在 XZ 平面重叠 radius 圆的活跃实体，按距离近→远排序。
-function entity.find_in_circle(center, radius)
-  local c = copy_vec3(center)
-  local r2 = radius * radius
-  local hits = {}
-  for _, e in pairs(entity.by_id) do
-    if e.active then
-      local d2 = xz_sq(c, e.position)
-      if d2 < r2 then
-        hits[#hits + 1] = { entity = e, dist_sq = d2 }
-      end
-    end
-  end
-  table.sort(hits, function(a, b) return a.dist_sq < b.dist_sq end)
-  local result = {}
-  for _, h in ipairs(hits) do
-    result[#result + 1] = h.entity
-  end
-  return result
 end
 
 -- reset_scene 用：销毁全部已 spawn 单位并清零注册表，代数 +1（新局单位名换后缀）。

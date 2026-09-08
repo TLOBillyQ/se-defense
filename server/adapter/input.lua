@@ -2,7 +2,7 @@
 --
 -- 依据 #8 D5：
 --   - 业务轮询面与 input_mock 1:1：get_mouse_world_point / get_mouse_button_down(0/1) /
---     get_mouse_position / get_key_down / get_key / is_pointer_over_ui / reset_frame。
+--     reset_frame。
 --   - tap 边沿 → 左键；取消（专用按钮/PC 右键/Escape）→ 右键；触点 → 世界点。
 --   - reset_frame 由 GameTick 驱动器在每个固定步长边界调用（#7 决策 3）。
 --   - 界外点 → nil（#8 D2）：bounds 由 server/main.lua 在树 spawn 后注入
@@ -16,17 +16,9 @@ local input = {
   _right_down = false,
   _pending_left = 0,   -- tap 边沿倒计时（固定步长数），见 arm_frame 注释
   _pending_right = 0,
-  _mouse_position = { x = 0, y = 0 },
   _mouse_world = nil,
   _bounds = nil, -- { min = {x,z}, max = {x,z} }，level_bounds 注入
 }
-
-local function copy_vec3(v)
-  if type(v) == "table" then
-    return { x = v.x or v[1] or 0, y = v.y or v[2] or 0, z = v.z or v[3] or 0 }
-  end
-  return { x = 0, y = 0, z = 0 }
-end
 
 local function in_bounds(p)
   local b = input._bounds
@@ -42,24 +34,8 @@ function input.get_mouse_button_down(button)
   return false
 end
 
-function input.get_key_down(_key)
-  return false -- 业务无消费点（input_signals 注释明示只需鼠标）
-end
-
-function input.get_key(_key)
-  return false
-end
-
-function input.get_mouse_position()
-  return input._mouse_position
-end
-
 function input.get_mouse_world_point()
   return input._mouse_world
-end
-
-function input.is_pointer_over_ui()
-  return false -- 业务无消费点；HUD 吞噬已在客户端捕获层等效隔离（#8 D5）
 end
 
 -- 每个固定步长结束后由驱动器调用：清当帧按下边沿（"按下只持续一帧"）。
@@ -101,10 +77,6 @@ function input.set_bounds(bounds)
   input._bounds = bounds
 end
 
-function input.set_mouse_world_point(p)
-  input._mouse_world = p and copy_vec3(p) or nil
-end
-
 -- tap：触点立即生效 + 左键边沿按倒计时举起；界外 → 触点置 nil、不记边沿。
 function input.intent_tap(x, z)
   local p = { x = x, y = 0, z = z }
@@ -113,7 +85,6 @@ function input.intent_tap(x, z)
     return false
   end
   input._mouse_world = p
-  input._mouse_position = { x = x, y = z }
   input._pending_left = TAP_DELAY_STEPS
   return true
 end
@@ -140,7 +111,6 @@ function input.reset_all()
   input._pending_left = 0
   input._pending_right = 0
   input._mouse_world = nil
-  input._mouse_position = { x = 0, y = 0 }
 end
 
 return input

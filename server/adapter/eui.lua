@@ -15,6 +15,7 @@
 -- 业务侧也直读 node.visible（announcer 闪烁）。
 
 local World = game:GetService("World")
+local convert = require("server.adapter.convert")
 
 local eui = {
   nodes = {},
@@ -24,23 +25,8 @@ local eui = {
 
 -- 脏集：path → { field=true }；新节点记 full（发全字段）；销毁记 removed。
 local dirty = {}
-local new_nodes = {}
 local removed = {}
 local removed_set = {}
-
-local function copy_color(c)
-  if type(c) == "table" then
-    return { r = c.r or c[1] or 1, g = c.g or c[2] or 1, b = c.b or c[3] or 1, a = c.a or c[4] or 1 }
-  end
-  return { r = 1, g = 1, b = 1, a = 1 }
-end
-
-local function copy_vec3(v)
-  if type(v) == "table" then
-    return { x = v.x or v[1] or 0, y = v.y or v[2] or 0, z = v.z or v[3] or 0 }
-  end
-  return { x = 0, y = 0, z = 0 }
-end
 
 local function mark_dirty(node, field)
   if removed_set[node.path] then return end
@@ -182,14 +168,14 @@ function eui.node(path)
   end
 
   function n:set_color(c)
-    self.color = copy_color(c)
+    self.color = convert.copy_color(c)
     mark_dirty(self, "color")
   end
 
   -- 覆盖圈：只把圆心与半径放进快照，几何由客户端按配方生成（ADR 0006）。
   -- 同值重复写入不脏，避免 footprint 每帧跟随鼠标时刷出无意义增量。
   function n:set_ring(center, radius)
-    local c = copy_vec3(center)
+    local c = convert.copy_vec3(center)
     local sh = self.shape
     if sh and sh.kind == "ring" and sh.radius == radius
       and sh.center.x == c.x and sh.center.y == c.y and sh.center.z == c.z then
@@ -202,7 +188,7 @@ function eui.node(path)
   -- 连线：电力线 / 炮塔光束 / 维修光束。同形状重复写入只挪锚点。
   function n:set_line(from, to)
     self._shape_only = true
-    local f, t = copy_vec3(from), copy_vec3(to)
+    local f, t = convert.copy_vec3(from), convert.copy_vec3(to)
     local sh = self._shape
     if sh and sh.kind == "line" and sh.line then
       local y = sh.line.y or 0.3
@@ -221,7 +207,6 @@ function eui.node(path)
   eui.nodes[path] = n
   eui.order[#eui.order + 1] = path
   dirty[path] = { text = true, visible = true, color = true, fill = true, enabled = true }
-  new_nodes[path] = true
   return n
 end
 
@@ -237,7 +222,6 @@ function eui.destroy(node)
     end
   end
   dirty[node.path] = nil
-  new_nodes[node.path] = nil
   if not removed_set[node.path] then
     removed[#removed + 1] = node.path
     removed_set[node.path] = true
@@ -250,10 +234,10 @@ local function snapshot_state(n, fields)
   local out = {}
   for field in pairs(fields) do
     if field == "color" then
-      out.color = copy_color(n.color)
+      out.color = convert.copy_color(n.color)
     elseif field == "shape" then
       local sh = n.shape
-      out.shape = sh and { kind = sh.kind, center = copy_vec3(sh.center), radius = sh.radius } or false
+      out.shape = sh and { kind = sh.kind, center = convert.copy_vec3(sh.center), radius = sh.radius } or false
     else
       out[field] = n[field]
     end
@@ -276,7 +260,6 @@ function eui.drain()
     rem = removed
   end
   dirty = {}
-  new_nodes = {}
   removed = {}
   removed_set = {}
   if not nodes and not rem then return nil end
@@ -330,7 +313,6 @@ function eui.reset()
   eui.nodes = {}
   eui.order = {}
   dirty = {}
-  new_nodes = {}
   removed = {}
   removed_set = {}
   eui.generation = eui.generation + 1

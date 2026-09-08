@@ -1,7 +1,7 @@
 -- 05_BaseDefence EUI 渲染辅助（CoverageDisplay / LinkDisplay 共用）。
 --
 -- 颜色：EUI 颜色接受 {r=,g=,b=,a=} 具名表或 {r,g,b,a} 数字数组，缺省通道补 1，
--- 非表回退为白色（与 server.adapter.eui 的 copy_color 归一化语义一致）；read_colour
+-- 非表回退为白色（与 server.adapter.convert 的 copy_color 归一化语义一致）；read_colour
 -- 额外支持把颜色做成响应式信号（s:d 读当前值）。
 -- 节点：渲染循环把本轮创建的节点登记进 created 表，effect 卸载时统一销毁。
 
