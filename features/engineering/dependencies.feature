@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=5a857a409c4b882b3fa6d9cdfd34b9c630312fa45d22959d42ea7d767e03acd7
+# mutation-stamp: sha256=1abd573a953825a3af9e680235897da24eda5e00ad97e699b0e84b6e15b61523
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "依赖关系约束",
 #   "feature_path": "features/engineering/dependencies.feature",
-#   "implementation_hash": "sha256:6c6e85112132e56fdfd027bae9540795e55a3ece9f886d40956f0d9e4872caab",
+#   "implementation_hash": "sha256:2bd4c04034d0469c2b03a80dc6b139f2cb5575dd42e6547509236cbf29d29384",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -18,7 +18,7 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "96abdb87673581f28d38f18cb55f0f13ca236cb20feb535afa63293c9683ae1b",
-#       "tested_at": "2026-09-08T03:19:36Z"
+#       "tested_at": "2026-09-08T03:21:38Z"
 #     },
 #     {
 #       "index": 1,
@@ -31,20 +31,20 @@
 #         "Total": 26
 #       },
 #       "scenario_hash": "a6aae4a1ce88fd239aef70f015f9e7b083a4f796dfd3765aaf26fc2fabc90443",
-#       "tested_at": "2026-09-08T03:19:44Z"
+#       "tested_at": "2026-09-08T03:21:47Z"
 #     },
 #     {
 #       "index": 2,
-#       "mutation_count": 52,
+#       "mutation_count": 58,
 #       "name": "依赖关系约束 3: 反向依赖被架构门禁拒绝",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 52,
+#         "Killed": 58,
 #         "Survived": 0,
-#         "Total": 52
+#         "Total": 58
 #       },
-#       "scenario_hash": "5913679ee30bc36563329f0fae61b550b56e0bbae9224a468bdd3cfdcfd52a1c",
-#       "tested_at": "2026-09-08T03:19:59Z"
+#       "scenario_hash": "d1292eb190f399c2899a5a342c8afe3a6c63c1ef30c75d3ed8dcb8f2f78708ea",
+#       "tested_at": "2026-09-08T03:22:05Z"
 #     },
 #     {
 #       "index": 3,
@@ -57,7 +57,7 @@
 #         "Total": 12
 #       },
 #       "scenario_hash": "8cbade16ac9369508a4ea6e0e5c6bcc618081dd5df8606e84ce36d64bec7d8b5",
-#       "tested_at": "2026-09-08T03:20:03Z"
+#       "tested_at": "2026-09-08T03:22:09Z"
 #     },
 #     {
 #       "index": 4,
@@ -70,10 +70,10 @@
 #         "Total": 0
 #       },
 #       "scenario_hash": "b30059e02e03267d435243ed798f735fba75980946932ac2df2e7aa839170e3e",
-#       "tested_at": "2026-09-08T03:20:03Z"
+#       "tested_at": "2026-09-08T03:22:09Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T03:20:03Z",
+#   "tested_at": "2026-09-08T03:22:09Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end
@@ -106,6 +106,10 @@
 #     这些系统互不 require，接线在组合根 server.game.game_root_full（放置的通电信息由
 #     game_state.power_zone 注入）。「全部玩法系统」逐个列出：经济、电网、放置、侦测、火力、
 #     维修、敌人与波次；血量不在其中——game_state 依赖 health 是「建筑血量▶对局流程」那条边。
+#     另有火力▶敌人血量、敌人血量▶波次全灭同样无直接边：turret 与 wave_director 都通过
+#     组合根注入的 handle 读 health，不 require 血量模块。
+#   - 无直接边的影响方向，场景 3 固定的是「影响者 require 被影响者」这条接反方向；正向若日后
+#     真出现直接边，应改为场景 2 的例子行。
 #     它们只由场景 3 的反向禁止固定——谁都不许反过来 require 对方，方向不会被悄悄接反。
 #   - 组件分层为门禁配置里的既定决策：数字越大越底层，依赖只能从小数字流向大数字；
 #     spoke 运行时是基座（substrate），任何层都可以依赖它。
@@ -164,6 +168,9 @@
   | server.game.game_state     | server.game.radar              |
   | server.game.game_state     | server.game.turret             |
   | server.game.game_state     | server.game.repair             |
+  | server.game.turret        | server.game.health             |
+  | server.game.health        | server.game.wave_director      |
+  | server.game.wave_director | server.game.resource           |
   | server.adapter.host        | server.game.core               |
   | server.game.core           | server.gm                      |
   | server.game.core           | client.eui_render              |
