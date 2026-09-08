@@ -21,6 +21,7 @@
 
 local World = game:GetService("World")
 local convert = require("server.host.convert")
+local unit_name = require("common.unit_name")
 
 -- ── 视觉配置表（prefab 键 → 模型配方；#29 主题化升级）─────────────────────
 -- half: 网格包围盒半长（Y 向）。pivot: 模型中心相对原点的 Y 偏移。
@@ -52,12 +53,8 @@ local entity = {
   generation = 0, -- reset 次数；与 eui.generation 同步递增（reset_scene 同时调两者）
 }
 
--- 单位名约定（#18 决策 4 + #28 代数后缀）
-function entity.unit_name(id, gen)
-  gen = gen or entity.generation
-  if gen == 0 then return tostring(id) end
-  return tostring(id) .. "g" .. tostring(gen)
-end
+-- 单位名约定唯一实现住 common/unit_name.lua（双端共用的事实），这里只转发。
+entity.unit_name = unit_name.format
 
 function entity.spawn(prefab, pos)
   local vis = VISUALS[prefab] or FALLBACK
@@ -65,7 +62,7 @@ function entity.spawn(prefab, pos)
   local ground_y = vis.lift or ((vis.half - (vis.pivot or 0)) * vis.scale[2])
 
   local unit = World:CreateUnit("WorldUnit", {
-    Name = entity.unit_name(entity.next_id), -- #18 决策 4：Name = 业务实体 id（重开后带代数后缀）
+    Name = entity.unit_name(entity.next_id, entity.generation), -- #18 决策 4：Name = 业务实体 id（重开后带代数后缀）
     RenderMeshId = vis.mesh,
     BodyType = vis.kinematic and Enums.BodyType.Kinematic or Enums.BodyType.Static,
     CanCollide = false, -- 碰撞在业务 collision.lua（Lua 圆碰撞）

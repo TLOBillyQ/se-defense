@@ -86,6 +86,74 @@ function TestNonServerRequires.test_reports_spoke_require()
   lu.assertEquals(repo.non_server_requires(body), { "common.spoke" })
 end
 
+TestNonSharedRequires = {}
+
+function TestNonSharedRequires.test_server_and_common_prefixes_are_ok()
+  local body = 'local A = require("server.power.relay") '
+    .. 'local B = require("common.color_norm") '
+    .. 'local C = require("common.unit_name")'
+  lu.assertEquals(#repo.non_shared_requires(body), 0)
+end
+
+function TestNonSharedRequires.test_reports_client_prefix()
+  local body = 'local A = require("server.power.relay") local B = require("client.eui_render")'
+  lu.assertEquals(repo.non_shared_requires(body), { "client.eui_render" })
+end
+
+function TestNonSharedRequires.test_reports_other_prefix()
+  local body = 'local S = require("vendor.thing")'
+  lu.assertEquals(repo.non_shared_requires(body), { "vendor.thing" })
+end
+
+TestDefinesFunction = {}
+
+function TestDefinesFunction.test_plain_definition()
+  lu.assertTrue(repo.defines_function("function copy_color(c) return c end", "copy_color"))
+end
+
+function TestDefinesFunction.test_table_definition()
+  lu.assertTrue(repo.defines_function("function entity.unit_name(id) return id end", "unit_name"))
+end
+
+function TestDefinesFunction.test_method_definition()
+  lu.assertTrue(repo.defines_function("function R:_unit_name(id) return id end", "_unit_name"))
+end
+
+function TestDefinesFunction.test_local_definition()
+  lu.assertTrue(repo.defines_function("local function copy_color(c) return c end", "copy_color"))
+end
+
+function TestDefinesFunction.test_assignment_definition()
+  lu.assertTrue(repo.defines_function("copy_color = function(c) return c end", "copy_color"))
+  lu.assertTrue(repo.defines_function("t.copy_color = function(c) return c end", "copy_color"))
+end
+
+function TestDefinesFunction.test_forwarding_assignment_is_not_definition()
+  lu.assertFalse(repo.defines_function("convert.copy_color = color_norm.copy_color", "copy_color"))
+  lu.assertFalse(repo.defines_function("entity.unit_name = unit_name.format", "unit_name"))
+end
+
+function TestDefinesFunction.test_comment_is_not_definition()
+  lu.assertFalse(repo.defines_function("-- function copy_color(c) return c end", "copy_color"))
+end
+
+function TestDefinesFunction.test_long_comment_is_not_definition()
+  lu.assertFalse(repo.defines_function("--[[ function copy_color(c) return c end ]]", "copy_color"))
+end
+
+function TestDefinesFunction.test_long_string_is_not_definition()
+  lu.assertFalse(repo.defines_function(
+    "local s = [[ function copy_color(c) return c end ]]", "copy_color"))
+end
+
+function TestDefinesFunction.test_call_is_not_definition()
+  lu.assertFalse(repo.defines_function("local c = render_util.copy_colour(input)", "copy_colour"))
+end
+
+function TestDefinesFunction.test_longer_identifier_is_not_definition()
+  lu.assertFalse(repo.defines_function("my_unit_name = function(id) return id end", "unit_name"))
+end
+
 TestNonSpokeModules = {}
 
 function TestNonSpokeModules.test_filters_specs_by_reference()

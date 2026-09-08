@@ -165,12 +165,17 @@ M.patterns = {
       local actual = repo.non_spoke_modules(business_files())
       if table.concat(actual, " ") == table.concat(want, " ") then return true end
       return nil, "server 业务包中不引用 common.spoke 的模块实际为 " .. table.concat(actual, " ") end },
-  { "^源码文件(%S+)只引用前缀为server%.的模块$", function(w, file)
+  { "^源码文件(%S+)只引用前缀为server%.或common%.的模块$", function(w, file)
       local body = read_file(file)
       if not body then return nil, file .. " 不存在" end
-      local bad = repo.non_server_requires(body)
+      local bad = repo.non_shared_requires(body)
       if #bad == 0 then return true end
-      return nil, file .. " 引用非 server. 前缀模块: " .. table.concat(bad, ",") end },
+      return nil, file .. " 引用非 server./common. 前缀模块: " .. table.concat(bad, ",") end },
+  { "^源码文件(%S+)不定义函数(%S+)$", function(w, file, name)
+      local body = read_file(file)
+      if not body then return nil, file .. " 不存在" end
+      if not repo.defines_function(body, name) then return true end
+      return nil, string.format("%s 仍定义函数 %s", file, name) end },
   -- ── 依赖关系约束（dependencies.feature，不启动对局）──
   { "^架构门禁检查通过$", function(w)
       local check = arch_dep().model.check

@@ -22,6 +22,8 @@ server/ 按玩法系统分包，依赖只能从高层（小数字）流向低层
 | `kernel/` | 8 | 底座：机制与共享事实（GameTick / SpokeCoroutine / Collision / CollisionBody / Pool / WorldData） |
 | `host/` | 9 | 面向宿主的层：host 表（eui / input / entity / reset_scene）+ scene / convert |
 
+`common/` 是双端共用基座（无层级）：`common/color_norm.lua`（颜色归一化）与 `common/unit_name.lua`（单位名约定）；基座不得反向依赖任何 `server.` / `client.` 模块。
+
 ## 宿主接缝
 
 业务模块只依赖 `require("server.host")` 一个接缝；host 表挂 `host.eui` / `host.input` / `host.entity` / `host.reset_scene`。`server/host/eui.lua`、`server/host/input.lua` 等是 host 层内部子模块，业务不直接 require。
@@ -35,7 +37,8 @@ server/ 按玩法系统分包，依赖只能从高层（小数字）流向低层
 
 - `health_bar` 留在 `units/` 不进 `ui/`：building / enemy / resource 直接 attach 血条，翻方向要给 Building 加血条工厂注入接缝。
 - `world_data` 进 `kernel/`：它是 GDD 00 共享事实而非机制，但零依赖、全员读；kernel 定义为「底座：机制与共享事实，不含系统规则」。
-- `entity.unit_name` 是双端契约（`client/eui_render.lua` 复刻），评估是否进 `common/`，本单只记录。
+- `entity.unit_name` 已收进 `common/unit_name.lua`：服务端 entity 与客户端血条共用同一份命名约定（首局裸 id，重开后 `<id>g<gen>`）。
+- `copy_color` 已收进 `common/color_norm.lua`：host.convert 与 ui.render_util 各自转发，不再各存一份。
 - `game_root_full` 惰性 require Enemy 不再清 `package.loaded`；模块缓存复位归无头 harness（`tools/acceptance/headless.lua`），真机 SE 沙盒没有 package 库。
 - `status_ui` 已被 SideBar 接替，删除候选，另议。
 

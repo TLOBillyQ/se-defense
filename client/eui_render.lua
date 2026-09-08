@@ -15,6 +15,7 @@ local World = game:GetService("World")
 local SceneGui = game:GetService("SceneGui")
 
 local ring_geometry = require("client.ring_geometry")
+local unit_name = require("common.unit_name")
 
 local M = {}
 
@@ -333,16 +334,10 @@ local function parse_entity_id(path)
   return id
 end
 
--- 单位名约定与服务端 entity.unit_name 一致：首局裸 id，重开后 "<id>g<gen>"（#28）。
-function R:_unit_name(id)
-  if (self.generation or 0) == 0 then return id end
-  return id .. "g" .. tostring(self.generation)
-end
-
 function R:_try_create_healthbar(path)
   local id = parse_entity_id(path)
   if not id then return "none" end
-  local unit = World:FindFirstChild(self:_unit_name(id), true)
+  local unit = World:FindFirstChild(unit_name.format(id, self.generation), true)
   if not unit then return nil end -- 单位未复制到，进 pending
   local ok, controls = pcall(function()
     local node = SceneGui:CreateSceneNodeAttachUnit(unit, "", Vector3.New(0, 2.5, 0), true)

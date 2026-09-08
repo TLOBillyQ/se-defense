@@ -11,7 +11,8 @@
     { "name": "units", "match": ["^server%.units%..+"], "component": "units", "layer": 7 },
     { "name": "kernel", "match": ["^server%.kernel%..+"], "component": "kernel", "layer": 8 },
     { "name": "host", "match": ["^server%.host$", "^server%.host%..+"], "component": "host", "layer": 9 },
-    { "name": "spoke", "match": ["^common%.spoke$", "^common%.spoke%..+"], "component": "spoke", "substrate": true }
+    { "name": "spoke", "match": ["^common%.spoke$", "^common%.spoke%..+"], "component": "spoke", "substrate": true },
+    { "name": "common", "match": ["^common%..+"], "component": "common", "substrate": true }
   ],
   "abstract_rules": [],
   "forbidden_dependency_rules": [
@@ -40,7 +41,10 @@
     { "name": "forbid_game_state_to_repair", "description": "对局状态不得反向依赖维修（冻结/解冻由组合根接线）", "from": ["^server%.match%.game_state$"], "to": ["^server%.defense%.repair$"] },
     { "name": "forbid_turret_to_health", "description": "火力炮台不得反向依赖敌人血量（火力▶敌人血量，接线在组合根）", "from": ["^server%.defense%.turret$"], "to": ["^server%.units%.health$"] },
     { "name": "forbid_health_to_wave_director", "description": "血量不得反向依赖波次导演（敌人血量▶波次全灭，接线在组合根）", "from": ["^server%.units%.health$"], "to": ["^server%.waves%.wave_director$"] },
-    { "name": "forbid_wave_director_to_resource", "description": "波次导演不得反向依赖经济资源（进攻期▶停采，接线在组合根）", "from": ["^server%.waves%.wave_director$"], "to": ["^server%.economy%.resource$"] }
+    { "name": "forbid_wave_director_to_resource", "description": "波次导演不得反向依赖经济资源（进攻期▶停采，接线在组合根）", "from": ["^server%.waves%.wave_director$"], "to": ["^server%.economy%.resource$"] },
+    { "name": "forbid_render_util_to_host_convert", "description": "颜色归一化不是宿主关注点，ui 不得反向依赖 host.convert", "from": ["^server%.ui%.render_util$"], "to": ["^server%.host%.convert$"] },
+    { "name": "forbid_common_color_norm_to_render_util", "description": "common 基座不得反向依赖 server 业务", "from": ["^common%.color_norm$"], "to": ["^server%.ui%.render_util$"] },
+    { "name": "forbid_common_unit_name_to_client_eui_render", "description": "common 基座不得反向依赖 client 渲染器", "from": ["^common%.unit_name$"], "to": ["^client%.eui_render$"] }
   ],
   "allowed_cycles": [
     { "view": "spoke", "nodes": ["spoke.reactive", "spoke.runtime"],
