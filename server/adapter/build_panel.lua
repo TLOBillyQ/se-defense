@@ -22,9 +22,15 @@ local COLOR_SELECTED = { r = 1, g = 0.9, b = 0.2, a = 1 }
 local M = {}
 M.ORDER = ORDER
 
+-- 建筑显示名：spec 无 display_name 时用 key 首字母大写（与 sidebar_gameplay 同口径）。
+local function spec_label(spec)
+  return spec.display_name
+    or (spec.key and (spec.key:gsub("^%l", string.upper)) or "建筑")
+end
+
 -- host: 适配层 host 表；root: GameRootFull 实例（spawn 后，building_specs 已就位）。
-function M.create(host, root)
-  local panel = { host = host, root = root, buttons = {} }
+function M.create(host, root, op_log)
+  local panel = { host = host, root = root, op_log = op_log, buttons = {} }
   for _, key in ipairs(ORDER) do
     local spec = root.building_specs and root.building_specs[key]
     if spec then
@@ -103,16 +109,26 @@ end
 -- （GDD 16 I4）。返回 true 表示已置位。
 function M.place(panel, key)
   local spec = panel.root.building_specs and panel.root.building_specs[key]
-  if not spec then return false, "unknown" end
-  if panel.root.game_state.mode:now() ~= "Playing" then return false, "not_playing" end
+  local oplog = panel.op_log
+  if not spec then
+    if oplog then oplog:push("error", ("未知建筑 %s"):format(tostring(key))) end
+    return false, "unknown"
+  end
+  if panel.root.game_state.mode:now() ~= "Playing" then
+    if oplog then oplog:push("warn", "非对局中，无法放置") end
+    return false, "not_playing"
+  end
   if panel.root.board_interactions.placing:now() == spec then
     panel.root.board_interactions.placing:set(nil)
+    if oplog then oplog:push("info", ("已取消放置 %s"):format(spec_label(spec))) end
     return false, "cancelled"
   end
   if (panel.root.game_state.money:now() or 0) < (spec.cost or 0) then
+    if oplog then oplog:push("warn", ("余额不足：%s 需 $%d"):format(spec_label(spec), spec.cost or 0)) end
     return false, "unaffordable"
   end
   panel.root.board_interactions.placing:set(spec)
+  if oplog then oplog:push("info", ("选择放置 %s（$%d）"):format(spec_label(spec), spec.cost or 0)) end
   return true
 end
 

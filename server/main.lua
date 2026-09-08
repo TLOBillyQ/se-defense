@@ -36,6 +36,7 @@ local GameRootFull = require("server.game.game_root_full")
 local Session = require("server.game.session")
 local WorldData = require("server.game.world_data")
 local BuildPanel = require("server.adapter.build_panel")
+local OperationLog = require("server.adapter.operation_log")
 local Net = require("server.net")
 local GM = require("server.gm")
 
@@ -59,6 +60,11 @@ end
 
 local tick = GameTick.new(STEP)
 
+-- 实时操作日志：与放置面板同为适配层挂件，跨整局/重开持同一对象，
+-- 业务（board_interactions）经组合根注入其 push 接口；重开时 host.eui.reset()
+-- 清空节点，由挂载流程 op_log:reset() 重建。
+local op_log = OperationLog.create(host)
+
 -- 同一份 config 贯穿整局与每次重开（session.lua 语义：restart 用同一 config 重建）。
 local GAME_CONFIG = {
   host = host,
@@ -73,6 +79,7 @@ local GAME_CONFIG = {
   wave_director = {},
   enemy = {},
   resources = RESOURCES,
+  op_log = op_log,
 }
 
 -- ── 会话：Auto 树 + GameRootFull 组合根；restart() 拆树 → 清场 → 重建 ──
@@ -86,7 +93,8 @@ local panel
 
 local function mount_adapter(r)
   host.input.set_bounds(r.game_state:level_bounds())
-  panel = BuildPanel.create(host, r)
+  op_log:reset()
+  panel = BuildPanel.create(host, r, op_log)
   BuildPanel.update(panel)
   if r.game_state.settle_power then r.game_state:settle_power() end -- 初始布局收敛（GDD 03 R8）
 end
@@ -107,6 +115,7 @@ local function restart_game(why)
   root = session.root
   tree = session.tree
   mount_adapter(root)
+  op_log:push("system", "重新开始对局")
   if _G.bd then _G.bd.root = root end
   net:send_reset()
   log("RESTART(%s) gen %d → %d：树重建 fault=%s，entities=%d nodes=%d，回 Pregame 等待开始对局",
@@ -118,6 +127,7 @@ net = Net.create({
   host = host, log = log,
   root = function() return root end,
   panel = function() return panel end,
+  op_log = function() return op_log end,
   restart = restart_game,
 })
 

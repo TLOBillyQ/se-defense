@@ -26,6 +26,7 @@ function M.create(ctx)
     host = ctx.host, log = ctx.log,
     root = ctx.root, panel = ctx.panel, restart = ctx.restart,
     re = RemoteEvent.New("bd_game"),
+    op_log = ctx.op_log,
     seq = 0,
   }, Net)
   self.re.OnServerEvent:Connect(function(_player, args) self:_on_message(args) end)
@@ -76,6 +77,8 @@ function Net:_on_intent(args)
     if root.game_state.mode:now() == "Pregame" then
       root.game_state:start_game()
       log("输入 start → Playing")
+      local oplog = self.op_log and self.op_log()
+      if oplog then oplog:push("system", "对局开始！放置建筑防守基地") end
     end
   elseif itype == "tap" then
     local x, z = finite_number(args.x), finite_number(args.z)
@@ -93,6 +96,8 @@ function Net:_on_intent(args)
   elseif itype == "cancel" then
     log("输入 cancel")
     host.input.intent_cancel()
+    local oplog = self.op_log and self.op_log()
+    if oplog then oplog:push("info", "取消放置") end
   elseif itype == "place" then
     local key = args.key
     if type(key) == "string" and #key <= 16 then

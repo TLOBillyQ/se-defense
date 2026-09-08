@@ -64,6 +64,7 @@ local GameRootFull = Epoch.extend("GameRootFull", {
     end
 
     self.building_spec_overrides = config.building_specs
+    self.op_log = config.op_log
 
     self.game_state = nil
     self.core = nil
@@ -135,6 +136,7 @@ local GameRootFull = Epoch.extend("GameRootFull", {
         input_signals = input_signals,
         pool = pool,
         spawn = place_building,
+        op_log = self.op_log,
       }))
       self.board_interactions = board_interactions
 
@@ -221,6 +223,18 @@ local GameRootFull = Epoch.extend("GameRootFull", {
         wave_director = wave_director,
         game_tick = self.game_tick,
       }))
+
+      -- 实时操作日志：模式切换到终局/胜局时补一条，让玩家知道发生了什么。
+      if self.op_log then
+        ss:effect("GameRootFull.oplog_mode", function(ms)
+          local mode = ms:d(game_state.mode)
+          if mode == "GameOver" then
+            self.op_log:push("error", "基地被摧毁，对局失败")
+          elseif mode == "Victory" then
+            self.op_log:push("success", "全部矿点采空，胜利！")
+          end
+        end, game_state.mode)
+      end
 
     end))
   end,
