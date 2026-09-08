@@ -68,7 +68,7 @@
 #   spoke 原语约束 1: 业务模块引用 common.spoke 下的模块
 #   spoke 原语约束 2: 业务模块实际调用 spoke 原语
 #   spoke 原语约束 3: 不引用 common.spoke 的业务模块只允许豁免清单内的纯辅助模块
-#   spoke 原语约束 4: 豁免模块只组合 server. 前缀的模块
+#   spoke 原语约束 4: 豁免模块只组合 server. 与 common. 前缀的模块
 #
 # 工程 feature：背景直接检查仓库源码，不启动对局。规则真源 CONTEXT.md「spoke 原语约束」。
 # 规则：
@@ -81,8 +81,11 @@
 #     （x 为 X 的小写蛇形名）三者之一；Dock 亦计作 EffectBuilder 作用域的组合调用
 #     :dock(...)（如 ss:dock("enemies")）。
 #   - 不引用 common.spoke 的模块视为不合规，除非它是纯函数/纯数据的辅助模块：自身不 require 模块，
-#     或只 require server. 前缀的模块（仍间接建立在 spoke 之上），且被点名在豁免清单里；
-#     新增豁免必须改这里的例子表，作为显式决策。豁免模块不得引入任何非 server. 前缀的模块。
+#     或只 require server. / common. 前缀的模块（仍间接建立在 spoke 之上），且被点名在豁免
+#     清单里；新增豁免必须改这里的例子表，作为显式决策。豁免模块不得引入任何别的前缀（如 client.）。
+#   - common. 前缀是后开的口子：双端共用的事实住 common/（如 common.color_norm），
+#     render_util 这类豁免模块要用它。口子不算放水——豁免模块一旦 require 了 common.spoke，
+#     它就不再是「不引用 common.spoke 的模块」，场景 3 的清单当场对不上而失败。
 #   - 作用域按包目录取，不按仓库根下的单个文件：server/ 根下的入口模块（main net gm）与宿主
 #     适配层 host/ 都不在本约束内。豁免清单写成「包.模块」而不是裸模块名——这次重构的赌注就是
 #     模块落在哪个包里，写全名才能让「搬错包」的变异体死掉。
@@ -93,7 +96,7 @@
   那么 源码文件<文件>引用common.spoke下的模块
 
 例子:
-  | 文件                                  |
+  | 文件                                |
   | server/main.lua                     |
   | server/match/game_root_full.lua     |
   | server/power/core.lua               |
@@ -118,7 +121,7 @@
   那么 源码文件<文件>使用spoke原语<原语>
 
 例子:
-  | 文件                              | 原语      |
+  | 文件                            | 原语    |
   | server/power/core.lua           | State   |
   | server/power/core.lua           | Effect  |
   | server/match/game_state.lua     | Memo    |
@@ -132,11 +135,11 @@
 场景: spoke 原语约束 3: 不引用 common.spoke 的业务模块只允许豁免清单内的纯辅助模块
   那么 server下业务包中不引用common.spoke的模块都属于board.board_sensors board.building_specs defense.turret_behaviour kernel.game_tick kernel.world_data match.roster ui.board_display ui.build_panel ui.coverage_display ui.link_display ui.operation_log ui.render_util ui.sidebar_gameplay waves.wave_cycle
 
-场景大纲: spoke 原语约束 4: 豁免模块只组合 server. 前缀的模块
-  那么 源码文件<文件>只引用前缀为server.的模块
+场景大纲: spoke 原语约束 4: 豁免模块只组合 server. 与 common. 前缀的模块
+  那么 源码文件<文件>只引用前缀为server.或common.的模块
 
 例子:
-  | 文件                                  |
+  | 文件                                |
   | server/ui/board_display.lua         |
   | server/board/board_sensors.lua      |
   | server/board/building_specs.lua     |

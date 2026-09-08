@@ -123,6 +123,17 @@
 #     board_interactions 只暴露信号，组合根拿了信号再挂 BoardDisplay。两半都要钉住：
 #     场景 2 的 game_root_full▶board_display 保证挂载没被顺手删掉，场景 3 的
 #     board_interactions▶board_display 保证旧方向接不回来。
+#   - common/ 下的非 spoke 模块（双端共用的事实：color_norm、unit_name）与 spoke 一样是基座，
+#     不排层。理由是层级本身：client 是第 1 层、host 是第 9 层，两端都要够得着同一份实现，
+#     给它排任何一个数字都会让另一端变成上行边。基座没有层级，谁都可以依赖它。
+#   - 基座的代价是它出不去：common/ 下的模块不得反过来依赖任何 server./client. 模块，
+#     否则「双端共用」就名存实亡。分层判定管的是层与层之间，基座的出边未必落在它手里；
+#     真禁不住就得在 arch_view.config.json 里补一条禁止依赖规则——场景 3 认的是门禁的结论，
+#     不认配置写在哪一栏。
+#   - 颜色归一化不许从宿主接缝绕：server.ui.render_util 不得依赖 server.host.convert。
+#     这条方向是 ui(4)▶host(9)，顺着层级往下、分层判定不拦，必须由禁止依赖规则拦住。
+#     它拦的不是环，是归属：归一化不是宿主关注点，把它挂到 host 表上会污染唯一的接缝。
+#     反向 server.host.convert▶server.ui.render_util 是上行边，分层判定自己会拒。
 #   - 上游 spoke 运行时内联进本仓（docs/spoke-upstream.md），其内部环不重写，走豁免清单；
 #     本仓自己的代码不得引入新环。
 #   - 本 feature 由 run_acceptance.sh 扫描 features/engineering/ 自动执行。
@@ -135,7 +146,7 @@
   那么 模块<模块>依赖模块<被依赖模块>
 
 例子:
-  | 模块                              | 被依赖模块                      |
+  | 模块                            | 被依赖模块                 |
   | server.power.core               | server.power.power_node    |
   | server.power.relay              | server.power.power_node    |
   | server.defense.radar            | server.power.power_node    |
@@ -155,7 +166,7 @@
   那么 架构门禁禁止模块<模块>依赖模块<被依赖模块>
 
 例子:
-  | 模块                              | 被依赖模块                           |
+  | 模块                            | 被依赖模块                      |
   | server.power.power_node         | server.power.core               |
   | server.power.power_node         | server.power.relay              |
   | server.power.power_node         | server.defense.turret           |
@@ -186,23 +197,28 @@
   | server.host                     | server.power.core               |
   | server.power.core               | server.gm                       |
   | server.power.core               | client.eui_render               |
+  | server.ui.render_util           | server.host.convert             |
+  | server.host.convert             | server.ui.render_util           |
+  | common.color_norm               | server.ui.render_util           |
+  | common.unit_name                | client.eui_render               |
 
 场景大纲: 依赖关系约束 4: 组件分层固定
   那么 组件<组件>的层级为<层级>
 
 例子:
-  | 组件             | 层级 |
-  | client         | 1  |
-  | server_entry   | 1  |
-  | server_support | 2  |
-  | match          | 3  |
-  | ui             | 4  |
-  | board          | 5  |
-  | systems        | 6  |
-  | units          | 7  |
-  | kernel         | 8  |
-  | host           | 9  |
+  | 组件           | 层级 |
+  | client         | 1    |
+  | server_entry   | 1    |
+  | server_support | 2    |
+  | match          | 3    |
+  | ui             | 4    |
+  | board          | 5    |
+  | systems        | 6    |
+  | units          | 7    |
+  | kernel         | 8    |
+  | host           | 9    |
   | spoke          | 基座 |
+  | common         | 基座 |
 
 场景: 依赖关系约束 5: 依赖环只剩豁免清单里的上游 spoke 内部环
   那么 未豁免的依赖环数量为0
