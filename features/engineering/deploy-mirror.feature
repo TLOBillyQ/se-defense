@@ -1,40 +1,40 @@
 # language: zh-CN
-# mutation-stamp: sha256=81a068fed2810a3403521c7a80d5284db5d2d1af0c53dd5183c65e8084a70cd6
+# mutation-stamp: sha256=25be928849c3b04cfdf8a536bd7c06642baf04ae6926d7e57e1ce469b73c7a0a
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "dec0798057c6072fd5bc9200831a8be7a95e38764b4ffc6a47a3a2c4b300e951",
 #   "feature_name": "部署镜像",
 #   "feature_path": "features/engineering/deploy-mirror.feature",
-#   "implementation_hash": "sha256:8df78393beb408100614886392b5fd73ad54c1742e1f06627ab69998fae6e74d",
+#   "implementation_hash": "sha256:126dcb7381f182f3e998a71bb987e8faf0f470723228150d10402038767130ff",
 #   "scenarios": [
 #     {
 #       "index": 0,
-#       "mutation_count": 6,
+#       "mutation_count": 1,
 #       "name": "部署镜像 1: 部署把仓库根各端镜像到工作区根",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 6,
+#         "Killed": 1,
 #         "Survived": 0,
-#         "Total": 6
+#         "Total": 1
 #       },
-#       "scenario_hash": "07e6b41139c7eb219c11e2630ef080ee52c36b76bbf6b2872afe3c2d17d5c041",
-#       "tested_at": "2026-09-07T11:09:32Z"
+#       "scenario_hash": "69f6bd24b5ebf3d9cb68aeb4bc3e95b2d75c2245affadfe10583124795db2bf8",
+#       "tested_at": "2026-09-08T10:18:41Z"
 #     },
 #     {
 #       "index": 1,
-#       "mutation_count": 6,
+#       "mutation_count": 2,
 #       "name": "部署镜像 2: 部署不触碰工作区中不归本仓库的文件",
 #       "result": {
 #         "Errors": 0,
-#         "Killed": 6,
+#         "Killed": 2,
 #         "Survived": 0,
-#         "Total": 6
+#         "Total": 2
 #       },
-#       "scenario_hash": "eca313dd649f59abec1450f1f162d5d9ab8bb17cecd8ca43cdc6b91ad3c9e511",
-#       "tested_at": "2026-09-07T11:09:40Z"
+#       "scenario_hash": "ac0d9e72a9e22ddbb6d052e15eaef760253dd059acd6ed04ba7007baebc42136",
+#       "tested_at": "2026-09-08T10:18:42Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-07T11:09:40Z",
+#   "tested_at": "2026-09-08T10:18:42Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end
@@ -50,9 +50,13 @@
 #   - 部署只重置本仓库拥有的白名单子树；工作区里 server/_trigger、data、eggy.json 等不归本仓库的
 #     内容，以及编辑器自己生成的 .gm/ server.TableMgr unit_scripts/，一律原样保留。
 #   - 路径列表为空格分隔；「存在文件」要求列表里每个路径都存在，「预置文件」逐个创建。
-# 执行成本：验收运行时对每个例子行都重跑一遍背景与全部步骤，而一次部署是整树镜像
-#   （WSL 下经 cmd.exe 走 robocopy 并做 editor-cli 收尾，跨系统调用尤其贵）。所以待验路径
-#   走一个空格分隔的列表参数、每个场景只留一行例子：一个场景一次部署，而不是一行一次。
+#   - 场景 2 的预置与保留分成两列（值相同）：同一列既预置又断言的话，改一个路径会把两边
+#     一起改掉，断言恒真、变异体必然存活。分列后动任一侧都会让断言落空。
+#   - 传输按目的地选：工作区在 Windows 侧（wslpath 给出盘符路径）才走 robocopy 增量并做
+#     editor-cli 收尾；本 feature 的临时工作区在 Linux 侧，一律本地 cp、不做收尾。
+# 执行成本：验收运行时对每个例子行都重跑一遍背景与全部步骤，而一次部署是整树镜像。
+#   所以待验路径走一个空格分隔的列表参数、每个场景只留一行例子：一个场景一次部署，
+#   而不是一行一次。
 功能: 部署镜像
 
 背景:
@@ -67,10 +71,10 @@
   | server/main.lua server/game/core.lua server/adapter/host.lua client/main.lua client/eui_render.lua common/spoke/init.lua |
 
 场景大纲: 部署镜像 2: 部署不触碰工作区中不归本仓库的文件
-  假如 临时工作区预置文件<路径列表>
+  假如 临时工作区预置文件<预置列表>
   当 执行部署到临时工作区
-  那么 临时工作区存在文件<路径列表>
+  那么 临时工作区存在文件<保留列表>
 
 例子:
-  | 路径列表                                                                                                     |
-  | server/_trigger/GlobalVars.lua data/Prefab.lua eggy.json .gm/probe.lua unit_scripts/x.lua server.TableMgr/a |
+  | 预置列表                                                                                                     | 保留列表                                                                                                     |
+  | server/_trigger/GlobalVars.lua data/Prefab.lua eggy.json .gm/probe.lua unit_scripts/x.lua server.TableMgr/a | server/_trigger/GlobalVars.lua data/Prefab.lua eggy.json .gm/probe.lua unit_scripts/x.lua server.TableMgr/a |

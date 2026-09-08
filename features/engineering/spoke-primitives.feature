@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=9eb7bedffe1308742db7d9337c9cfe9c0ca8c07da9add4d01c8d441d18bfe560
+# mutation-stamp: sha256=a06c09c1b6b004274d88d91ebdef5ba7eaab0a608a5810d0d79edc2e4ea26443
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "spoke 原语约束",
 #   "feature_path": "features/engineering/spoke-primitives.feature",
-#   "implementation_hash": "sha256:8a08971c57d419b1dfc2ed6c9a0946c1b23a890c8d330200d8431fcb196529f0",
+#   "implementation_hash": "sha256:da7313c808f88a13d98c97ea48247899ce6bf42acbac206e75809adca8f79ba6",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -43,8 +43,8 @@
 #         "Survived": 0,
 #         "Total": 0
 #       },
-#       "scenario_hash": "753045f86c50d32e4c8294c2936358eabe5b4dd7258c7028707717455ca2c85f",
-#       "tested_at": "2026-09-07T11:26:02Z"
+#       "scenario_hash": "4736e99dcd0f703b33b4f2e6daa81566d589ea3b569dc38c6cfa0bd12def51a6",
+#       "tested_at": "2026-09-08T10:14:52Z"
 #     },
 #     {
 #       "index": 3,
@@ -56,11 +56,11 @@
 #         "Survived": 0,
 #         "Total": 12
 #       },
-#       "scenario_hash": "c00d4516a26b4d63994af644e28f5d57c0508a3bbc14a46c838b20a83e109ed6",
-#       "tested_at": "2026-09-07T11:26:03Z"
+#       "scenario_hash": "5cbc56a28517e6c9c7933f5fc1f74fcead7ebc8c0f1b1172541f0fd5e109b912",
+#       "tested_at": "2026-09-08T10:14:53Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-07T11:26:03Z",
+#   "tested_at": "2026-09-08T10:14:53Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end

@@ -1,11 +1,11 @@
 # language: zh-CN
-# mutation-stamp: sha256=1abd573a953825a3af9e680235897da24eda5e00ad97e699b0e84b6e15b61523
+# mutation-stamp: sha256=50b846ffa754980873b9218a0afd12d88c3c8382dbe785ef365cd7bcfdd06f73
 # acceptance-mutation-manifest-begin
 # {
 #   "background_hash": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
 #   "feature_name": "依赖关系约束",
 #   "feature_path": "features/engineering/dependencies.feature",
-#   "implementation_hash": "sha256:2bd4c04034d0469c2b03a80dc6b139f2cb5575dd42e6547509236cbf29d29384",
+#   "implementation_hash": "sha256:43f85cd619d38c31e38ed6ab99d17419c775bf99f517c2d0c33ccfbc779b9f4d",
 #   "scenarios": [
 #     {
 #       "index": 0,
@@ -43,8 +43,8 @@
 #         "Survived": 0,
 #         "Total": 58
 #       },
-#       "scenario_hash": "d1292eb190f399c2899a5a342c8afe3a6c63c1ef30c75d3ed8dcb8f2f78708ea",
-#       "tested_at": "2026-09-08T03:22:05Z"
+#       "scenario_hash": "db7c314c63ab1cf1650154778807f2d0619014d3b168f8c4eae1c7c0785caa9a",
+#       "tested_at": "2026-09-08T10:14:49Z"
 #     },
 #     {
 #       "index": 3,
@@ -73,7 +73,7 @@
 #       "tested_at": "2026-09-08T03:22:09Z"
 #     }
 #   ],
-#   "tested_at": "2026-09-08T03:22:09Z",
+#   "tested_at": "2026-09-08T10:14:49Z",
 #   "version": 1
 # }
 # acceptance-mutation-manifest-end

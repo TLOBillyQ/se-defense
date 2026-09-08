@@ -111,9 +111,11 @@ M.patterns = {
         dir, expect, exists and "是" or "否") end },
   { "^部署白名单为(.+)$", function(w, list)
       local want = split_words(list)
-      local deploy = require("tools.deploy")
-      if table.concat(deploy.REALMS, " ") == table.concat(want, " ") then return true end
-      return nil, "部署白名单实际为 " .. table.concat(deploy.REALMS, " ") end },
+      -- 白名单的真源是部署计划模块，不是部署脚本：这一步只问规则，不该把镜像与
+      -- 编辑器收尾那套 IO 也 require 进来。
+      local realms = require("tools.deploy_plan").REALMS
+      if table.concat(realms, " ") == table.concat(want, " ") then return true end
+      return nil, "部署白名单实际为 " .. table.concat(realms, " ") end },
   { "^源码树中存在文件(%S+)$", function(w, path)
       if read_file(path) then return true end
       return nil, path .. " 不存在" end },
