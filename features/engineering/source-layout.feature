@@ -12,9 +12,10 @@
 #   - 部署（tools/deploy.lua）采用白名单 client common server；仓库根其余内容
 #     （docs/ tools/ tests/ features/ data/ 等）不部署。
 #   - 只被服务端引用的模块放 server/，只被客户端引用的放 client/，双端共用的才放 common/。
-#     业务模块在 server/game/，服务端宿主适配层在 server/adapter/，客户端渲染器直接在 client/。
-#     GM 面 server/gm.lua 与网络层 server/net.lua 与 main.lua 同级：它们编排业务与适配层，适配层自身不得 require server.game。
-#   - require 名以仓库根为根（即工作区根），例如 server.game.core、server.adapter.host、
+#     业务模块按玩法系统分包落在 server/ 下（match/ ui/ board/ power/ economy/ defense/
+#     waves/ units/ kernel/），服务端宿主适配层在 server/host/，客户端渲染器直接在 client/。
+#     GM 面 server/gm.lua 与网络层 server/net.lua 与 main.lua 同级：它们编排业务与适配层，适配层自身不得 require 任何业务包。
+#   - require 名以仓库根为根（即工作区根），例如 server.power.core、server.host、
 #     client.eui_render；仓库内不再出现 src. 前缀的模块名。spoke 运行时内联在 common/spoke/，
 #     require 前缀 common.spoke（SE 文档只认 client/common/data/server 四个根目录，vendor/ 不在其中）。
 #   - package.path 只需 ./?.lua 与 ./?/init.lua；无头测试按 server./client./common. 前缀复位模块。
@@ -24,13 +25,13 @@
   那么 仓库根目录<目录>是否存在为<存在>
 
 例子:
-  | 目录    | 存在 |
-  | client  | 是   |
-  | common  | 是   |
-  | server  | 是   |
-  | src     | 否   |
-  | game    | 否   |
-  | adapter | 否   |
+  | 目录      | 存在 |
+  | client  | 是  |
+  | common  | 是  |
+  | server  | 是  |
+  | src     | 否  |
+  | game    | 否  |
+  | adapter | 否  |
 
 场景: 源码树布局 2: 部署白名单即官方工作区根
   那么 部署白名单为client common server
@@ -39,36 +40,36 @@
   那么 源码树中存在文件<路径>
 
 例子:
-  | 路径                           |
-  | server/main.lua                |
-  | server/game/game_root_full.lua |
-  | server/game/core.lua           |
-  | server/adapter/host.lua        |
-  | server/adapter/build_panel.lua |
-  | server/gm.lua                  |
-  | server/net.lua                 |
-  | client/main.lua                |
-  | client/eui_render.lua          |
-  | client/channel.lua             |
-  | client/camera.lua              |
-  | client/board_input.lua         |
-  | client/gm.lua                  |
-  | common/spoke/init.lua          |
+  | 路径                              |
+  | server/main.lua                 |
+  | server/match/game_root_full.lua |
+  | server/power/core.lua           |
+  | server/host/init.lua            |
+  | server/ui/build_panel.lua       |
+  | server/gm.lua                   |
+  | server/net.lua                  |
+  | client/main.lua                 |
+  | client/eui_render.lua           |
+  | client/channel.lua              |
+  | client/camera.lua               |
+  | client/board_input.lua          |
+  | client/gm.lua                   |
+  | common/spoke/init.lua           |
 
 场景大纲: 源码树布局 4: 模块名相对仓库根解析
   那么 源码文件<文件>引用模块<模块>
 
 例子:
-  | 文件                 | 模块                       |
-  | server/main.lua      | server.game.game_root_full |
-  | server/main.lua      | server.adapter.host        |
-  | server/main.lua      | server.net                 |
-  | server/game/core.lua | server.adapter.host        |
-  | server/game/core.lua | common.spoke               |
-  | client/main.lua      | client.eui_render          |
-  | client/main.lua      | client.channel             |
-  | client/main.lua      | client.camera              |
-  | client/main.lua      | client.board_input         |
+  | 文件                    | 模块                          |
+  | server/main.lua       | server.match.game_root_full |
+  | server/main.lua       | server.host                 |
+  | server/main.lua       | server.net                  |
+  | server/power/core.lua | server.host                 |
+  | server/power/core.lua | common.spoke                |
+  | client/main.lua       | client.eui_render           |
+  | client/main.lua       | client.channel              |
+  | client/main.lua       | client.camera               |
+  | client/main.lua       | client.board_input          |
 
 场景: 源码树布局 5: 仓库内不再有 src 前缀的模块名
   那么 部署树下没有文件引用以src.开头的模块

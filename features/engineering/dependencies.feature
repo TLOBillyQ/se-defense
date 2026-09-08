@@ -93,17 +93,17 @@
 #     由低层级组件指向高层级组件的上行边、以及未豁免的投影依赖环。门禁不通过即非零退出。
 #   - GDD 的系统依赖图是规则层的影响方向（谁被谁影响），本 feature 把它固定成源码层的
 #     模块依赖方向：被影响的一方 require 影响它的一方，反向不成立。系统与模块的对应：
-#     电网=server.game.power_node，经济=server.game.resource，侦测=server.game.radar，
-#     火力=server.game.turret，维修=server.game.repair，放置=server.game.board_interactions，
-#     敌人与波次=server.game.wave_director，血量=server.game.health，
-#     对局流程=server.game.game_state。
+#     电网=server.power.power_node，经济=server.economy.resource，侦测=server.defense.radar，
+#     火力=server.defense.turret，维修=server.defense.repair，放置=server.board.board_interactions，
+#     敌人与波次=server.waves.wave_director，血量=server.units.health，
+#     对局流程=server.match.game_state。
 #   - 「模块 A 依赖模块 B」指 A 的源码 require B（arch_view 图上存在 A→B 的边）。
 #   - 「架构门禁禁止 A 依赖 B」是更强的断言：图上没有 A→B 这条边，且门禁配置会拒绝它——
 #     日后有人写出这条 require，`tools/arch check` 必须失败。这就是「固定」：约束落在门禁里，
 #     不只落在这张表里。命中方式是禁止依赖规则或分层上行判定之一，本 feature 不区分。
 #   - 系统依赖图里有几条影响方向在源码层**没有**直接模块边（对局流程▶全部玩法系统的冻结/解冻、
 #     进攻期停采、Radar 揭示▶Turret 开火、资金▶放置、矿点采空▶胜利、电网通电▶放置合法落点）：
-#     这些系统互不 require，接线在组合根 server.game.game_root_full（放置的通电信息由
+#     这些系统互不 require，接线在组合根 server.match.game_root_full（放置的通电信息由
 #     game_state.power_zone 注入）。「全部玩法系统」逐个列出：经济、电网、放置、侦测、火力、
 #     维修、敌人与波次；血量不在其中——game_state 依赖 health 是「建筑血量▶对局流程」那条边。
 #     另有火力▶敌人血量、敌人血量▶波次全灭同样无直接边：turret 与 wave_director 都通过
@@ -113,6 +113,11 @@
 #     它们只由场景 3 的反向禁止固定——谁都不许反过来 require 对方，方向不会被悄悄接反。
 #   - 组件分层为门禁配置里的既定决策：数字越大越底层，依赖只能从小数字流向大数字；
 #     spoke 运行时是基座（substrate），任何层都可以依赖它。
+#   - server/ 按玩法系统分包，一包一组件：match 组合根做全部跨系统接线，ui 只读状态出表现，
+#     board 收拢棋盘输入与建造规格，systems 是 power/economy/defense/waves 四个玩法包共用的
+#     一个组件（同层，互相可依赖），units 是血量/建筑等被系统操作的实体，kernel 是底座
+#     （机制与共享事实，不含系统规则），host 是面向宿主的适配层。game/ 这层目录已取消：
+#     它原来只用来隔开业务与宿主/入口，该职责由分层承担。
 #   - 上游 spoke 运行时内联进本仓（docs/spoke-upstream.md），其内部环不重写，走豁免清单；
 #     本仓自己的代码不得引入新环。
 #   - 本 feature 由 run_acceptance.sh 扫描 features/engineering/ 自动执行。
@@ -125,66 +130,72 @@
   那么 模块<模块>依赖模块<被依赖模块>
 
 例子:
-  | 模块                            | 被依赖模块                 |
-  | server.game.core                | server.game.power_node     |
-  | server.game.relay               | server.game.power_node     |
-  | server.game.radar               | server.game.power_node     |
-  | server.game.turret              | server.game.power_node     |
-  | server.game.repair              | server.game.power_node     |
-  | server.game.resource            | server.game.power_node     |
-  | server.game.building            | server.game.health         |
-  | server.game.enemy               | server.game.health         |
-  | server.game.wave_director       | server.game.wave_cycle     |
-  | server.game.board_interactions  | server.game.board_sensors  |
-  | server.game.building_specs      | server.game.turret         |
-  | server.game.game_state          | server.game.health         |
-  | server.game.game_root_full      | server.game.game_state     |
+  | 模块                              | 被依赖模块                      |
+  | server.power.core               | server.power.power_node    |
+  | server.power.relay              | server.power.power_node    |
+  | server.defense.radar            | server.power.power_node    |
+  | server.defense.turret           | server.power.power_node    |
+  | server.defense.repair           | server.power.power_node    |
+  | server.economy.resource         | server.power.power_node    |
+  | server.units.building           | server.units.health        |
+  | server.waves.enemy              | server.units.health        |
+  | server.waves.wave_director      | server.waves.wave_cycle    |
+  | server.board.board_interactions | server.board.board_sensors |
+  | server.board.building_specs     | server.defense.turret      |
+  | server.match.game_state         | server.units.health        |
+  | server.match.game_root_full     | server.match.game_state    |
 
 场景大纲: 依赖关系约束 3: 反向依赖被架构门禁拒绝
   那么 架构门禁禁止模块<模块>依赖模块<被依赖模块>
 
 例子:
-  | 模块                       | 被依赖模块                     |
-  | server.game.power_node     | server.game.core               |
-  | server.game.power_node     | server.game.relay              |
-  | server.game.power_node     | server.game.turret             |
-  | server.game.power_node     | server.game.resource           |
-  | server.game.health         | server.game.building           |
-  | server.game.health         | server.game.enemy              |
-  | server.game.building       | server.game.core               |
-  | server.game.building       | server.game.turret             |
-  | server.game.wave_cycle     | server.game.wave_director      |
-  | server.game.world_data     | server.game.wave_director      |
-  | server.game.board_sensors  | server.game.board_interactions |
-  | server.game.game_state     | server.game.wave_director      |
-  | server.game.game_state     | server.game.resource           |
-  | server.game.resource_harvest | server.game.wave_director    |
-  | server.game.resource       | server.game.game_state         |
-  | server.game.resource       | server.game.board_interactions |
-  | server.game.radar          | server.game.turret             |
-  | server.game.power_node     | server.game.board_interactions |
-  | server.game.game_state     | server.game.power_node         |
-  | server.game.game_state     | server.game.board_interactions |
-  | server.game.game_state     | server.game.radar              |
-  | server.game.game_state     | server.game.turret             |
-  | server.game.game_state     | server.game.repair             |
-  | server.game.turret        | server.game.health             |
-  | server.game.health        | server.game.wave_director      |
-  | server.game.wave_director | server.game.resource           |
-  | server.adapter.host        | server.game.core               |
-  | server.game.core           | server.gm                      |
-  | server.game.core           | client.eui_render              |
+  | 模块                              | 被依赖模块                           |
+  | server.power.power_node         | server.power.core               |
+  | server.power.power_node         | server.power.relay              |
+  | server.power.power_node         | server.defense.turret           |
+  | server.power.power_node         | server.economy.resource         |
+  | server.units.health             | server.units.building           |
+  | server.units.health             | server.waves.enemy              |
+  | server.units.building           | server.power.core               |
+  | server.units.building           | server.defense.turret           |
+  | server.waves.wave_cycle         | server.waves.wave_director      |
+  | server.kernel.world_data        | server.waves.wave_director      |
+  | server.board.board_sensors      | server.board.board_interactions |
+  | server.match.game_state         | server.waves.wave_director      |
+  | server.match.game_state         | server.economy.resource         |
+  | server.economy.resource_harvest | server.waves.wave_director      |
+  | server.economy.resource         | server.match.game_state         |
+  | server.economy.resource         | server.board.board_interactions |
+  | server.defense.radar            | server.defense.turret           |
+  | server.power.power_node         | server.board.board_interactions |
+  | server.match.game_state         | server.power.power_node         |
+  | server.match.game_state         | server.board.board_interactions |
+  | server.match.game_state         | server.defense.radar            |
+  | server.match.game_state         | server.defense.turret           |
+  | server.match.game_state         | server.defense.repair           |
+  | server.defense.turret           | server.units.health             |
+  | server.units.health             | server.waves.wave_director      |
+  | server.waves.wave_director      | server.economy.resource         |
+  | server.board.board_interactions | server.ui.board_display         |
+  | server.host                     | server.power.core               |
+  | server.power.core               | server.gm                       |
+  | server.power.core               | client.eui_render               |
 
 场景大纲: 依赖关系约束 4: 组件分层固定
   那么 组件<组件>的层级为<层级>
 
 例子:
-  | 组件           | 层级 |
-  | client         | 1    |
-  | server_entry   | 1    |
-  | server_support | 2    |
-  | game           | 3    |
-  | adapter        | 4    |
+  | 组件             | 层级 |
+  | client         | 1  |
+  | server_entry   | 1  |
+  | server_support | 2  |
+  | match          | 3  |
+  | ui             | 4  |
+  | board          | 5  |
+  | systems        | 6  |
+  | units          | 7  |
+  | kernel         | 8  |
+  | host           | 9  |
   | spoke          | 基座 |
 
 场景: 依赖关系约束 5: 依赖环只剩豁免清单里的上游 spoke 内部环

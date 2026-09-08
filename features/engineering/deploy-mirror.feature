@@ -68,7 +68,7 @@
 
 例子:
   | 路径列表                                                                                                                  |
-  | server/main.lua server/game/core.lua server/adapter/host.lua client/main.lua client/eui_render.lua common/spoke/init.lua |
+  | server/main.lua server/power/core.lua server/host/init.lua client/main.lua client/eui_render.lua common/spoke/init.lua |
 
 场景大纲: 部署镜像 2: 部署不触碰工作区中不归本仓库的文件
   假如 临时工作区预置文件<预置列表>
