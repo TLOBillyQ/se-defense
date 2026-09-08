@@ -9,8 +9,10 @@
 #   HUD 7: 建造按钮文案与价格
 #   HUD 8: 资金不足的按钮禁用，放置态中只有当前类型可用且文案为取消
 #   HUD 9: 消息行显示放置提示，否则显示悬停描述，否则为空
+#   HUD 10: 放置态消息行按落点合法性分文案
 #
-# 规则真源：docs/gdd/11-hud.md（H1–H8）、docs/gdd/16-board-input.md（I5/I6 目的地文案）。
+# 规则真源：docs/gdd/11-hud.md（H1–H8）、docs/gdd/16-board-input.md（I5/I6 目的地文案）、
+# docs/gdd/04-placement.md（R4 的两个失败原因）。
 # 约定：
 #   - 面板名：开始面板（Pregame）、玩法面板（Playing）、胜利面板（Victory）、失败面板（GameOver）。
 #   - 采集速率保留 1 位小数并去尾零；倒计时秒数向上取整。
@@ -152,3 +154,16 @@
 例子:
   | 建筑  | 放置提示                                |
   | Relay | Placing Relay — tap its button to cancel |
+
+场景大纲: HUD 10: 放置态消息行按落点合法性分文案
+  假如 玩家开始对局
+  当 玩家选择待建Turret
+  并且 玩家拖动到棋盘(<x>,<z>)
+  并且 推进0.1秒
+  那么 消息行的文本为<消息>
+
+例子:
+  | x    | z    | 消息                                             |
+  | 0    | 2    | Placing Turret — tap its button to cancel        |
+  | 0.9  | 0    | Placing Turret — overlaps a building or resource |
+  | 0    | 4.01 | Placing Turret — no power at this spot           |

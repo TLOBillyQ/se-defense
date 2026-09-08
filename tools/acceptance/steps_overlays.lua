@@ -1,6 +1,6 @@
 -- tools/acceptance/steps_overlays.lua — 覆盖圈与链路步骤（overlays.feature，
 -- GDD 13 O1–O6）：链路线/覆盖圈/供电圈/高亮环/预览圆的计数与读取。
--- 形状不进快照（双路由），从 host.eui.shapes() 的就地渲染记录读取；
+-- 形状统一从 host.eui.shapes() 读（ring 是快照状态、line 是就地渲染的单位）；
 -- 链路线 = board/power_links（默认整树）与 board/hover_link（悬停链），
 -- 覆盖圈 = board/hover_coverage 与 board/placement_coverage，
 -- 供电圈 = board/placement_power，高亮环 = board/hover_ring，
@@ -144,8 +144,4 @@ return { patterns = {
       if not p then return nil, "当前没有预览圆" end
       if math.abs(p.radius - tonumber(r)) <= S.COLOR_TOL then return true end
       return nil, string.format("预览圆半径期望 %s，实际 %s", r, p.radius) end) },
-  { "^预览圆颜色为(%S+)$", needs_session(function(w, s, name)
-      if not preview_shape(s) then return nil, "当前没有预览圆" end
-      return S.expect_color(headless.node_color(s, "board/placement_footprint"),
-        name, "预览圆颜色") end) },
 } }

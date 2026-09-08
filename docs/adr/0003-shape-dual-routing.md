@@ -1,6 +1,6 @@
 # ADR 0003：形状双路由（ring / line 在服务端就地渲染）
 
-状态：已采纳（源自 Gitea 票 #9 D2、#18）
+状态：部分取代——`ring` 部分由 [ADR 0006](0006-ring-through-snapshot.md) 取代（#42），`line` 部分仍然有效（源自 Gitea 票 #9 D2、#18）
 
 ## 背景
 
@@ -12,6 +12,7 @@
 
 - `text / fill / color / visible` 进快照，跨网络（ADR 0002）。
 - `set_ring` / `set_line` 在服务端直接渲成 EffectUnit。EffectUnit 随 Unit 复制机制到达客户端，不进快照、不跨 RemoteEvent。
+  （`set_ring` 已按 ADR 0006 改走快照；以下后果只对 `set_line` 成立。）
 
 ## 后果
 

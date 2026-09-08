@@ -14,6 +14,8 @@
 - **工作区（workspace）** — `$CLI code init` 为某张地图生成/绑定的本地 Lua 工程（`eggy.json` 含 projectID）；`code push/pull` 的双端之一，本地磁盘上的真源。
 - **Unit / Asset / Resource** — 宿主基础概念：Resource=素材（图片/网格/动画）；Unit=单个逻辑物件单元（如 `WorldUnit` 同时带物理与渲染）；Asset=若干 Unit 的集合（可 `LoadUnitAsset` 实例化）。
 - **EUI** — 宿主界面节点树（`EUINodeBase` 系），带触摸开始/移动/结束/点击事件；本仓库用它承载 HUD 与棋盘输入捕获。
+- **ugc 白模不吃颜色** — 官方白模族（`mesh/59268` / `59269` / `59273` / `59291`）对 `ModelColor1` 无反应（含设纯黑），`ModelColor2/3/4` 同样无效；`FileMesh` 的 `VertexColor` 无论挂 `WorldUnit`、挂 `RenderUnit` 还是独立创建都无效（独立创建的 `FileMesh` 干脆不渲染）。所有 `pcall` 都返回成功、不报错，**失败是静默的**。真机实测 2026-09-08（#42）。用白模的表现一律按单色设计；要按状态变色得换可染色资源。
+- **白模 Size 是直径** — 官方资源表给出的 `Size` 是包围盒的**直径**，不是半长。`mesh/59269`（ugc_圆环）标 `(3,1,3)`，Raycast 实测 Scale=1 时外缘直径就是 3.0（外缘半径 1.5）。按字面读成半径会得到 2 倍误差。
 - **realm** — SE 状态同步双端：`server/` 与 `client/` 各有 `main.lua` 入口（自动执行）。生命周期锚点：服务端 `Players.PlayerAdded`、客户端 `game.Loaded`。SE 文档定位：server=权威状态、client=本地表现；EUI 归 client 端；服务端创建的 Unit 复制到客户端。
 
 ## 移植机制
@@ -26,9 +28,9 @@
 - **spoke 原语约束（spoke-first）** — 长期架构约束：`server/` 的业务逻辑（`server/game/`，以及日后的 `server/present/` 等业务目录）必须建立在 `common/spoke` 的响应式原语之上构建——`spoke.reactive`（State / Memo / Effect / Trigger / Reaction / Phase）与 `spoke.runtime`（Epoch / Dock / SpokeTree）——不允许改写成不依赖 spoke 的普通 Lua 实现，也不允许在仓库内另造一套平行的响应式内核。业务目录下只有纯函数/纯数据的辅助模块（自身不 require 模块，或只 require `server.` 前缀模块）可以不引用 `common.spoke`，且必须在 `features/engineering/spoke-primitives.feature` 的豁免清单里点名。任何分支迁移或重写（如 `greenfield/rewrite` 那种去 spoke 的 `src/`）都不得绕过此约束；该 feature 随 `run_acceptance.sh` 自动执行。_避免_：把 spoke 称作"可替换的依赖"。
 - **GameTick** — 游戏固定步长节拍。SE 真机由服务端 `RunService.Heartbeat`（30fps 逻辑帧）驱动固定步长；`EVENT.REPEAT_TIMEOUT` 是旧宿主 ECA 周期事件、SE 文档中不存在（调研修正，见 `research/realm-model` 分支）。
 - **RemoteEvent** — SE 中 server→client 的唯一文档化消息通道（`FireClient`/`FireAllClients` → `OnClientEvent`）；仿真快照驱动客户端 EUI 的载体。送达/有序无文档承诺。
-- **快照（snapshot）** — 服务端经 RemoteEvent 发给客户端的 UI 状态表：节点路径 → `{text, visible, color, fill}`。协议为混合制：平时节点级增量（带单调 `seq`），握手（`client_ready`）与序号缺口（`resync`）时全量重同步。ring/line 形状**不进快照**（见双路由）。
-- **双路由（dual routing）** — 服务端 `host.eui` 适配器内部的分流：`text/fill/color/visible` 进快照跨网络；`set_ring`/`set_line` 形状在服务端就地渲为 EffectUnit，随 Unit 复制可见，不跨网络。
-- **recipe 表** — 客户端渲染器的静态注册表：快照节点 path 前缀模式 → 真节点配方（EUI 类型、布局、样式、世界锚定方式）。快照只携状态，表现知识全在 recipe 表。
+- **快照（snapshot）** — 服务端经 RemoteEvent 发给客户端的 UI 状态表：节点路径 → `{text, visible, color, fill}`。协议为混合制：平时节点级增量（带单调 `seq`），握手（`client_ready`）与序号缺口（`resync`）时全量重同步。`line` 形状**不进快照**（见形状路由），`ring` 进快照（只带圆心与半径）。
+- **形状路由（shape routing）** — 服务端 `host.eui` 适配器内部的分流：`text/fill/color/visible/shape` 进快照跨网络，`ring` 的几何由客户端按 `client/ring_geometry` 换算生成；`set_line` 形状仍在服务端就地渲为 EffectUnit，随 Unit 复制可见，不跨网络。原为 ring/line 都就地渲染的「双路由」，#42 把 ring 改回快照（ADR 0003 → ADR 0006）。
+- **recipe 表** — 客户端渲染器的静态注册表：快照节点 path 前缀模式 → 真节点配方（EUI 类型、布局、样式、世界锚定方式）。快照只携状态，表现知识全在 recipe 表。一个例外：带 `shape` 的节点按状态而非 path 分派（覆盖圈的 path 千变万化，见 ADR 0006）。
 - **哑镜像（dumb mirror）** — 客户端 v1 形态：零 spoke 树，订阅快照并差分应用到真 EUI/SceneGui 节点（`client/eui_render.lua`）。
 - **探针（probe）** — 文档查不到、需真机实测确认的事实项；三份调研分支各附探针清单（`research/realm-model`、`research/input-camera`、`research/visual-primitives`）。
 - **上帝视角（god-view）** — 交互范式：固定俯视棋盘，玩家点击/触摸棋盘放置与选择；输入经 EUI 捕获层 + `CameraService` 屏幕坐标→射线与**棋盘平面（board plane）**求交。

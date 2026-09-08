@@ -4,8 +4,9 @@
 --   - 混合快照协议：text/fill/color/visible 四字段浅比较，节点级增量（dirty），
 --     握手/序号缺口时全量重同步；本模块只维护状态与脏集，seq 与发送归
 --     server/main.lua（每 tick 派发结束 dirty 即发，#18 决策 2）。
---   - 双路由（决策 3）：set_ring/set_line 不进快照，在服务端就地渲为
---     EffectUnit（#9 D2），随 Unit 复制对客户端可见；节点销毁时一并回收。
+--   - 形状路由（决策 3，#42 修订）：set_ring 进快照（只传圆心与半径，客户端按
+--     配方生成几何，形状因此也能 resync）；set_line 仍在服务端就地渲为
+--     EffectUnit（#9 D2），随 Unit 复制对客户端可见，节点销毁时一并回收。
 --   - 契约补录：业务直读 host.eui.nodes 内部表做存在性检查
 --     （link_display/coverage_display/render_util/sidebar），本模块复刻
 --     mock 注册表语义：nodes[path] → 节点，destroy 后移除。
@@ -51,18 +52,14 @@ local function mark_dirty(node, field)
   d[field] = true
 end
 
--- ── 形状双路由：ring/line → 服务端 EffectUnit（#9 D2）────────────────
--- 垂直切片内放置/雷达/炮塔不激活，本路径是合约完整性的保底实现；
--- 特效原生半径未经探针，RING_NATIVE_RADIUS 为可调常量。
-
+-- ── 形状：ring 进快照，line 就地渲 EffectUnit（ADR 0003 经 #42 修订）─────
+--
+-- ring 的几何知识（网格、缩放常数）落在 client/ring_geometry.lua，由客户端
+-- 渲染器消费；本模块只把圆心与半径放进快照。
+--
 -- 特效不吃颜色（#21 实测），所以「颜色语义」只能靠选不同特效表达（#23）：
---   覆盖圈（电网/雷达/炮塔/维修，业务四色同为橙）→ 6044 圆形电击范围（金黄）
 --   电力连线 / 炮塔光束 / 维修光束 → 4506 连线-激光射线（黄色光束）
--- 表按 path 前缀匹配，首个命中生效；无命中走 *_DEFAULT。
-local RING_EFFECTS = {
-  { prefix = "board/", id = "official://effect/6044" },
-}
-local RING_DEFAULT = "official://effect/6044"
+-- 表按 path 前缀匹配，首个命中生效；无命中走 LINE_DEFAULT。
 local LINE_EFFECTS = {
   { prefix = "board/power_links", id = "official://effect/4506", y = 0.3 },
   { prefix = "board/hover_link",  id = "official://effect/4506", y = 0.3 },
@@ -70,14 +67,6 @@ local LINE_EFFECTS = {
   { prefix = "repair_",           id = "official://effect/4506", y = 0.8 },
 }
 local LINE_DEFAULT = { id = "official://effect/4506", y = 0.3 }
-local RING_NATIVE_RADIUS = 2                   -- 假设：Scale=1 时特效半径≈2（探针待定）
-
-local function ring_effect_for(path)
-  for _, e in ipairs(RING_EFFECTS) do
-    if path:sub(1, #e.prefix) == e.prefix then return e.id end
-  end
-  return RING_DEFAULT
-end
 
 local function line_style_for(path)
   for _, e in ipairs(LINE_EFFECTS) do
@@ -87,81 +76,6 @@ local function line_style_for(path)
 end
 
 local shape_warned = {}
-
--- 上色（#21 真机实测）：EffectUnit 的 DiffuseColor/ColorStrength/BlendFactor 无论
--- 哪端写、写什么值，引擎都记一条 "Internal Error" 告警且**肉眼不变色**（环恒为
--- 特效原色黄）；WorldUnit 的 ModelColor1 能显色（#10）。故需要随状态变色的环
---（放置 footprint 红/绿、悬停高亮）改渲为扁圆柱 WorldUnit 圆盘；其余覆盖圈保持
--- 特效环原色，不写颜色属性。
-local DISC_MESH = "official://mesh/59273"        -- 圆柱（#4 事实）
-local DISC_NATIVE_RADIUS = 0.5                    -- 假设：Scale=1 时圆柱半径≈0.5（待标定）
-local DISC_HEIGHT = 0.05
-local DISC_PATHS = {                              -- 需变色的环 → 圆盘
-  ["board/placement_footprint"] = true,
-  ["board/hover_ring"] = true,
-}
-
-local function fx_name(path)
-  return "fx_" .. path:gsub("[^%w]", "_")
-end
-
-local function to_color(c)
-  return Color.New(
-    math.floor((c.r or 1) * 255 + 0.5),
-    math.floor((c.g or 1) * 255 + 0.5),
-    math.floor((c.b or 1) * 255 + 0.5), 255)
-end
-
-local function disc_scale(radius)
-  local s = radius / DISC_NATIVE_RADIUS
-  return Vector3.New(s, DISC_HEIGHT, s)
-end
-
-local function spawn_disc(node, center, radius)
-  local ok, unit = pcall(function()
-    local u = World:CreateUnit("WorldUnit", {
-      Name = fx_name(node.path),
-      RenderMeshId = DISC_MESH,
-      Scale = disc_scale(radius),
-      Position = Vector3.New(center.x, 0.03 + center.y, center.z),
-    })
-    u.ModelColor1 = to_color(node.color)
-    if not node.visible then u.ModelVisible = false end
-    return u
-  end)
-  if not ok then
-    if not shape_warned.disc then
-      shape_warned.disc = true
-      print("[bd][eui] 圆盘 WorldUnit 创建失败: " .. tostring(unit))
-    end
-    return nil
-  end
-  return unit
-end
-
-local function spawn_ring(node, center, radius)
-  if DISC_PATHS[node.path] then return spawn_disc(node, center, radius), true end
-  local s = radius / RING_NATIVE_RADIUS
-  local ok, unit = pcall(function()
-    local u = World:CreateUnit("EffectUnit", {
-      Name = fx_name(node.path),
-      EffectId = ring_effect_for(node.path),
-      Duration = -1,
-      Scale = Vector3.New(s, s, s),
-      Position = Vector3.New(center.x, 0.05 + center.y, center.z),
-    })
-    if not node.visible then u.Visible = false end
-    return u
-  end)
-  if not ok then
-    if not shape_warned.ring then
-      shape_warned.ring = true
-      print("[bd][eui] ring EffectUnit 创建失败: " .. tostring(unit))
-    end
-    return nil
-  end
-  return unit, false
-end
 
 -- 连线：两端隐形锚点 WorldUnit + 连线特效 Attach（#10 探针 P4 已验证 Attach）。
 -- 光束/连线离地高度按种类（电力线贴地 0.3、建筑间光束 0.8 = 建筑半高）。
@@ -258,54 +172,31 @@ function eui.node(path)
     if self.visible == v then return end
     self.visible = v
     mark_dirty(self, "visible")
-    -- 形状节点（ring/line）的显隐就地作用于 EffectUnit（不进快照）
+    -- line 不进快照，显隐就地作用于 EffectUnit；ring 的显隐随快照走。
     local sh = self._shape
-    if sh then
-      if sh.unit then
-        pcall(function()
-          if sh.disc then sh.unit.ModelVisible = v else sh.unit.Visible = v end
-        end)
-      end
-      if sh.line then
-        pcall(function() sh.line.fx.Visible = v end)
-        pcall(function() sh.line.a.ModelVisible = v end)
-        pcall(function() sh.line.b.ModelVisible = v end)
-      end
+    if sh and sh.line then
+      pcall(function() sh.line.fx.Visible = v end)
+      pcall(function() sh.line.a.ModelVisible = v end)
+      pcall(function() sh.line.b.ModelVisible = v end)
     end
   end
 
   function n:set_color(c)
     self.color = copy_color(c)
     mark_dirty(self, "color")
-    local sh = self._shape
-    if sh and sh.disc and sh.unit then
-      pcall(function() sh.unit.ModelColor1 = to_color(self.color) end)
-    end
   end
 
-  -- 覆盖圈：就地 EffectUnit / 圆盘 WorldUnit，不进快照（#18 决策 3）。同形状重复写入就地更新。
+  -- 覆盖圈：只把圆心与半径放进快照，几何由客户端按配方生成（ADR 0006）。
+  -- 同值重复写入不脏，避免 footprint 每帧跟随鼠标时刷出无意义增量。
   function n:set_ring(center, radius)
-    self._shape_only = true
     local c = copy_vec3(center)
-    local sh = self._shape
-    if sh and sh.kind == "ring" and sh.unit then
-      pcall(function()
-        if sh.disc then
-          sh.unit.Position = Vector3.New(c.x, 0.03 + c.y, c.z)
-          sh.unit.Scale = disc_scale(radius)
-        else
-          local s = radius / RING_NATIVE_RADIUS
-          sh.unit.Position = Vector3.New(c.x, 0.05 + c.y, c.z)
-          sh.unit.Scale = Vector3.New(s, s, s)
-        end
-      end)
-      sh.center = c
-      sh.radius = radius
+    local sh = self.shape
+    if sh and sh.kind == "ring" and sh.radius == radius
+      and sh.center.x == c.x and sh.center.y == c.y and sh.center.z == c.z then
       return
     end
-    destroy_shape(self)
-    local unit, disc = spawn_ring(self, c, radius)
-    self._shape = { kind = "ring", center = c, radius = radius, unit = unit, disc = disc }
+    self.shape = { kind = "ring", center = c, radius = radius }
+    mark_dirty(self, "shape")
   end
 
   -- 连线：电力线 / 炮塔光束 / 维修光束。同形状重复写入只挪锚点。
@@ -360,6 +251,9 @@ local function snapshot_state(n, fields)
   for field in pairs(fields) do
     if field == "color" then
       out.color = copy_color(n.color)
+    elseif field == "shape" then
+      local sh = n.shape
+      out.shape = sh and { kind = sh.kind, center = copy_vec3(sh.center), radius = sh.radius } or false
     else
       out[field] = n[field]
     end
@@ -367,7 +261,7 @@ local function snapshot_state(n, fields)
   return out
 end
 
--- 取走本帧增量；无脏返回 nil。形状节点（ring/line）双路由不跨网络，跳过。
+-- 取走本帧增量；无脏返回 nil。line 节点就地渲染、不跨网络，跳过；ring 走快照。
 function eui.drain()
   local nodes
   for path, fields in pairs(dirty) do
@@ -395,25 +289,32 @@ function eui.full()
   for _, path in ipairs(eui.order) do
     local n = eui.nodes[path]
     if n and not n._shape_only then
-      nodes[path] = snapshot_state(n, { text = true, visible = true, color = true, fill = true, enabled = true })
+      local fields = { text = true, visible = true, color = true, fill = true, enabled = true }
+      if n.shape then fields.shape = true end
+      nodes[path] = snapshot_state(n, fields)
     end
   end
   return nodes
 end
 
--- 形状清单（GM dump_shapes / 集成测试）：path → { kind, effect, visible }。
+-- 形状清单（GM dump_shapes / 集成测试）：ring 读快照状态，line 读就地单位。
 function eui.shapes()
   local out = {}
   for _, path in ipairs(eui.order) do
     local n = eui.nodes[path]
+    if n and n.shape then
+      out[#out + 1] = {
+        path = path, kind = n.shape.kind, route = "snapshot",
+        visible = n.visible, radius = n.shape.radius, center = n.shape.center,
+      }
+    end
     local sh = n and n._shape
     if sh then
-      local u = sh.unit or (sh.line and sh.line.fx)
+      local u = sh.line and sh.line.fx
       out[#out + 1] = {
-        path = path, kind = sh.kind, disc = sh.disc or false,
-        effect = u and (u.EffectId or u.RenderMeshId) or "nil",
-        visible = n.visible, radius = sh.radius,
-        center = sh.center, from = sh.from, to = sh.to,
+        path = path, kind = sh.kind,
+        effect = u and u.EffectId or "nil",
+        visible = n.visible, from = sh.from, to = sh.to,
       }
     end
   end

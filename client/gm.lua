@@ -28,8 +28,8 @@ function M.create(deps)
     end,
     stats = function()
       local s = renderer:stats()
-      log("CSTATS live_state=%d labels=%d buttons=%d hp_bars=%d none=%d pending_hp=%d seq=%d gen=%d got_first=%s",
-        s.state, s.labels, s.buttons, s.bars, s.none, s.pending,
+      log("CSTATS live_state=%d labels=%d buttons=%d hp_bars=%d rings=%d none=%d pending_hp=%d seq=%d gen=%d got_first=%s",
+        s.state, s.labels, s.buttons, s.bars, s.rings, s.none, s.pending,
         channel.last_seq, renderer.generation or 0, tostring(channel.got_first))
     end,
     -- 用 SimulateTap 打按钮中心（走真实 EUIButton OnClicked → 意图链路；集成测试用）

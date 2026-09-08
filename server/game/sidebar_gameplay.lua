@@ -13,6 +13,16 @@ local COLOR_LIGHT_BLUE = { r = 0.6, g = 0.8, b = 1, a = 1 } -- 淡蓝
 local COLOR_AMBER = { r = 1, g = 0.737, b = 0, a = 1 }      -- 琥珀
 local COLOR_DANGER = { r = 1, g = 0.3, b = 0.3, a = 1 }     -- 危险红
 
+-- 消息行在放置态的后半句，按落点成因分（board_interactions.placement_reason）。
+-- offboard（指针不在棋盘上）与合法落点共用引导文案：此时没有「落点」可评价。
+local HINT_CANCEL = "tap its button to cancel"
+local PLACEMENT_HINT = {
+  ok = HINT_CANCEL,
+  offboard = HINT_CANCEL,
+  overlap = "overlaps a building or resource",
+  unpowered = "no power at this spot",
+}
+
 local function is_signal(value)
   return type(value) == "table"
     and type(value.now) == "function"
@@ -131,7 +141,10 @@ function SideBarGameplay.mount(sb, opts)
   end
 
   -- H6 + 16 I6：消息行 = 放置提示 / 悬停描述 / 空。
+  -- 放置态下再按落点合法性分文案（#42 决策 4）：覆盖圈改单色后，「这里能不能建」
+  -- 不再由预览圆颜色承载，改由这一行说清楚，并区分 GDD 04 R4 的两个失败原因。
   if interactions and is_signal(interactions.placing) and is_signal(interactions.hovering) then
+    local reason_signal = is_signal(interactions.placement_reason) and interactions.placement_reason or nil
     sb:effect("SideBar.message", function(s3)
       local placing = s3:d(interactions.placing)
       local hovered = s3:d(interactions.hovering)
@@ -139,7 +152,8 @@ function SideBarGameplay.mount(sb, opts)
         local label = placing.display_name
           or (placing.key and (placing.key:gsub("^%l", string.upper)))
           or "Building"
-        texts.message:set_text(("Placing %s — tap its button to cancel"):format(label))
+        local reason = reason_signal and s3:d(reason_signal) or nil
+        texts.message:set_text(("Placing %s — %s"):format(label, PLACEMENT_HINT[reason] or PLACEMENT_HINT.ok))
       elseif hovered ~= nil and is_signal(hovered.hover_info) then
         local info = s3:d(hovered.hover_info)
         texts.message:set_text(info and info.description or "")

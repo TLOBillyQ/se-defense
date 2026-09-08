@@ -38,6 +38,7 @@ local BoardInteractions = Epoch.extend("BoardInteractions", {
     self.spawn = config.spawn or function(spec, position)
       return self.pool:spawn(spec, position)
     end
+    self.op_log = config.op_log
 
     if not self.game_state.ground_zone then
       error("BoardInteractions requires game_state.ground_zone", 2)
@@ -50,6 +51,10 @@ local BoardInteractions = Epoch.extend("BoardInteractions", {
     self.hovering = State.new("BoardInteractions.hovering", nil)
     self.hovering_circle = State.new("BoardInteractions.hovering_circle", nil)
     self.placement_valid = State.new("BoardInteractions.placement_valid", false)
+    -- 落点为什么不合法（GDD 04 R4 的两条各自的成因）：nil 未在放置态、
+    -- "offboard" 指针不在棋盘上、"overlap" 压到已有足迹、"unpowered" 不在通电圈内、
+    -- "ok" 合法。消息行按此分文案（#42 决策 4）。
+    self.placement_reason = State.new("BoardInteractions.placement_reason", nil)
   end,
 
   init = function(self, s)
@@ -61,6 +66,7 @@ local BoardInteractions = Epoch.extend("BoardInteractions", {
     local hovering = self.hovering
     local hovering_circle = self.hovering_circle
     local placement_valid = self.placement_valid
+    local placement_reason = self.placement_reason
 
     -- 传感器在 init 层创建，随宿主输入移动；这样无论树是否 auto-flush，
     -- zone:tick() 都能采样到最新鼠标位置（实现见 board_sensors）。
@@ -84,23 +90,33 @@ local BoardInteractions = Epoch.extend("BoardInteractions", {
           and p.z >= b.min.z and p.z <= b.max.z
     end, view.mouse_point))
 
-    -- 放置有效性：只在 Playing、有鼠标点、有放置项时计算。
-    local is_valid = s:call(Memo.new("BoardInteractions.is_valid", function(ss)
+    -- 放置有效性：只在 Playing、有鼠标点、有放置项时计算。合法性与「为什么不合法」
+    -- 是同一次判定的两个读数，所以先算成因，有效性由它派生（避免两套规则漂移）。
+    -- 两条 R4 都不满足时报 overlap：压到东西比没电更具体，玩家先挪位置。
+    local reason = s:call(Memo.new("BoardInteractions.reason", function(ss)
+      if ss:d(placing) == nil then
+        return nil
+      end
       if not ss:d(is_playing) or not ss:d(has_mouse_point) then
-        return false
+        return "offboard"
       end
-      local item = ss:d(placing)
-      if item == nil then
-        return false
+      if #ss:d(footprint_sensor.overlaps) > 0 then
+        return "overlap"
       end
-      local ground_overlaps = ss:d(footprint_sensor.overlaps)
-      local power_overlaps = ss:d(power_sensor.overlaps)
-      return #ground_overlaps == 0 and #power_overlaps > 0
+      if #ss:d(power_sensor.overlaps) == 0 then
+        return "unpowered"
+      end
+      return "ok"
     end, is_playing, has_mouse_point, placing, footprint_sensor.overlaps, power_sensor.overlaps))
+
+    local is_valid = s:call(Memo.new("BoardInteractions.is_valid", function(ss)
+      return ss:d(reason) == "ok"
+    end, reason))
 
     s:call(Effect.new("BoardInteractions.sync_validity", function(ss)
       placement_valid:set(ss:d(is_valid))
-    end, is_valid))
+      placement_reason:set(ss:d(reason))
+    end, is_valid, reason))
 
     s:call(Effect.new("BoardInteractions.sync_hovering", function(ss)
       if not ss:d(is_playing) or not ss:d(has_mouse_point) or ss:d(placing) ~= nil then
@@ -132,21 +148,32 @@ local BoardInteractions = Epoch.extend("BoardInteractions", {
       end)
 
       ss:subscribe(input_signals.left_click, function()
+        local item = placing:now()
+        if item == nil then
+          return
+        end
+        -- 放置失败：落点不满足 GDD 04 R3（足迹悬空 / 未接入供电圈）。
         if not is_valid:now() then
+          if self.op_log then
+            local label = item.display_name
+              or (item.key and (item.key:gsub("^%l", string.upper)) or "建筑")
+            self.op_log:push("error", ("无法放置 %s：需在通电圈内且无重叠"):format(label))
+          end
           return
         end
         local p = view.mouse_point:now()
         if p == nil then
           return
         end
-        local item = placing:now()
-        if item == nil then
-          return
-        end
         self.spawn(item, { x = p.x, y = 0, z = p.z })
         game_state.money:update(function(m)
           return m - item.cost
         end)
+        if self.op_log then
+          local label = item.display_name
+            or (item.key and (item.key:gsub("^%l", string.upper)) or "建筑")
+          self.op_log:push("success", ("已放置 %s，花费 $%d"):format(label, item.cost or 0))
+        end
         placing:set(nil)
       end)
 

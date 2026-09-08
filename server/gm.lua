@@ -256,7 +256,8 @@ function M.create(ctx)
   -- 形状单位（覆盖圈/连线/光束）一览
   function bd.dump_shapes()
     for _, sh in ipairs(host.eui.shapes()) do
-      log("shape %s kind=%s effect=%s visible=%s%s", sh.path, sh.kind, tostring(sh.effect),
+      -- ring 走快照、没有特效资源，所以打的是「怎么渲的」而不是特效 id。
+      log("shape %s kind=%s via=%s visible=%s%s", sh.path, sh.kind, tostring(sh.effect or sh.route),
         tostring(sh.visible), sh.radius and string.format(" r=%.2f", sh.radius) or "")
     end
   end
