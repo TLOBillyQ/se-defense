@@ -21,7 +21,7 @@
 `property/sha256_property.lua`、`tools/cli_test.lua`、`tools/runner_worker_test.lua`。
 它们测的是上游自己的 gherkin/CLI 工具链，本仓库没有那套工具，拉进来跑不了。
 
-上游其余目录（`acceptance/` `features/` `docs/` `swarmforge/` `scripts/` 等）与本仓库无关，不内联。
+上游其余目录（`acceptance/` `features/` `docs/` `scripts/` 等）与本仓库无关，不内联。
 
 ## 唯一的本地改动：require 前缀
 

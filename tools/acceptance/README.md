@@ -27,8 +27,6 @@ mandatory for files under `features/`).
   bash entrypoints (Lua 5.4 located by `tools/pick-lua.sh`).
   `entrypoint_generator` binds generated specs to `tools.acceptance.steps`;
   `runner_adapter` is the runner-worker command.
-- `tools/acceptance/provision.sh` — writes forwarders for the three PATH
-  names into `.swarmforge/bin` so role prompts' bare commands hit this lane.
 - `build/acceptance/` (ir, dry, generated specs), `build/acceptance-mutation/`, `.toolcache/` — generated
   artifacts and tool tree (gitignored).
 
@@ -37,12 +35,10 @@ mandatory for files under `features/`).
 ```sh
 tools/acceptance/run_acceptance.sh            # parse, dry-check (advisory), generate, run
 tools/acceptance/run_mutation.sh [feature]    # Gherkin mutation (differential, hard)
-tools/acceptance/provision.sh                 # refresh .swarmforge/bin forwarders
 ```
 
-Run everything from the repository root. Never run `swarm_tool.sh ensure
-gherkin-parser|ir-dry-checker|gherkin-mutator`: it swaps the forwarders for
-Babashka wrappers.
+Run everything from the repository root. Invoke the APS tools by path
+(`tools/acceptance/gherkin-parser` etc.); they are not installed on PATH.
 
 ## Environment
 
